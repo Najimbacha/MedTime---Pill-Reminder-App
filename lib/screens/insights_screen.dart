@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/history_service.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../models/medicine.dart';
+import '../models/log.dart';
+import '../providers/medicine_provider.dart';
+import '../services/report_service.dart';
+import '../utils/haptic_helper.dart';
+import '../utils/sound_helper.dart';
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({super.key});
@@ -38,11 +45,81 @@ class _InsightsScreenState extends State<InsightsScreen> {
     }
   }
 
+  Future<void> _exportReport() async {
+    await HapticHelper.selection();
+    await SoundHelper.playClick();
+    
+    // Show simple input dialog for name
+    String? name;
+    if (mounted) {
+      name = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          String input = '';
+          return AlertDialog(
+            title: const Text('Export Report'),
+            content: TextField(
+              decoration: const InputDecoration(labelText: 'Patient Name (Optional)'),
+              onChanged: (v) => input = v,
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(context, input), child: const Text('Generate')),
+            ],
+          );
+        },
+      );
+    }
+    
+    if (name == null && mounted) return; // Cancelled
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating PDF Report...')),
+      );
+    }
+
+    try {
+      final reportService = ReportService();
+      // user name handling
+      
+      // Get data
+      final medicines = context.read<MedicineProvider>().medicines;
+      final logs = await _historyService.getRecentLogs(limit: 30);
+      
+      // Create map for med names
+      final medNames = {for (var m in medicines) m.id!: m.name};
+
+      await reportService.generateAndShareReport(
+        medicines: medicines,
+        overallAdherence: _overallAdherence,
+        streak: _streak,
+        recentLogs: logs,
+        medicineNames: medNames,
+        patientName: name,
+      );
+    } catch (e) {
+      debugPrint('Error generating report: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Health Insights', style: TextStyle(fontSize: 22)),
+        actions: [
+          IconButton(
+            onPressed: _exportReport,
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Export Report',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -66,4 +66,14 @@ class HistoryService {
 
     return streak;
   }
+
+  /// Get recent logs for report
+  Future<List<Log>> getRecentLogs({int limit = 50}) async {
+    // We need a method in DatabaseHelper to get raw logs sorted by date descending.
+    // Assuming getLogsByDateRange covers a range, but simple 'getRecentLogs' might need SQL.
+    // For now, let's fetch last 30 days which covers most use cases.
+    final now = DateTime.now();
+    final start = now.subtract(const Duration(days: 30));
+    return await _db.getLogsByDateRange(start, now.add(const Duration(days: 1)));
+  }
 }
