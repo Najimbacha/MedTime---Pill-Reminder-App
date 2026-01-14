@@ -1,0 +1,34 @@
+{
+  "interactions": [
+    {
+      "drugs": ["Aspirin", "Warfarin"],
+      "severity": "CRITICAL",
+      "warning": "Increased risk of bleeding. Consult your doctor immediately."
+    },
+    {
+      "drugs": ["Aspirin", "Ibuprofen"],
+      "severity": "MODERATE",
+      "warning": "May increase risk of stomach irritation or bleeding."
+    },
+    {
+      "drugs": ["Lisinopril", "Spironolactone"],
+      "severity": "HIGH",
+      "warning": "Risk of high potassium levels (hyperkalemia)."
+    },
+    {
+      "drugs": ["Metformin", "Contrast Dye"],
+      "severity": "CRITICAL",
+      "warning": "Risk of lactic acidosis. Inform your imaging technician."
+    },
+    {
+      "drugs": ["Atorvastatin", "Amiodarone"],
+      "severity": "MODERATE",
+      "warning": "May increase risk of muscle pain (myopathy)."
+    },
+    {
+      "drugs": ["Sildenafil", "Nitroglycerin"],
+      "severity": "CRITICAL",
+      "warning": "MAY CAUSE DANGEROUS DROP IN BLOOD PRESSURE. DO NOT TAKE TOGETHER."
+    }
+  ]
+}
