@@ -7,6 +7,7 @@ import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/sound_helper.dart';
+import '../services/backup_service.dart';
 import 'emergency_info_screen.dart';
 import 'caregiver_settings_screen.dart';
 
@@ -428,6 +429,115 @@ class SettingsScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 16),
               ),
               onTap: () => _showResetDialog(context),
+            ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Backup & Restore
+          const Text(
+            'Backup & Restore',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cloud_upload_outlined, size: 28, color: Colors.purple),
+                  title: const Text(
+                    'Backup Data',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Export encrypted backup',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  onTap: () async {
+                    await HapticHelper.selection();
+                    try {
+                      await BackupService().createEncryptedBackup();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Backup ready to share')),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Backup failed: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.cloud_download_outlined, size: 28, color: Colors.teal),
+                  title: const Text(
+                    'Restore Data',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Import from backup file',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  onTap: () async {
+                    await HapticHelper.warning();
+                    // Show confirmation
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: const Text('Restore Backup'),
+                        content: const Text('This will OVERWRITE all current data with the backup. Are you sure?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              Navigator.pop(dialogContext);
+                              try {
+                                await BackupService().restoreFromBackup();
+                                if (context.mounted) {
+                                  // Reload data
+                                  final medicineProvider = context.read<MedicineProvider>();
+                                  final scheduleProvider = context.read<ScheduleProvider>();
+                                  final logProvider = context.read<LogProvider>();
+                                  final settings = context.read<SettingsService>();
+                                  
+                                  await Future.wait([
+                                    medicineProvider.loadMedicines(),
+                                    scheduleProvider.loadSchedules(),
+                                    logProvider.loadLogs(),
+                                    settings.reloadSettings(),
+                                  ]);
+                                  
+                                  // Just show success
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Restore successful!')),
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('Restore error: $e');
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Restore failed: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('Restore', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),

@@ -44,6 +44,11 @@ class SettingsService extends ChangeNotifier {
     await _loadSettings();
   }
   
+  /// Publicly accessible reload settings
+  Future<void> reloadSettings() async {
+    await _loadSettings();
+  }
+
   /// Load settings from storage
   Future<void> _loadSettings() async {
     if (_prefs == null) return;
