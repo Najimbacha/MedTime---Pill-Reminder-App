@@ -8,6 +8,7 @@ import '../providers/log_provider.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/sound_helper.dart';
 import 'emergency_info_screen.dart';
+import 'caregiver_settings_screen.dart';
 
 /// Settings screen
 class SettingsScreen extends StatelessWidget {
@@ -58,6 +59,112 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+
+          // Caregiver Section
+          const Text(
+            'Caregiver',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Consumer<SettingsService>(
+            builder: (context, settings, _) {
+              final hasCaregiver = settings.caregiver != null;
+              return Card(
+                child: hasCaregiver 
+                  ? Column(
+                      children: [
+                        ListTile(
+                          leading: Icon(Icons.favorite, size: 28, color: Theme.of(context).colorScheme.primary),
+                          title: Text(
+                            settings.caregiver!.name,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          subtitle: Text(
+                            settings.caregiver!.phoneNumber,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CaregiverSettingsScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        if (settings.caregiver!.notifyOnMissedDose || settings.caregiver!.notifyOnLowStock)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: Row(
+                              children: [
+                                if (settings.caregiver!.notifyOnMissedDose)
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.error.withAlpha(26),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Missed Alerts',
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.error,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                if (settings.caregiver!.notifyOnLowStock)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withAlpha(26),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Low Stock Alerts',
+                                      style: TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    )
+                  : ListTile(
+                      leading: const Icon(Icons.person_add_outlined, size: 28, color: Colors.grey),
+                      title: Text(
+                        'Add Caregiver',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        'Keep a trusted contact informed',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CaregiverSettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+              );
+            },
           ),
           const SizedBox(height: 24),
 

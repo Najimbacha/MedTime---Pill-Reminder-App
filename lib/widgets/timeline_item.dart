@@ -3,6 +3,11 @@ import 'dart:io';
 import '../models/medicine.dart';
 import '../models/schedule.dart';
 import '../models/log.dart';
+import 'package:provider/provider.dart';
+import '../services/settings_service.dart';
+import '../utils/caregiver_helper.dart';
+import '../utils/haptic_helper.dart';
+import '../utils/sound_helper.dart';
 
 /// Timeline item showing a scheduled medicine
 class TimelineItem extends StatelessWidget {
@@ -185,25 +190,59 @@ class TimelineItem extends StatelessWidget {
                           color: _getStatusColor().withAlpha(25),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _getLogStatusIcon(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getLogStatusIcon(),
+                              color: _getStatusColor(),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              logStatus?.name.toUpperCase() ?? 'PENDING',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                                 color: _getStatusColor(),
-                                size: 20,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                logStatus?.name.toUpperCase() ?? 'PENDING',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: _getStatusColor(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (logStatus == LogStatus.missed)
+                        Consumer<SettingsService>(
+                          builder: (context, settings, _) {
+                            final caregiver = settings.caregiver;
+                            if (caregiver != null && caregiver.notifyOnMissedDose) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 12.0),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await HapticHelper.selection();
+                                      await SoundHelper.playClick();
+                                      CaregiverHelper.sendMissedDoseAlert(
+                                        caregiver,
+                                        medicine.name,
+                                        schedule.timeOfDay,
+                                      );
+                                    },
+                                    icon: const Icon(Icons.sms_outlined, size: 16),
+                                    label: Text('Notify ${caregiver.name}'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Theme.of(context).colorScheme.error,
+                                      side: BorderSide(
+                                        color: Theme.of(context).colorScheme.error.withAlpha(128),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
                     ],
                   ],

@@ -9,6 +9,10 @@ import '../providers/schedule_provider.dart';
 import 'add_edit_medicine_screen.dart';
 import 'cabinet_scan_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/settings_service.dart';
+import '../utils/caregiver_helper.dart';
+import '../utils/haptic_helper.dart';
+import '../utils/sound_helper.dart';
 
 /// Screen showing all medicines in inventory
 class InventoryScreen extends StatelessWidget {
@@ -210,8 +214,42 @@ class InventoryScreen extends StatelessWidget {
                             ),
                           ),
                       ],
-                    ),
                   ),
+                  
+                  if (isLowStock)
+                    Consumer<SettingsService>(
+                      builder: (context, settings, _) {
+                        final caregiver = settings.caregiver;
+                        if (caregiver != null && caregiver.notifyOnLowStock) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  await HapticHelper.selection();
+                                  await SoundHelper.playClick();
+                                  CaregiverHelper.sendLowStockAlert(
+                                    caregiver, 
+                                    medicine.name, 
+                                    medicine.currentStock
+                                  );
+                                },
+                                icon: const Icon(Icons.sms_outlined, size: 16),
+                                label: Text('Ask ${caregiver.name} for Refill'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.orange,
+                                  side: BorderSide(
+                                    color: Colors.orange.withAlpha(128),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
 
                   if (medicine.pharmacyName != null || medicine.pharmacyPhone != null) ...[
                     const SizedBox(height: 8),
