@@ -156,152 +156,158 @@ class InventoryScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 4),
-                          Text(
-                            medicine.dosage,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha(180),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        medicine.dosage,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha(180),
+                        ),
                       ),
-                    ),
-                      _buildMedicinePopup(context, medicine),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  
-                  // Stock Status
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isLowStock ? Theme.of(context).colorScheme.error.withAlpha(128) : Colors.transparent,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isLowStock ? Icons.warning_rounded : Icons.inventory_2_outlined,
-                          size: 20,
-                          color: isLowStock ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Stock: ${medicine.currentStock} remaining',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: isLowStock ? Theme.of(context).colorScheme.error : null,
-                              fontWeight: isLowStock ? FontWeight.bold : null,
-                            ),
-                          ),
-                        ),
-                        if (isLowStock)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.error.withAlpha(26),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'LOW STOCK',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
-                  ),
-                  
-                  if (isLowStock)
-                    Consumer<SettingsService>(
-                      builder: (context, settings, _) {
-                        final caregiver = settings.caregiver;
-                        if (caregiver != null && caregiver.notifyOnLowStock) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  await HapticHelper.selection();
-                                  await SoundHelper.playClick();
-                                  CaregiverHelper.sendLowStockAlert(
-                                    caregiver, 
-                                    medicine.name, 
-                                    medicine.currentStock
-                                  );
-                                },
-                                icon: const Icon(Icons.sms_outlined, size: 16),
-                                label: Text('Ask ${caregiver.name} for Refill'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.orange,
-                                  side: BorderSide(
-                                    color: Colors.orange.withAlpha(128),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                ),
+                _buildMedicinePopup(context, medicine),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-                  if (medicine.pharmacyName != null || medicine.pharmacyPhone != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary.withAlpha(26),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.local_pharmacy_outlined, 
-                            size: 20, 
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              medicine.pharmacyName ?? 'Pharmacy',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.secondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (medicine.pharmacyPhone != null)
-                            Material(
-                              color: Colors.transparent,
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.phone_in_talk_rounded, 
-                                  size: 20,
-                                  color: Theme.of(context).colorScheme.secondary,
-                                ),
-                                onPressed: () => launchUrl(Uri.parse('tel:${medicine.pharmacyPhone}')),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                visualDensity: VisualDensity.compact,
-                                tooltip: 'Call Pharmacy',
-                              ),
-                            ),
-                        ],
+            // Stock Status
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isLowStock ? Theme.of(context).colorScheme.error.withAlpha(128) : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isLowStock ? Icons.warning_rounded : Icons.inventory_2_outlined,
+                    size: 20,
+                    color: isLowStock ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Stock: ${medicine.currentStock} remaining',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: isLowStock ? Theme.of(context).colorScheme.error : null,
+                        fontWeight: isLowStock ? FontWeight.bold : null,
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 8),
-                  _buildRefillPrediction(context, medicine),
+                  ),
+                  if (isLowStock)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.error.withAlpha(26),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'LOW STOCK',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
+
+            if (isLowStock)
+              Consumer<SettingsService>(
+                builder: (context, settings, _) {
+                  final caregiver = settings.caregiver;
+                  if (caregiver != null && caregiver.notifyOnLowStock) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await HapticHelper.selection();
+                            await SoundHelper.playClick();
+                            CaregiverHelper.sendLowStockAlert(
+                              caregiver,
+                              medicine.name,
+                              medicine.currentStock,
+                            );
+                          },
+                          icon: const Icon(Icons.sms_outlined, size: 16),
+                          label: Text('Ask ${caregiver.name} for Refill'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            side: BorderSide(
+                              color: Colors.orange.withAlpha(128),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+
+            if (medicine.pharmacyName != null || medicine.pharmacyPhone != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondary.withAlpha(26),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: medicine.pharmacyName != null
+                        ? Theme.of(context).colorScheme.secondary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.local_pharmacy_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        medicine.pharmacyName ?? 'Pharmacy',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (medicine.pharmacyPhone != null)
+                      Material(
+                        color: Colors.transparent,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.phone_in_talk_rounded,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          onPressed: () => launchUrl(Uri.parse('tel:${medicine.pharmacyPhone}')),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Call Pharmacy',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            _buildRefillPrediction(context, medicine),
+          ],
+        ),
+      ),
     );
   }
 

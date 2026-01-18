@@ -1,583 +1,529 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/database_helper.dart';
-import '../services/settings_service.dart';
+
+import '../core/components/section_header.dart';
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_radius.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 import '../providers/medicine_provider.dart';
-import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
+import '../providers/schedule_provider.dart';
+import '../services/database_helper.dart';
+import '../services/history_service.dart';
+import '../services/report_service.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/sound_helper.dart';
-import '../services/backup_service.dart';
-import 'emergency_info_screen.dart';
-import 'caregiver_settings_screen.dart';
 
-/// Settings screen
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _selectedTheme = 'system';
+  bool _hapticFeedback = true;
+  bool _notificationSound = true;
+  bool _vibration = true;
+  bool _persistentNotification = false;
+  bool _use24HourFormat = false;
+
+  final HistoryService _historyService = HistoryService();
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark
+          ? const Color(0xFF0A0A0A)
+          : const Color(0xFFFAFAFA),
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: isDark
+            ? const Color(0xFF0A0A0A)
+            : const Color(0xFFFAFAFA),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           'Settings',
-          style: Theme.of(context).textTheme.headlineMedium,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black,
+            letterSpacing: -0.3,
+          ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // App Info
-          // App Info
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.medication,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'MedTime',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Version 1.0.0',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha(179),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Offline-first medicine reminder that respects your privacy',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildAppInfoSection(isDark),
+            const SizedBox(height: 40),
 
-          // Caregiver Section
-          const Text(
-            'Caregiver',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            _SectionLabel(label: 'NOTIFICATIONS', isDark: isDark),
+            const SizedBox(height: 12),
+            _buildSettingsCard(
+              isDark: isDark,
+              children: [
+                _buildSwitchTile(
+                  icon: Icons.notifications_active_outlined,
+                  title: 'Notification Sound',
+                  value: _notificationSound,
+                  onChanged: (value) =>
+                      setState(() => _notificationSound = value),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildSwitchTile(
+                  icon: Icons.vibration,
+                  title: 'Vibration',
+                  value: _vibration,
+                  onChanged: (value) => setState(() => _vibration = value),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildSwitchTile(
+                  icon: Icons.notifications_none_outlined,
+                  title: 'Persistent Notification',
+                  value: _persistentNotification,
+                  onChanged: (value) =>
+                      setState(() => _persistentNotification = value),
+                  isDark: isDark,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Consumer<SettingsService>(
-            builder: (context, settings, _) {
-              final hasCaregiver = settings.caregiver != null;
-              return Card(
-                child: hasCaregiver 
-                  ? Column(
-                      children: [
-                        ListTile(
-                          leading: Icon(Icons.favorite, size: 28, color: Theme.of(context).colorScheme.primary),
-                          title: Text(
-                            settings.caregiver!.name,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          subtitle: Text(
-                            settings.caregiver!.phoneNumber,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const CaregiverSettingsScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        if (settings.caregiver!.notifyOnMissedDose || settings.caregiver!.notifyOnLowStock)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: Row(
-                              children: [
-                                if (settings.caregiver!.notifyOnMissedDose)
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 8),
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.error.withAlpha(26),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'Missed Alerts',
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.error,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                if (settings.caregiver!.notifyOnLowStock)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withAlpha(26),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'Low Stock Alerts',
-                                      style: TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    )
-                  : ListTile(
-                      leading: const Icon(Icons.person_add_outlined, size: 28, color: Colors.grey),
-                      title: Text(
-                        'Add Caregiver',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      subtitle: Text(
-                        'Keep a trusted contact informed',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CaregiverSettingsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-          // Emergency Section
-          const Text(
-            'Emergency',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: Icon(
-                Icons.emergency,
-                size: 28,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                'Emergency QR Code',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              subtitle: Text(
-                'Critical medical info for paramedics',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EmergencyInfoScreen(),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Appearance Section
-          const Text(
-            'Appearance',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Consumer<SettingsService>(
-            builder: (context, settings, _) {
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            _SectionLabel(label: 'APPEARANCE', isDark: isDark),
+            const SizedBox(height: 12),
+            _buildSettingsCard(
+              isDark: isDark,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.palette_outlined, size: 28, color: Theme.of(context).colorScheme.primary),
-                        title: Text(
-                          'App Theme',
-                          style: Theme.of(context).textTheme.titleMedium,
+                      Text(
+                        'Theme',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<ThemeMode>(
-                          segments: const [
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.system,
-                              label: Text('System'),
-                              icon: Icon(Icons.brightness_auto),
-                            ),
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.light,
-                              label: Text('Light'),
-                              icon: Icon(Icons.light_mode),
-                            ),
-                            ButtonSegment<ThemeMode>(
-                              value: ThemeMode.dark,
-                              label: Text('Dark'),
-                              icon: Icon(Icons.dark_mode),
-                            ),
-                          ],
-                          selected: {settings.themeMode},
-                          onSelectionChanged: (Set<ThemeMode> newSelection) async {
-                            await HapticHelper.selection();
-                            await SoundHelper.playClick();
-                            await settings.setThemeMode(newSelection.first);
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
+                      _buildThemeSwitcher(isDark),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
+              ],
+            ),
+            const SizedBox(height: 32),
 
-          // Preferences Section
-          const Text(
-            'Preferences',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            _SectionLabel(label: 'PREFERENCES', isDark: isDark),
+            const SizedBox(height: 12),
+            _buildSettingsCard(
+              isDark: isDark,
+              children: [
+                _buildSwitchTile(
+                  icon: Icons.vibration,
+                  title: 'Haptic Feedback',
+                  value: _hapticFeedback,
+                  onChanged: (value) => setState(() => _hapticFeedback = value),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildSwitchTile(
+                  icon: Icons.access_time,
+                  title: '24-Hour Format',
+                  value: _use24HourFormat,
+                  onChanged: (value) =>
+                      setState(() => _use24HourFormat = value),
+                  isDark: isDark,
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            _SectionLabel(label: 'DATA & PRIVACY', isDark: isDark),
+            const SizedBox(height: 12),
+            _buildSettingsCard(
+              isDark: isDark,
+              children: [
+                _buildNavigationTile(
+                  icon: Icons.download_outlined,
+                  title: 'Export Data',
+                  onTap: _showExportDialog,
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildNavigationTile(
+                  icon: Icons.backup_outlined,
+                  title: 'Backup & Restore',
+                  onTap: () => _showComingSoon('Backup & Restore'),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildNavigationTile(
+                  icon: Icons.shield_outlined,
+                  title: 'Privacy Policy',
+                  onTap: () => _showComingSoon('Privacy Policy'),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildNavigationTile(
+                  icon: Icons.delete_outline,
+                  title: 'Delete All Data',
+                  onTap: _showDeleteConfirmation,
+                  isDark: isDark,
+                  textColor: Colors.red,
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            _SectionLabel(label: 'ABOUT', isDark: isDark),
+            const SizedBox(height: 12),
+            _buildSettingsCard(
+              isDark: isDark,
+              children: [
+                _buildInfoTile(
+                  icon: Icons.info_outline,
+                  title: 'Version',
+                  value: '1.0.0',
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildNavigationTile(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  onTap: () => _showComingSoon('Help & Support'),
+                  isDark: isDark,
+                ),
+                _buildDivider(isDark),
+                _buildNavigationTile(
+                  icon: Icons.rate_review_outlined,
+                  title: 'Rate App',
+                  onTap: () => _showComingSoon('Rate App'),
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppInfoSection(bool isDark) {
+    return Center(
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF2A2A2A)
+                    : const Color(0xFFE5E5E5),
+              ),
+            ),
+            child: Icon(
+              Icons.medication_outlined,
+              size: 40,
+              color: isDark ? Colors.white : Colors.black,
             ),
           ),
-          const SizedBox(height: 12),
-          Consumer<SettingsService>(
-            builder: (context, settings, _) {
-              return Card(
+          const SizedBox(height: 16),
+          Text(
+            'MedTime',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Medicine Reminder',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white60 : Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard({
+    required bool isDark,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+        ),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildNavigationTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required bool isDark,
+    Color? textColor,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 22,
+              color: textColor ?? (isDark ? Colors.white70 : Colors.black54),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: textColor ?? (isDark ? Colors.white : Colors.black),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: isDark ? Colors.white38 : Colors.black38,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: isDark ? Colors.white70 : Colors.black54),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white60 : Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: isDark ? Colors.white70 : Colors.black54),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+          Transform.scale(
+            scale: 0.85,
+            child: Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: isDark ? Colors.white : Colors.black,
+              activeTrackColor: isDark ? Colors.white38 : Colors.black26,
+              inactiveThumbColor: isDark ? Colors.white38 : Colors.black38,
+              inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeSwitcher(bool isDark) {
+    final themes = [
+      {'label': 'Light', 'value': 'light', 'icon': Icons.light_mode_outlined},
+      {'label': 'Dark', 'value': 'dark', 'icon': Icons.dark_mode_outlined},
+      {
+        'label': 'Auto',
+        'value': 'system',
+        'icon': Icons.brightness_auto_outlined,
+      },
+    ];
+
+    return Row(
+      children: themes.map((theme) {
+        final isSelected = _selectedTheme == theme['value'];
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () =>
+                  setState(() => _selectedTheme = theme['value'] as String),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? Colors.white : Colors.black)
+                      : (isDark
+                            ? const Color(0xFF0A0A0A)
+                            : const Color(0xFFF5F5F5)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected
+                        ? (isDark ? Colors.white : Colors.black)
+                        : (isDark
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFE5E5E5)),
+                  ),
+                ),
                 child: Column(
                   children: [
-                    SwitchListTile(
-                      secondary: Icon(
-                        Icons.vibration,
-                        size: 28,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      title: Text(
-                        'Haptic Feedback',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      subtitle: Text(
-                        'Vibrate on button press',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      value: settings.hapticFeedbackEnabled,
-                      onChanged: (value) async {
-                        await settings.setHapticFeedback(value);
-                        if (value) {
-                          await HapticHelper.success();
-                          await SoundHelper.playClick();
-                        }
-                      },
+                    Icon(
+                      theme['icon'] as IconData,
+                      size: 20,
+                      color: isSelected
+                          ? (isDark ? Colors.black : Colors.white)
+                          : (isDark ? Colors.white60 : Colors.black54),
                     ),
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      secondary: Icon(
-                        Icons.volume_up,
-                        size: 28,
-                        color: Theme.of(context).colorScheme.primary,
+                    const SizedBox(height: 4),
+                    Text(
+                      theme['label'] as String,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? (isDark ? Colors.black : Colors.white)
+                            : (isDark ? Colors.white60 : Colors.black54),
                       ),
-                      title: Text(
-                        'Sound Effects',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      subtitle: Text(
-                        'Play sounds for notifications',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      value: settings.soundEnabled,
-                      onChanged: (value) async {
-                        await settings.setSoundEnabled(value);
-                        await HapticHelper.selection();
-                        if (value) await SoundHelper.playClick();
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: Icon(
-                        Icons.inventory_2,
-                        size: 28,
-                        color: Theme.of(context).colorScheme.tertiary,
-                      ),
-                      title: Text(
-                        'Low Stock Alert',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      subtitle: Text(
-                        'Alert when ${settings.lowStockThreshold} or fewer doses remain',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      trailing: Text(
-                        '${settings.lowStockThreshold}',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      onTap: () => _showLowStockDialog(context, settings),
                     ),
                   ],
                 ),
-              );
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDivider(bool isDark) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+      indent: 16,
+      endIndent: 16,
+    );
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature coming soon'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showExportDialog() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Export Data',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        content: Text(
+          'Your medication data will be exported as a PDF report.',
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _exportData();
             },
-          ),
-          const SizedBox(height: 24),
-
-          // Privacy Section
-          const Text(
-            'Privacy',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.shield, size: 28, color: Colors.green),
-                  title: const Text(
-                    'Data Storage',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'All data stored locally on your device',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.cloud_off, size: 28, color: Colors.blue),
-                  title: const Text(
-                    'No Cloud Sync',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'Your data never leaves your device',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.analytics_outlined, size: 28, color: Colors.orange),
-                  title: const Text(
-                    'No Analytics',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'We don\'t track your usage',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Data Management
-          const Text(
-            'Data Management',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.delete_forever, size: 28, color: Colors.red),
-              title: const Text(
-                'Reset All Data',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'Delete all medicines, schedules, and logs',
-                style: TextStyle(fontSize: 16),
-              ),
-              onTap: () => _showResetDialog(context),
-            ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Backup & Restore
-          const Text(
-            'Backup & Restore',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.cloud_upload_outlined, size: 28, color: Colors.purple),
-                  title: const Text(
-                    'Backup Data',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'Export encrypted backup',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  onTap: () async {
-                    await HapticHelper.selection();
-                    try {
-                      await BackupService().createEncryptedBackup();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Backup ready to share')),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Backup failed: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.cloud_download_outlined, size: 28, color: Colors.teal),
-                  title: const Text(
-                    'Restore Data',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'Import from backup file',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  onTap: () async {
-                    await HapticHelper.warning();
-                    // Show confirmation
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        title: const Text('Restore Backup'),
-                        content: const Text('This will OVERWRITE all current data with the backup. Are you sure?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              Navigator.pop(dialogContext);
-                              try {
-                                await BackupService().restoreFromBackup();
-                                if (context.mounted) {
-                                  // Reload data
-                                  final medicineProvider = context.read<MedicineProvider>();
-                                  final scheduleProvider = context.read<ScheduleProvider>();
-                                  final logProvider = context.read<LogProvider>();
-                                  final settings = context.read<SettingsService>();
-                                  
-                                  await Future.wait([
-                                    medicineProvider.loadMedicines(),
-                                    scheduleProvider.loadSchedules(),
-                                    logProvider.loadLogs(),
-                                    settings.reloadSettings(),
-                                  ]);
-                                  
-                                  // Just show success
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Restore successful!')),
-                                  );
-                                }
-                              } catch (e) {
-                                debugPrint('Restore error: $e');
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Restore failed: $e'), backgroundColor: Colors.red),
-                                  );
-                                }
-                              }
-                            },
-                            child: const Text('Restore', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // About
-          const Text(
-            'About',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Privacy Policy',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'MedTime is designed with privacy as the core principle. '
-                    'We do not collect, store, or transmit any of your personal '
-                    'health information. All data is stored locally on your device '
-                    'using SQLite database. The app functions completely offline '
-                    'and does not require an internet connection.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                      height: 1.5,
-                    ),
-                  ),
-                ],
+            child: Text(
+              'Export',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           ),
@@ -586,168 +532,123 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showLowStockDialog(BuildContext context, SettingsService settings) async {
-    await HapticHelper.light();
+  Future<void> _exportData() async {
+    await HapticHelper.selection();
     await SoundHelper.playClick();
-    
-    showDialog(
-      context: context,
-      builder: (context) {
-        int threshold = settings.lowStockThreshold;
-        
-        return AlertDialog(
-          title: const Text(
-            'Low Stock Alert Threshold',
-            style: TextStyle(fontSize: 22),
-          ),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Alert me when doses remaining are:',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 36),
-                        onPressed: threshold > 1
-                            ? () async {
-                                await HapticHelper.light();
-                                setState(() => threshold--);
-                              }
-                            : null,
-                      ),
-                      const SizedBox(width: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withAlpha(26),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue, width: 2),
-                        ),
-                        child: Text(
-                          '$threshold',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 36),
-                        onPressed: threshold < 30
-                            ? () async {
-                                await HapticHelper.light();
-                                setState(() => threshold++);
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    threshold == 1 ? '1 dose' : '$threshold doses',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                HapticHelper.light();
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel', style: TextStyle(fontSize: 18)),
-            ),
-            TextButton(
-              onPressed: () async {
-                await HapticHelper.success();
-                await settings.setLowStockThreshold(threshold);
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Save', style: TextStyle(fontSize: 18)),
-            ),
-          ],
-        );
-      },
-    );
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Generating PDF report...')));
+
+    try {
+      final medicines = context.read<MedicineProvider>().medicines;
+      final overallAdherence = await _historyService.getOverallAdherence();
+      final streak = await _historyService.getCurrentStreak();
+      final recentLogs = await _historyService.getRecentLogs(limit: 50);
+      final medNames = {
+        for (final med in medicines)
+          if (med.id != null) med.id!: med.name,
+      };
+
+      final reportService = ReportService();
+      await reportService.generateAndShareReport(
+        medicines: medicines,
+        overallAdherence: overallAdherence,
+        streak: streak,
+        recentLogs: recentLogs,
+        medicineNames: medNames,
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _showResetDialog(BuildContext context) async {
-    await HapticHelper.warning();
-    
+  void _showDeleteConfirmation() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
-          'Reset All Data',
-          style: TextStyle(fontSize: 22),
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete All Data?',
+          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red),
         ),
-        content: const Text(
-          'This will permanently delete all medicines, schedules, and logs. '
-          'This action cannot be undone.\n\nAre you sure?',
-          style: TextStyle(fontSize: 18),
+        content: Text(
+          'This will permanently delete all your medication records, schedules, and settings. This action cannot be undone.',
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              HapticHelper.light();
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel', style: TextStyle(fontSize: 18)),
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+            ),
           ),
           TextButton(
-            onPressed: () async {
-              await HapticHelper.heavy();
-              
-              // Reset database
-              await DatabaseHelper.instance.resetAllData();
-
-              // Reload providers
-              if (context.mounted) {
-                final medicineProvider = context.read<MedicineProvider>();
-                final scheduleProvider = context.read<ScheduleProvider>();
-                final logProvider = context.read<LogProvider>();
-
-                await Future.wait([
-                  medicineProvider.loadMedicines(),
-                  scheduleProvider.loadSchedules(),
-                  logProvider.loadLogs(),
-                ]);
-
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      '✓ All data has been reset',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAllData();
             },
             child: const Text(
-              'Reset',
-              style: TextStyle(color: Colors.red, fontSize: 18),
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _deleteAllData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final medicineProvider = context.read<MedicineProvider>();
+    final scheduleProvider = context.read<ScheduleProvider>();
+    final logProvider = context.read<LogProvider>();
+
+    await DatabaseHelper.instance.deleteAllData();
+
+    await Future.wait([
+      medicineProvider.loadMedicines(),
+      scheduleProvider.loadSchedules(),
+      logProvider.loadLogs(),
+    ]);
+
+    if (mounted) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('All data deleted'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final bool isDark;
+
+  const _SectionLabel({required this.label, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: isDark ? Colors.white60 : Colors.black54,
+        letterSpacing: 0.8,
       ),
     );
   }

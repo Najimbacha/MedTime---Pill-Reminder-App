@@ -154,6 +154,14 @@ class DatabaseHelper {
     );
   }
 
+  /// Delete all stored data
+  Future<void> deleteAllData() async {
+    final db = await database;
+    await db.delete('logs');
+    await db.delete('schedules');
+    await db.delete('medicines');
+  }
+
   // ==================== SCHEDULE CRUD ====================
 
   /// Create a new schedule

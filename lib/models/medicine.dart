@@ -12,6 +12,12 @@ class Medicine {
   final String? imagePath;
   final String? pharmacyName;
   final String? pharmacyPhone;
+  static const Map<int, String> _typeIconAssets = {
+    1: 'assets/icons/medicine/pill_capsule.png',
+    2: 'assets/icons/medicine/bottle.png',
+    3: 'assets/icons/medicine/injection.png',
+    4: 'assets/icons/medicine/syrup.png',
+  };
 
   Medicine({
     this.id,
@@ -57,6 +63,9 @@ class Medicine {
         return Icons.medication;
     }
   }
+
+  /// Get the asset path for the medicine icon
+  String get iconAssetPath => _typeIconAssets[typeIcon] ?? _typeIconAssets[1]!;
 
   /// Get color object
   Color get colorValue => Color(color);
