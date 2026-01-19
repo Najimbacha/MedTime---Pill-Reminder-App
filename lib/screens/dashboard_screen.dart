@@ -373,6 +373,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     MedicineProvider medicineProvider,
     LogProvider logProvider,
   ) async {
+    await SoundHelper.playClick();
+    await HapticHelper.light();
     final scheduledTime = entry.scheduledDateTime;
     await HapticHelper.success();
     await SoundHelper.playSuccess();
@@ -380,6 +382,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await medicineProvider.decrementStock(entry.medicine.id!);
     await _loadData();
     if (mounted) {
+      await SoundHelper.playSuccess();
+      await HapticHelper.success();
       setState(() {});
       _triggerSuccessAnimation();
       _showFeedback('✓ ${entry.medicine.name} marked as taken');

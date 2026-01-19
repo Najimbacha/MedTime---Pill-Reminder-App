@@ -1,32 +1,32 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../services/settings_service.dart';
 
-/// Utility class for audio feedback using system sounds
+/// Utility class for audio feedback using bundled assets
 class SoundHelper {
-  /// Play a standard click/tap sound
+  static final AudioPlayer _clickPlayer = AudioPlayer(playerId: 'click_player');
+  static final AudioPlayer _successPlayer = AudioPlayer(
+    playerId: 'success_player',
+  );
+  static final AudioPlayer _alertPlayer = AudioPlayer(playerId: 'alert_player');
+
+  static Future<void> _playAsset(AudioPlayer player, AssetSource source) async {
+    if (!SettingsService.instance.soundEnabled) return;
+    try {
+      await player.play(source);
+    } catch (_) {
+      // ignore failures; sound is optional
+    }
+  }
+
   static Future<void> playClick() async {
-    if (SettingsService.instance.soundEnabled) {
-      debugPrint('Playing system click sound');
-      await SystemSound.play(SystemSoundType.click);
-    } else {
-      debugPrint('Sound is disabled in settings');
-    }
+    await _playAsset(_clickPlayer, AssetSource('sounds/click.mp3'));
   }
 
-  /// Play a success-like sound (if available via system sound)
   static Future<void> playSuccess() async {
-    if (SettingsService.instance.soundEnabled) {
-      debugPrint('Playing success sound (click)');
-      await SystemSound.play(SystemSoundType.click);
-    }
+    await _playAsset(_successPlayer, AssetSource('sounds/success.mp3'));
   }
 
-  /// Play an alert/warning sound
   static Future<void> playAlert() async {
-    if (SettingsService.instance.soundEnabled) {
-      debugPrint('Playing alert sound');
-      await SystemSound.play(SystemSoundType.alert);
-    }
+    await _playAsset(_alertPlayer, AssetSource('sounds/alert.mp3'));
   }
 }

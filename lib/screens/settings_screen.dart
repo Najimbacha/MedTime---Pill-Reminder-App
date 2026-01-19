@@ -12,6 +12,7 @@ import '../providers/schedule_provider.dart';
 import '../services/database_helper.dart';
 import '../services/history_service.dart';
 import '../services/report_service.dart';
+import '../services/settings_service.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/sound_helper.dart';
 
@@ -23,17 +24,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _selectedTheme = 'system';
-  bool _hapticFeedback = true;
-  bool _notificationSound = true;
-  bool _vibration = true;
-  bool _persistentNotification = false;
-  bool _use24HourFormat = false;
-
   final HistoryService _historyService = HistoryService();
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsService>();
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -78,26 +73,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSwitchTile(
                   icon: Icons.notifications_active_outlined,
                   title: 'Notification Sound',
-                  value: _notificationSound,
+                  value: settings.soundEnabled,
                   onChanged: (value) =>
-                      setState(() => _notificationSound = value),
+                      context.read<SettingsService>().setSoundEnabled(value),
                   isDark: isDark,
                 ),
                 _buildDivider(isDark),
                 _buildSwitchTile(
                   icon: Icons.vibration,
                   title: 'Vibration',
-                  value: _vibration,
-                  onChanged: (value) => setState(() => _vibration = value),
+                  value: settings.hapticFeedbackEnabled,
+                  onChanged: (value) =>
+                      context.read<SettingsService>().setHapticFeedback(value),
                   isDark: isDark,
                 ),
                 _buildDivider(isDark),
                 _buildSwitchTile(
                   icon: Icons.notifications_none_outlined,
                   title: 'Persistent Notification',
-                  value: _persistentNotification,
-                  onChanged: (value) =>
-                      setState(() => _persistentNotification = value),
+                  value: settings.persistentNotificationEnabled,
+                  onChanged: (value) => context
+                      .read<SettingsService>()
+                      .setPersistentNotification(value),
                   isDark: isDark,
                 ),
               ],
@@ -123,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildThemeSwitcher(isDark),
+                      _buildThemeSwitcher(isDark, settings),
                     ],
                   ),
                 ),
@@ -139,17 +136,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSwitchTile(
                   icon: Icons.vibration,
                   title: 'Haptic Feedback',
-                  value: _hapticFeedback,
-                  onChanged: (value) => setState(() => _hapticFeedback = value),
-                  isDark: isDark,
-                ),
-                _buildDivider(isDark),
-                _buildSwitchTile(
-                  icon: Icons.access_time,
-                  title: '24-Hour Format',
-                  value: _use24HourFormat,
+                  value: settings.hapticFeedbackEnabled,
                   onChanged: (value) =>
-                      setState(() => _use24HourFormat = value),
+                      context.read<SettingsService>().setHapticFeedback(value),
                   isDark: isDark,
                 ),
               ],
@@ -400,7 +389,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildThemeSwitcher(bool isDark) {
+  Widget _buildThemeSwitcher(bool isDark, SettingsService settings) {
     final themes = [
       {'label': 'Light', 'value': 'light', 'icon': Icons.light_mode_outlined},
       {'label': 'Dark', 'value': 'dark', 'icon': Icons.dark_mode_outlined},
@@ -413,13 +402,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Row(
       children: themes.map((theme) {
-        final isSelected = _selectedTheme == theme['value'];
+        final mode = settings.themeMode;
+        final targetMode = theme['value'] == 'system'
+            ? ThemeMode.system
+            : (theme['value'] == 'dark' ? ThemeMode.dark : ThemeMode.light);
+        final isSelected = mode == targetMode;
         return Expanded(
           child: Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () =>
-                  setState(() => _selectedTheme = theme['value'] as String),
+              child: GestureDetector(
+                onTap: () => context
+                    .read<SettingsService>()
+                    .setThemeMode(targetMode),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -537,7 +531,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await SoundHelper.playClick();
 
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Generating PDF report...')));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Generating PDF report...')),
+    );
 
     try {
       final medicines = context.read<MedicineProvider>().medicines;

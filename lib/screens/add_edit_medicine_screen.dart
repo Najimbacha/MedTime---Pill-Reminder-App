@@ -17,6 +17,8 @@ import '../models/schedule.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../services/interaction_service.dart';
+import '../utils/sound_helper.dart';
+import '../utils/haptic_helper.dart';
 
 /// Screen for adding or editing a medicine
 class AddEditMedicineScreen extends StatefulWidget {
@@ -173,17 +175,15 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.medicine != null;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final background = theme.scaffoldBackgroundColor;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFFAFAFA),
+      backgroundColor: background,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: isDark
-            ? const Color(0xFF0A0A0A)
-            : const Color(0xFFFAFAFA),
+        backgroundColor: background,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
@@ -1058,6 +1058,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       await scheduleProvider.addSchedule(schedule, savedMedicine);
 
       if (mounted) {
+        await SoundHelper.playSuccess();
+        await HapticHelper.success();
         setState(() => _isSaving = false);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
