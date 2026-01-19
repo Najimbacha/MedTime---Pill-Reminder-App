@@ -40,7 +40,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   final List<String> _dosageUnits = ['mg', 'ml', 'tablet', 'capsule', 'drops'];
 
   // Schedule times
-  List<TimeOfDay> _reminderTimes = [const TimeOfDay(hour: 9, minute: 0)];
+  List<TimeOfDay> _reminderTimes = [];
 
   // Frequency
   FrequencyType _frequencyType = FrequencyType.daily;
@@ -329,6 +329,17 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                           }).toList(),
                         ),
                       const SizedBox(height: 12),
+                      if (_reminderTimes.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            'Quickly tap one of the chips below or add a time to set a reminder.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ),
 
                       // Quick time chips
                       SingleChildScrollView(

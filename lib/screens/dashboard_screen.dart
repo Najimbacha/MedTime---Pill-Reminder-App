@@ -381,16 +381,46 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildEmptyState() => EmptyState(
-    icon: Icons.medication_outlined,
-    title: 'No medications scheduled',
-    message: 'Add your first medicine to get started with tracking',
-    action: AppButton(
-      text: 'Add Medicine',
-      icon: Icons.add,
-      onPressed: _navigateToAddMedicine,
-    ),
-  );
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _EmptyStateGraphic(
+              calendarAsset: 'assets/icons/medicine/calendar.png',
+              pillAsset: 'assets/icons/medicine/pill_round.png',
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'No medications scheduled',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).textTheme.titleLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Add your first medicine to get started with tracking',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 28),
+            AppButton(
+              text: 'Add Medicine',
+              icon: Icons.add,
+              onPressed: _navigateToAddMedicine,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _handleTake(
     _ScheduleEntry entry,
@@ -1147,5 +1177,81 @@ extension FirstWhereOrNullExtension<E> on Iterable<E> {
       if (test(element)) return element;
     }
     return null;
+  }
+}
+
+class _EmptyStateGraphic extends StatefulWidget {
+  final String calendarAsset;
+  final String pillAsset;
+
+  const _EmptyStateGraphic({
+    required this.calendarAsset,
+    required this.pillAsset,
+    super.key,
+  });
+
+  @override
+  State<_EmptyStateGraphic> createState() => _EmptyStateGraphicState();
+}
+
+class _EmptyStateGraphicState extends State<_EmptyStateGraphic>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _float = Tween(begin: 0.0, end: -10.0)
+      .chain(CurveTween(curve: Curves.easeInOut))
+      .animate(_controller);
+
+  late final Animation<double> _scale = Tween(begin: 0.96, end: 1.02)
+      .chain(CurveTween(curve: Curves.easeInOut))
+      .animate(_controller);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _float.value),
+          child: Transform.scale(
+            scale: _scale.value,
+            child: child,
+          ),
+        );
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.asset(
+            widget.calendarAsset,
+            width: 220,
+            fit: BoxFit.contain,
+          ),
+          Positioned(
+            bottom: 20,
+            right: 40,
+            child: Transform.rotate(
+              angle: -0.1,
+              child: Image.asset(
+                widget.pillAsset,
+                width: 72,
+                fit: BoxFit.contain,
+                color: Colors.white.withOpacity(0.9),
+                colorBlendMode: BlendMode.modulate,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
