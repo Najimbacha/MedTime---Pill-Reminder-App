@@ -33,29 +33,36 @@ class AddEditMedicineScreen extends StatefulWidget {
 class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _dosageController;
-  late TextEditingController _stockController;
-  late TextEditingController _thresholdController;
-  late TextEditingController _pharmacyNameController;
-  late TextEditingController _pharmacyPhoneController;
-  late TextEditingController _instructionsController;
+  late TextEditingController _dosageAmountController;
 
-  int _selectedIcon = 1;
-  int _selectedColor = 0xFF2196F3;
-  String _selectedMedicineType = 'tablet';
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  // Dosage unit
+  String _dosageUnit = 'mg';
+  final List<String> _dosageUnits = ['mg', 'ml', 'tablet', 'capsule', 'drops'];
+
+  // Schedule times
+  List<TimeOfDay> _reminderTimes = [const TimeOfDay(hour: 9, minute: 0)];
+
+  // Frequency
   FrequencyType _frequencyType = FrequencyType.daily;
   Set<int> _selectedDays = {};
   int _intervalDays = 2;
   DateTime _startDate = DateTime.now();
-  DateTime? _endDate;
+
+  // Additional info (collapsed by default)
+  bool _showAdditionalInfo = false;
+  int _selectedIcon = 1;
+  int _selectedColor = 0xFF2196F3;
+  String _selectedMedicineType = 'tablet';
+  late TextEditingController _stockController;
+  late TextEditingController _thresholdController;
+  late TextEditingController _pharmacyNameController;
+  late TextEditingController _pharmacyPhoneController;
   String? _imagePath;
   final ImagePicker _picker = ImagePicker();
 
   List<InteractionWarning> _warnings = [];
   final InteractionService _interactionService = InteractionService();
   bool _isSaving = false;
-  bool _showAdditionalInfo = false;
 
   static const Map<String, int> _medicineTypeIcons = {
     'tablet': 1,
@@ -82,9 +89,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.medicine?.name ?? '');
-    _dosageController = TextEditingController(
-      text: widget.medicine?.dosage ?? '',
-    );
+    _dosageAmountController = TextEditingController();
+
+    // Initialize additional controllers first
     _stockController = TextEditingController(
       text: widget.medicine?.currentStock.toString() ?? '10',
     );
@@ -97,11 +104,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     _pharmacyPhoneController = TextEditingController(
       text: widget.medicine?.pharmacyPhone ?? '',
     );
-    _instructionsController = TextEditingController();
 
-    _nameController.addListener(_checkForInteractions);
-
+    // Parse existing dosage if editing
     if (widget.medicine != null) {
+      _parseDosage(widget.medicine!.dosage);
       _selectedIcon = widget.medicine!.typeIcon;
       _selectedColor = widget.medicine!.color;
       _selectedMedicineType = _typeFromIcon(_selectedIcon);
@@ -116,10 +122,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           final s = schedules.first;
           setState(() {
             _frequencyType = s.frequencyType;
-            _selectedTime = TimeOfDay(
-              hour: int.parse(s.timeOfDay.split(':')[0]),
-              minute: int.parse(s.timeOfDay.split(':')[1]),
-            );
+            final timeParts = s.timeOfDay.split(':');
+            _reminderTimes = [
+              TimeOfDay(
+                hour: int.parse(timeParts[0]),
+                minute: int.parse(timeParts[1]),
+              ),
+            ];
             if (s.frequencyType == FrequencyType.specificDays) {
               _selectedDays = s.daysList.toSet();
             } else if (s.frequencyType == FrequencyType.interval) {
@@ -128,12 +137,23 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 _startDate = DateTime.parse(s.startDate!);
               }
             }
-            if (s.endDate != null) {
-              _endDate = DateTime.parse(s.endDate!);
-            }
           });
         }
       });
+    }
+
+    _nameController.addListener(_checkForInteractions);
+  }
+
+  void _parseDosage(String dosage) {
+    final regex = RegExp(r'(\d+\.?\d*)\s*([a-zA-Z]+)');
+    final match = regex.firstMatch(dosage);
+    if (match != null) {
+      _dosageAmountController.text = match.group(1) ?? '';
+      final unit = match.group(2)?.toLowerCase() ?? 'mg';
+      if (_dosageUnits.contains(unit)) {
+        _dosageUnit = unit;
+      }
     }
   }
 
@@ -141,12 +161,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   void dispose() {
     _nameController.removeListener(_checkForInteractions);
     _nameController.dispose();
-    _dosageController.dispose();
+    _dosageAmountController.dispose();
     _stockController.dispose();
     _thresholdController.dispose();
     _pharmacyNameController.dispose();
     _pharmacyPhoneController.dispose();
-    _instructionsController.dispose();
     super.dispose();
   }
 
@@ -170,6 +189,28 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         _warnings = results;
       });
     }
+  }
+
+  bool _isFormValid() {
+    if (_nameController.text.trim().isEmpty) return false;
+    if (_dosageAmountController.text.trim().isEmpty) return false;
+    final amount = double.tryParse(_dosageAmountController.text);
+    if (amount == null || amount <= 0) return false;
+
+    if (_frequencyType == FrequencyType.specificDays && _selectedDays.isEmpty) {
+      return false;
+    }
+
+    if (_frequencyType == FrequencyType.interval &&
+        (_intervalDays < 2 || _intervalDays > 30)) {
+      return false;
+    }
+
+    if (_frequencyType != FrequencyType.asNeeded && _reminderTimes.isEmpty) {
+      return false;
+    }
+
+    return true;
   }
 
   @override
@@ -201,84 +242,599 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_warnings.isNotEmpty) ...[
-                  _buildInteractionWarnings(isDark),
-                  const SizedBox(height: 16),
-                ],
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_warnings.isNotEmpty) ...[
+                      _buildInteractionWarnings(isDark),
+                      const SizedBox(height: 16),
+                    ],
 
-                _MinimalTextField(
-                  label: 'Medicine Name',
-                  hint: 'e.g., Aspirin',
-                  controller: _nameController,
-                  isDark: isDark,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter medicine name';
-                    }
-                    return null;
-                  },
+                    // Medicine Section
+                    _SectionLabel(label: 'MEDICINE', isDark: isDark),
+                    const SizedBox(height: 8),
+                    _MinimalTextField(
+                      label: '',
+                      hint: 'e.g., Aspirin',
+                      controller: _nameController,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Dosage Section (structured)
+                    _SectionLabel(label: 'DOSAGE', isDark: isDark),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _MinimalTextField(
+                            label: '',
+                            hint: '500',
+                            controller: _dosageAmountController,
+                            isDark: isDark,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: _buildDosageUnitDropdown(isDark),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Example: 500 mg',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white38 : Colors.black38,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Schedule Section
+                    _SectionLabel(label: 'SCHEDULE', isDark: isDark),
+                    const SizedBox(height: 12),
+
+                    if (_frequencyType != FrequencyType.asNeeded) ...[
+                      // Time chips (existing reminder times)
+                      if (_reminderTimes.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _reminderTimes.map((time) {
+                            return _TimeChip(
+                              time: time,
+                              isDark: isDark,
+                              onRemove: _reminderTimes.length > 1
+                                  ? () {
+                                      setState(() {
+                                        _reminderTimes.remove(time);
+                                      });
+                                      HapticHelper.light();
+                                    }
+                                  : null,
+                              onTap: () => _editTime(time),
+                            );
+                          }).toList(),
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Quick time chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _QuickTimeChip(
+                              label: 'Morning',
+                              time: const TimeOfDay(hour: 8, minute: 0),
+                              isDark: isDark,
+                              onTap: (time) => _addQuickTime(time),
+                            ),
+                            const SizedBox(width: 8),
+                            _QuickTimeChip(
+                              label: 'Noon',
+                              time: const TimeOfDay(hour: 12, minute: 0),
+                              isDark: isDark,
+                              onTap: (time) => _addQuickTime(time),
+                            ),
+                            const SizedBox(width: 8),
+                            _QuickTimeChip(
+                              label: 'Evening',
+                              time: const TimeOfDay(hour: 18, minute: 0),
+                              isDark: isDark,
+                              onTap: (time) => _addQuickTime(time),
+                            ),
+                            const SizedBox(width: 8),
+                            _QuickTimeChip(
+                              label: 'Night',
+                              time: const TimeOfDay(hour: 22, minute: 0),
+                              isDark: isDark,
+                              onTap: (time) => _addQuickTime(time),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Add another time button
+                      TextButton.icon(
+                        onPressed: _addCustomTime,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add another time'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Frequency Section
+                    _SectionLabel(label: 'FREQUENCY', isDark: isDark),
+                    const SizedBox(height: 12),
+                    _buildFrequencySegmentedControl(isDark),
+                    const SizedBox(height: 16),
+
+                    // Progressive disclosure based on frequency
+                    _buildFrequencyDetails(isDark),
+
+                    const SizedBox(height: 24),
+
+                    // Reminder Preview
+                    _buildReminderPreview(isDark),
+
+                    const SizedBox(height: 24),
+
+                    // Additional Information (collapsed)
+                    _buildAdditionalInfo(isDark),
+                  ],
                 ),
-                const SizedBox(height: 24),
-
-                _MinimalTextField(
-                  label: 'Dosage',
-                  hint: 'e.g., 500mg',
-                  controller: _dosageController,
-                  isDark: isDark,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter dosage';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                _SectionLabel(label: 'Schedule', isDark: isDark),
-                const SizedBox(height: 12),
-                _buildTimeSelector(isDark),
-                const SizedBox(height: 16),
-                _buildFrequencyOptions(isDark),
-
-                if (_frequencyType == FrequencyType.specificDays) ...[
-                  const SizedBox(height: 16),
-                  _buildDaySelector(isDark),
-                ],
-
-                if (_frequencyType == FrequencyType.interval) ...[
-                  const SizedBox(height: 16),
-                  _buildIntervalSelector(isDark),
-                ],
-
-                const SizedBox(height: 24),
-                _buildAdditionalInfo(isDark),
-                const SizedBox(height: 32),
-                _buildActionButtons(isEditing, isDark),
-              ],
+              ),
             ),
           ),
+
+          // Sticky Bottom Bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildStickyBottomBar(isEditing, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDosageUnitDropdown(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _dosageUnit,
+          isExpanded: true,
+          isDense: true,
+          dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+          items: _dosageUnits.map((unit) {
+            return DropdownMenuItem(value: unit, child: Text(unit));
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _dosageUnit = value);
+              HapticHelper.light();
+            }
+          },
         ),
       ),
     );
   }
 
-  Widget _buildPhotoSection(bool isDark) {
-    return Column(
+  Widget _buildFrequencySegmentedControl(bool isDark) {
+    final options = [
+      {'type': FrequencyType.daily, 'label': 'Daily'},
+      {'type': FrequencyType.specificDays, 'label': 'Days'},
+      {'type': FrequencyType.interval, 'label': 'Interval'},
+      {'type': FrequencyType.asNeeded, 'label': 'PRN'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: options.map((option) {
+          final isSelected = _frequencyType == option['type'];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _frequencyType = option['type'] as FrequencyType;
+                  if (_frequencyType == FrequencyType.asNeeded) {
+                    _reminderTimes.clear();
+                  } else if (_reminderTimes.isEmpty) {
+                    _reminderTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                  }
+                });
+                HapticHelper.selection();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? Colors.white : Colors.black)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  option['label'] as String,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? (isDark ? Colors.black : Colors.white)
+                        : (isDark ? Colors.white60 : Colors.black54),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildFrequencyDetails(bool isDark) {
+    switch (_frequencyType) {
+      case FrequencyType.daily:
+        return const SizedBox.shrink();
+
+      case FrequencyType.specificDays:
+        return _buildWeekdayChips(isDark);
+
+      case FrequencyType.interval:
+        return _buildIntervalInput(isDark);
+
+      case FrequencyType.asNeeded:
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1A1A1A).withOpacity(0.5)
+                : const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'As needed (no scheduled reminders)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  Widget _buildWeekdayChips(bool isDark) {
+    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(7, (index) {
+        final dayNum = index + 1;
+        final isSelected = _selectedDays.contains(dayNum);
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedDays.remove(dayNum);
+              } else {
+                _selectedDays.add(dayNum);
+              }
+            });
+            HapticHelper.selection();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isDark ? Colors.white : Colors.black)
+                  : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? (isDark ? Colors.white : Colors.black)
+                    : (isDark
+                          ? const Color(0xFF2A2A2A)
+                          : const Color(0xFFE5E5E5)),
+              ),
+            ),
+            child: Text(
+              days[index],
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? (isDark ? Colors.black : Colors.white)
+                    : (isDark ? Colors.white60 : Colors.black54),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildIntervalInput(bool isDark) {
+    return Row(
       children: [
+        Text(
+          'Every',
+          style: TextStyle(
+            fontSize: 15,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        const SizedBox(width: 12),
         Container(
-          width: 100,
-          height: 100,
+          width: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+            ),
+          ),
+          child: TextFormField(
+            initialValue: _intervalDays.toString(),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+            ),
+            onChanged: (value) {
+              final parsed = int.tryParse(value);
+              if (parsed != null && parsed >= 2 && parsed <= 30) {
+                setState(() => _intervalDays = parsed);
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'days',
+          style: TextStyle(
+            fontSize: 15,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReminderPreview(bool isDark) {
+    final preview = _generateReminderPreview();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.notifications_outlined,
+            size: 20,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              preview,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _generateReminderPreview() {
+    if (_frequencyType == FrequencyType.asNeeded) {
+      return 'No scheduled reminders. You can log doses anytime.';
+    }
+
+    if (_reminderTimes.isEmpty) {
+      return 'Please add at least one reminder time.';
+    }
+
+    final times = _reminderTimes.map((t) => t.format(context)).toList()..sort();
+    final timeStr = _formatTimesList(times);
+
+    switch (_frequencyType) {
+      case FrequencyType.daily:
+        return 'Reminds you every day at $timeStr.';
+
+      case FrequencyType.specificDays:
+        if (_selectedDays.isEmpty) {
+          return 'Please select at least one day.';
+        }
+        final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final selectedDayNames = _selectedDays.toList()..sort();
+        final daysStr = selectedDayNames
+            .map((d) => dayNames[d - 1])
+            .toList()
+            .join(', ')
+            .replaceAll(RegExp(r', ([^,]+)$'), r' and $1');
+        return 'Reminds you $daysStr at $timeStr.';
+
+      case FrequencyType.interval:
+        return 'Reminds you every $_intervalDays days at $timeStr (starting today).';
+
+      default:
+        return '';
+    }
+  }
+
+  String _formatTimesList(List<String> times) {
+    if (times.isEmpty) return '';
+    if (times.length == 1) return times[0];
+    if (times.length == 2) return '${times[0]} and ${times[1]}';
+
+    final allButLast = times.sublist(0, times.length - 1).join(', ');
+    return '$allButLast and ${times.last}';
+  }
+
+  Widget _buildAdditionalInfo(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () =>
+              setState(() => _showAdditionalInfo = !_showAdditionalInfo),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Additional Information',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    _showAdditionalInfo ? 'Hide' : 'Show',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _showAdditionalInfo ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (_showAdditionalInfo) ...[
+          const SizedBox(height: 16),
+          _buildPhotoSection(isDark),
+          const SizedBox(height: 16),
+          _buildMedicineTypeSelector(isDark),
+          const SizedBox(height: 16),
+          _buildColorSelector(isDark),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MinimalTextField(
+                  label: 'Stock',
+                  controller: _stockController,
+                  isDark: isDark,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MinimalTextField(
+                  label: 'Alert at',
+                  controller: _thresholdController,
+                  isDark: isDark,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _MinimalTextField(
+            label: 'Pharmacy Name',
+            controller: _pharmacyNameController,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 12),
+          _MinimalTextField(
+            label: 'Pharmacy Phone',
+            controller: _pharmacyPhoneController,
+            isDark: isDark,
+            keyboardType: TextInputType.phone,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPhotoSection(bool isDark) {
+    return Row(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
             ),
@@ -292,14 +848,14 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           child: _imagePath == null
               ? Icon(
                   Icons.medication_outlined,
-                  size: 40,
+                  size: 32,
                   color: isDark ? Colors.white24 : Colors.black26,
                 )
               : null,
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ImageButton(
               label: 'Camera',
@@ -307,7 +863,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               onPressed: () => _pickImage(ImageSource.camera),
               isDark: isDark,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(height: 8),
             _ImageButton(
               label: 'Gallery',
               icon: Icons.photo_library,
@@ -344,346 +900,21 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       },
     ];
 
-    return Row(
-      children: types.map((type) {
-        final isSelected = _selectedMedicineType == type['value'];
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedMedicineType = type['value'] as String;
-                  _selectedIcon = _iconFromType(type['value'] as String);
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (isDark ? Colors.white : Colors.black)
-                      : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? (isDark ? Colors.white : Colors.black)
-                        : (isDark
-                              ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFE5E5E5)),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    if (type['iconPath'] != null)
-                      Image.asset(
-                        type['iconPath'] as String,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.contain,
-                      )
-                    else
-                      Icon(
-                        Icons.medication_outlined,
-                        color: isSelected
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? Colors.white60 : Colors.black54),
-                        size: 24,
-                      ),
-                    const SizedBox(height: 6),
-                    Text(
-                      type['label'] as String,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? Colors.white60 : Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildColorSelector(bool isDark) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: AppColors.medicineColors.map((color) {
-        final isSelected = _selectedColor == color.value;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedColor = color.value),
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? (isDark ? Colors.white : Colors.black)
-                    : Colors.transparent,
-                width: 3,
-              ),
-            ),
-            child: isSelected
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : null,
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildAdditionalInfo(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () =>
-              setState(() => _showAdditionalInfo = !_showAdditionalInfo),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Additional Information',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    _showAdditionalInfo ? 'Hide' : 'Show more',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    _showAdditionalInfo ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.primary,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPhotoSection(isDark),
-              const SizedBox(height: 24),
-              _SectionLabel(label: 'Type', isDark: isDark),
-              const SizedBox(height: 12),
-              _buildMedicineTypeSelector(isDark),
-              const SizedBox(height: 24),
-              _SectionLabel(label: 'Color', isDark: isDark),
-              const SizedBox(height: 12),
-              _buildColorSelector(isDark),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MinimalTextField(
-                      label: 'Stock',
-                      controller: _stockController,
-                      isDark: isDark,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Required';
-                        if (int.tryParse(value) == null) return 'Invalid';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MinimalTextField(
-                      label: 'Alert at',
-                      controller: _thresholdController,
-                      isDark: isDark,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Required';
-                        if (int.tryParse(value) == null) return 'Invalid';
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildPharmacySection(isDark),
-              const SizedBox(height: 24),
-              _MinimalTextField(
-                label: 'Instructions',
-                hint: 'e.g., Take with food',
-                controller: _instructionsController,
-                isDark: isDark,
-              ),
-            ],
-          ),
-          crossFadeState: _showAdditionalInfo
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 300),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimeSelector(bool isDark) {
-    return GestureDetector(
-      onTap: _selectTime,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.access_time,
-              color: isDark ? Colors.white60 : Colors.black54,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              _selectedTime.format(context),
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.chevron_right,
-              color: isDark ? Colors.white38 : Colors.black38,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFrequencyOptions(bool isDark) {
-    final options = [
-      {'type': FrequencyType.daily, 'label': 'Daily'},
-      {'type': FrequencyType.specificDays, 'label': 'Specific Days'},
-      {'type': FrequencyType.interval, 'label': 'Every X days'},
-      {'type': FrequencyType.asNeeded, 'label': 'As Needed'},
-    ];
-
-    return Column(
-      children: options.map((option) {
-        final isSelected = _frequencyType == option['type'];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () => setState(
-              () => _frequencyType = option['type'] as FrequencyType,
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark
-                          ? Colors.white.withOpacity(0.05)
-                          : Colors.black.withOpacity(0.03))
-                    : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected
-                      ? (isDark ? Colors.white : Colors.black)
-                      : (isDark
-                            ? const Color(0xFF2A2A2A)
-                            : const Color(0xFFE5E5E5)),
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected
-                          ? (isDark ? Colors.white : Colors.black)
-                          : Colors.transparent,
-                      border: Border.all(
-                        color: isSelected
-                            ? (isDark ? Colors.white : Colors.black)
-                            : (isDark ? Colors.white38 : Colors.black38),
-                        width: 2,
-                      ),
-                    ),
-                    child: isSelected
-                        ? Icon(
-                            Icons.check,
-                            size: 12,
-                            color: isDark ? Colors.black : Colors.white,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    option['label'] as String,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildDaySelector(bool isDark) {
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: List.generate(7, (index) {
-        final dayNum = index + 1;
-        final isSelected = _selectedDays.contains(dayNum);
+      children: types.map((type) {
+        final isSelected = _selectedMedicineType == type['value'];
         return GestureDetector(
           onTap: () {
             setState(() {
-              if (isSelected) {
-                _selectedDays.remove(dayNum);
-              } else {
-                _selectedDays.add(dayNum);
-              }
+              _selectedMedicineType = type['value'] as String;
+              _selectedIcon = _iconFromType(type['value'] as String);
             });
           },
           child: Container(
-            width: 44,
-            height: 44,
+            width: (MediaQuery.of(context).size.width - 56) / 4,
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
                   ? (isDark ? Colors.white : Colors.black)
@@ -697,154 +928,69 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                           : const Color(0xFFE5E5E5)),
               ),
             ),
-            child: Center(
-              child: Text(
-                days[index],
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? (isDark ? Colors.black : Colors.white)
-                      : (isDark ? Colors.white60 : Colors.black54),
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildIntervalSelector(bool isDark) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text(
-              'Every',
-              style: TextStyle(
-                fontSize: 15,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 60,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF2A2A2A)
-                      : const Color(0xFFE5E5E5),
-                ),
-              ),
-              child: Center(
-                child: TextFormField(
-                  initialValue: _intervalDays.toString(),
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (value) {
-                    _intervalDays = int.tryParse(value) ?? 2;
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'days',
-              style: TextStyle(
-                fontSize: 15,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate:
-                  _endDate ?? DateTime.now().add(const Duration(days: 7)),
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-            );
-            if (picked != null) {
-              setState(() => _endDate = picked);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF2A2A2A)
-                    : const Color(0xFFE5E5E5),
-              ),
-            ),
-            child: Row(
+            child: Column(
               children: [
-                Icon(
-                  Icons.event,
-                  color: isDark ? Colors.white60 : Colors.black54,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _endDate != null
-                      ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
-                      : 'End date (optional)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: isDark ? Colors.white : Colors.black,
+                if (type['iconPath'] != null)
+                  Image.asset(
+                    type['iconPath'] as String,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                  )
+                else
+                  Icon(
+                    Icons.medication_outlined,
+                    color: isSelected
+                        ? (isDark ? Colors.black : Colors.white)
+                        : (isDark ? Colors.white60 : Colors.black54),
+                    size: 24,
                   ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  color: isDark ? Colors.white38 : Colors.black38,
-                  size: 20,
+                const SizedBox(height: 4),
+                Text(
+                  type['label'] as String,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? (isDark ? Colors.black : Colors.white)
+                        : (isDark ? Colors.white60 : Colors.black54),
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildPharmacySection(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionLabel(label: 'Pharmacy (Optional)', isDark: isDark),
-        const SizedBox(height: 12),
-        _MinimalTextField(
-          label: 'Pharmacy Name',
-          controller: _pharmacyNameController,
-          isDark: isDark,
-        ),
-        const SizedBox(height: 12),
-        _MinimalTextField(
-          label: 'Pharmacy Phone',
-          controller: _pharmacyPhoneController,
-          isDark: isDark,
-          keyboardType: TextInputType.phone,
-        ),
-      ],
+  Widget _buildColorSelector(bool isDark) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: AppColors.medicineColors.map((color) {
+        final isSelected = _selectedColor == color.value;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedColor = color.value),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected
+                    ? (isDark ? Colors.white : Colors.black)
+                    : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: isSelected
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : null,
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -902,21 +1048,41 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
   }
 
-  Widget _buildActionButtons(bool isEditing, bool isDark) {
-    return Column(
-      children: [
-        SizedBox(
+  Widget _buildStickyBottomBar(bool isEditing, bool isDark) {
+    final isValid = _isFormValid();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: _isSaving ? null : _saveMedicine,
+            onPressed: (_isSaving || !isValid) ? null : _saveMedicine,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? Colors.white : Colors.black,
-              foregroundColor: isDark ? Colors.black : Colors.white,
+              backgroundColor: isValid
+                  ? (isDark ? Colors.white : Colors.black)
+                  : (isDark ? Colors.white24 : Colors.black12),
+              foregroundColor: isValid
+                  ? (isDark ? Colors.black : Colors.white)
+                  : (isDark ? Colors.white38 : Colors.black38),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              disabledBackgroundColor: isDark ? Colors.white24 : Colors.black12,
+              disabledForegroundColor: isDark ? Colors.white38 : Colors.black38,
             ),
             child: _isSaving
                 ? SizedBox(
@@ -928,7 +1094,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     ),
                   )
                 : Text(
-                    isEditing ? 'Update Medicine' : 'Add Medicine',
+                    isEditing ? 'Update Medicine' : 'Save Medicine',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -936,29 +1102,12 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   ),
           ),
         ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white60 : Colors.black54,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  String _typeFromIcon(int icon) {
-    return _iconToMedicineType[icon] ?? 'tablet';
-  }
-
-  int _iconFromType(String type) {
-    return _medicineTypeIcons[type] ?? 1;
-  }
+  String _typeFromIcon(int icon) => _iconToMedicineType[icon] ?? 'tablet';
+  int _iconFromType(String type) => _medicineTypeIcons[type] ?? 1;
 
   Future<void> _pickImage(ImageSource source) async {
     final XFile? image = await _picker.pickImage(
@@ -967,51 +1116,68 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       maxHeight: 1000,
       imageQuality: 85,
     );
-    if (image != null) {
+    if (image != null) setState(() => _imagePath = image.path);
+  }
+
+  Future<void> _addCustomTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (picked != null && !_reminderTimes.contains(picked)) {
       setState(() {
-        _imagePath = image.path;
+        _reminderTimes.add(picked);
+        _reminderTimes.sort(
+          (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute),
+        );
       });
+      HapticHelper.selection();
     }
   }
 
-  Future<void> _selectTime() async {
+  void _addQuickTime(TimeOfDay time) {
+    if (!_reminderTimes.contains(time)) {
+      setState(() {
+        _reminderTimes.add(time);
+        _reminderTimes.sort(
+          (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute),
+        );
+      });
+      HapticHelper.selection();
+    }
+  }
+
+  Future<void> _editTime(TimeOfDay oldTime) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime,
+      initialTime: oldTime,
     );
-    if (picked != null) {
+    if (picked != null && picked != oldTime) {
       setState(() {
-        _selectedTime = picked;
+        final index = _reminderTimes.indexOf(oldTime);
+        _reminderTimes[index] = picked;
+        _reminderTimes.sort(
+          (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute),
+        );
       });
+      HapticHelper.selection();
     }
   }
 
   Future<void> _saveMedicine() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (_frequencyType == FrequencyType.specificDays && _selectedDays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select at least one day'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate() || !_isFormValid()) return;
 
     setState(() => _isSaving = true);
 
+    final dosageText = '${_dosageAmountController.text} $_dosageUnit';
+
     final medicine = Medicine(
       id: widget.medicine?.id,
-      name: _nameController.text,
-      dosage: _dosageController.text,
+      name: _nameController.text.trim(),
+      dosage: dosageText,
       typeIcon: _selectedIcon,
-      currentStock: int.parse(_stockController.text),
-      lowStockThreshold: int.parse(_thresholdController.text),
+      currentStock: int.tryParse(_stockController.text) ?? 10,
+      lowStockThreshold: int.tryParse(_thresholdController.text) ?? 5,
       color: _selectedColor,
       imagePath: _imagePath,
       pharmacyName: _pharmacyNameController.text.isNotEmpty
@@ -1034,31 +1200,31 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
 
     if (savedMedicine != null && savedMedicine.id != null) {
-      final frequencyDays = _frequencyType == FrequencyType.specificDays
-          ? (_selectedDays.toList()..sort())
-          : null;
+      if (_frequencyType != FrequencyType.asNeeded &&
+          _reminderTimes.isNotEmpty) {
+        final primaryTime = _reminderTimes.first;
+        final frequencyDays = _frequencyType == FrequencyType.specificDays
+            ? (_selectedDays.toList()..sort())
+            : null;
 
-      final schedule = Schedule(
-        medicineId: savedMedicine.id!,
-        timeOfDay:
-            '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-        frequencyType: _frequencyType,
-        frequencyDays: frequencyDays?.join(','),
-        intervalDays: _frequencyType == FrequencyType.interval
-            ? _intervalDays
-            : null,
-        startDate: _frequencyType == FrequencyType.interval
-            ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
-            : null,
-        endDate: _endDate != null
-            ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
-            : null,
-      );
+        final schedule = Schedule(
+          medicineId: savedMedicine.id!,
+          timeOfDay:
+              '${primaryTime.hour.toString().padLeft(2, '0')}:${primaryTime.minute.toString().padLeft(2, '0')}',
+          frequencyType: _frequencyType,
+          frequencyDays: frequencyDays?.join(','),
+          intervalDays: _frequencyType == FrequencyType.interval
+              ? _intervalDays
+              : null,
+          startDate: _frequencyType == FrequencyType.interval
+              ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
+              : null,
+        );
 
-      await scheduleProvider.addSchedule(schedule, savedMedicine);
+        await scheduleProvider.addSchedule(schedule, savedMedicine);
+      }
 
       if (mounted) {
-        await SoundHelper.playSuccess();
         await HapticHelper.success();
         setState(() => _isSaving = false);
         Navigator.pop(context);
@@ -1080,16 +1246,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       }
     }
 
-    if (mounted) {
-      setState(() => _isSaving = false);
-    }
+    if (mounted) setState(() => _isSaving = false);
   }
 }
 
 class _SectionLabel extends StatelessWidget {
   final String label;
   final bool isDark;
-
   const _SectionLabel({required this.label, required this.isDark});
 
   @override
@@ -1097,10 +1260,10 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       label,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white60 : Colors.black54,
-        letterSpacing: 0.5,
+        color: isDark ? Colors.white38 : Colors.black38,
+        letterSpacing: 1.0,
       ),
     );
   }
@@ -1128,16 +1291,18 @@ class _MinimalTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white60 : Colors.black54,
-            letterSpacing: 0.5,
+        if (label.isNotEmpty) ...[
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white38 : Colors.black38,
+              letterSpacing: 1.0,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 6),
+        ],
         TextFormField(
           controller: controller,
           validator: validator,
@@ -1150,7 +1315,7 @@ class _MinimalTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: isDark ? Colors.white38 : Colors.black38,
+              color: isDark ? Colors.white24 : Colors.black26,
             ),
             filled: true,
             fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
@@ -1174,17 +1339,111 @@ class _MinimalTextField extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
                 color: isDark ? Colors.white : Colors.black,
-                width: 2,
+                width: 1.5,
               ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.red),
             ),
-            contentPadding: const EdgeInsets.all(16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TimeChip extends StatelessWidget {
+  final TimeOfDay time;
+  final bool isDark;
+  final VoidCallback? onRemove;
+  final VoidCallback onTap;
+
+  const _TimeChip({
+    required this.time,
+    required this.isDark,
+    this.onRemove,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white : Colors.black,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              time.format(context),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.black : Colors.white,
+              ),
+            ),
+            if (onRemove != null) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: onRemove,
+                child: Icon(
+                  Icons.close,
+                  size: 16,
+                  color: isDark ? Colors.black : Colors.white,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickTimeChip extends StatelessWidget {
+  final String label;
+  final TimeOfDay time;
+  final bool isDark;
+  final Function(TimeOfDay) onTap;
+
+  const _QuickTimeChip({
+    required this.label,
+    required this.time,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(time),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1207,7 +1466,7 @@ class _ImageButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
           borderRadius: BorderRadius.circular(10),
@@ -1217,12 +1476,12 @@ class _ImageButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: isDark ? Colors.white : Colors.black),
+            Icon(icon, size: 16, color: isDark ? Colors.white : Colors.black),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black,
               ),
