@@ -10,15 +10,33 @@ import 'screens/dashboard_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'widgets/notification_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('🚀 App Starting...');
 
-  // Initialize services
-  await NotificationService.instance.initialize();
-  await SettingsService.instance.initialize();
+  try {
+    // Initialize services
+    debugPrint('🔔 Initializing NotificationService...');
+    await NotificationService.instance.initialize().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => debugPrint('⚠️ NotificationService init timed out'),
+    );
+    debugPrint('✅ NotificationService Initialized');
 
-  runApp(const PrivacyMedsApp());
+    debugPrint('⚙️ Initializing SettingsService...');
+    await SettingsService.instance.initialize().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => debugPrint('⚠️ SettingsService init timed out'),
+    );
+    debugPrint('✅ SettingsService Initialized');
+
+    runApp(const PrivacyMedsApp());
+  } catch (e, stack) {
+    debugPrint('🔴 Application Init Error: $e');
+    debugPrint(stack.toString());
+  }
 }
 
 class PrivacyMedsApp extends StatelessWidget {
@@ -42,6 +60,9 @@ class PrivacyMedsApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             home: const SplashScreen(),
+            builder: (context, child) {
+              return NotificationHandler(child: child!);
+            },
           );
         },
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../services/settings_service.dart';
+import '../services/notification_service.dart';
 import 'dashboard_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -48,19 +49,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _navigateToNext() async {
-    await Future.delayed(const Duration(seconds: 4));
+    // Simple basic timer - no fancy logic temporarily
+    await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
 
     final settings = Provider.of<SettingsService>(context, listen: false);
     
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => 
-            settings.onboardingCompleted ? const DashboardScreen() : const OnboardingScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 800),
+      MaterialPageRoute(
+        builder: (_) => settings.onboardingCompleted ? const DashboardScreen() : const OnboardingScreen(),
       ),
     );
   }
