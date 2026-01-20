@@ -34,7 +34,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late ConfettiController _confettiController;
   bool _showSuccessAnimation = false;
   late AnimationController _progressAnimationController;
@@ -43,6 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 1),
     );
@@ -58,7 +59,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadData();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _confettiController.dispose();
     _progressAnimationController.dispose();
     super.dispose();
@@ -725,110 +734,220 @@ class _StatsCard extends StatelessWidget {
     final percentage = (clampedRatio * 100).round();
     final remaining = max(total - completed, 0);
     final isComplete = remaining == 0 && total > 0;
+    
+    // Premium gradient colors
+    final gradientColors = isDark
+        ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
+        : [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)];
+    
+    final accentColor = isComplete 
+        ? const Color(0xFF10B981) // Emerald
+        : const Color(0xFF6366F1); // Indigo
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
-          width: 1,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradientColors,
         ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withOpacity(0.1) 
+              : Colors.black.withOpacity(0.05),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withOpacity(isDark ? 0.15 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
+          // Premium Progress Ring
           Container(
-            width: 72,
-            height: 72,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5),
+              gradient: RadialGradient(
+                colors: [
+                  accentColor.withOpacity(0.1),
+                  Colors.transparent,
+                ],
+              ),
             ),
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Outer glow ring
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+                // Background ring
                 SizedBox(
-                  width: 64,
-                  height: 64,
+                  width: 70,
+                  height: 70,
+                  child: CircularProgressIndicator(
+                    value: 1,
+                    strokeWidth: 6,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08),
+                    ),
+                  ),
+                ),
+                // Progress ring with animation
+                SizedBox(
+                  width: 70,
+                  height: 70,
                   child: AnimatedBuilder(
                     animation: animation,
                     builder: (context, child) => CircularProgressIndicator(
                       value: clampedRatio * animation.value,
-                      strokeWidth: 4,
-                      backgroundColor: isDark
-                          ? const Color(0xFF2A2A2A)
-                          : const Color(0xFFE5E5E5),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isComplete
-                            ? Colors.green
-                            : (isDark ? Colors.white70 : Colors.black54),
-                      ),
+                      strokeWidth: 6,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: Colors.transparent,
+                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                     ),
                   ),
                 ),
+                // Center content
                 if (isComplete)
-                  const Icon(Icons.check, color: Colors.green, size: 24)
-                else
-                  Text(
-                    '$percentage%',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black87,
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.15),
+                      shape: BoxShape.circle,
                     ),
+                    child: Icon(Icons.check_rounded, color: accentColor, size: 22),
+                  )
+                else
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$percentage',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text(
+                        '%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 24),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (isComplete) ...[
-                  Text(
-                    'You\'re done for today',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black,
-                      letterSpacing: -0.3,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'All done! ',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text('🎉', style: TextStyle(fontSize: 18)),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'All $total ${total == 1 ? 'medicine' : 'medicines'} taken ✓',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$total ${total == 1 ? 'medicine' : 'medicines'} taken',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: accentColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ] else ...[
                   Text(
-                    '$remaining ${remaining == 1 ? 'medicine' : 'medicines'} remaining',
+                    '$remaining ${remaining == 1 ? 'medicine' : 'medicines'}',
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                       color: isDark ? Colors.white : Colors.black,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
+                  Text(
+                    'remaining today',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   if (nextSchedule != null)
-                    Text(
-                      'Next at ${DateFormat.jm().format(nextSchedule!)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white60 : Colors.black54,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    )
-                  else
-                    Text(
-                      '${min(completed, total)} of $total taken',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white60 : Colors.black54,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.schedule_rounded, size: 14, color: accentColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Next at ${DateFormat.jm().format(nextSchedule!)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: accentColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -856,25 +975,36 @@ class _SectionTitle extends StatelessWidget {
       Text(
         title,
         style: TextStyle(
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: FontWeight.w700,
           color: isDark ? Colors.white : Colors.black,
-          letterSpacing: -0.3,
+          letterSpacing: -0.5,
         ),
       ),
-      const SizedBox(width: 8),
+      const SizedBox(width: 10),
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: isDark 
+                ? [const Color(0xFF3B3B5A), const Color(0xFF2A2A40)]
+                : [const Color(0xFFE8E8F0), const Color(0xFFD8D8E8)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Text(
           '$count',
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
       ),
@@ -895,207 +1025,293 @@ class _MinimalMedicineCard extends StatelessWidget {
   });
   bool get isCompleted => entry.medicineStatus == MedicineStatus.completed;
   bool get isOverdue => entry.medicineStatus == MedicineStatus.overdue;
+  
   @override
   Widget build(BuildContext context) {
+    final medicineColor = entry.medicine.colorValue;
+    final cardGradient = isDark
+        ? [const Color(0xFF1E1E2E), const Color(0xFF181825)]
+        : [Colors.white, const Color(0xFFFAFAFA)];
+    
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isCompleted 
+              ? (isDark 
+                  ? [const Color(0xFF1A2E1A), const Color(0xFF162516)]
+                  : [const Color(0xFFF0FDF4), const Color(0xFFE8F5E9)])
+              : cardGradient,
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
-          width: 1,
+          color: isCompleted
+              ? const Color(0xFF10B981).withOpacity(0.3)
+              : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04)),
+          width: 1.5,
         ),
         boxShadow: !isCompleted
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                  color: medicineColor.withOpacity(isDark ? 0.15 : 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ]
             : null,
       ),
-      child: Stack(
+      child: Column(
         children: [
-          if (!isCompleted)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                width: 3,
-                decoration: BoxDecoration(
-                  color: isOverdue
-                      ? Colors.red.withOpacity(0.6)
-                      : entry.medicine.colorValue.withOpacity(0.4),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-          Padding(
-            padding: EdgeInsets.only(left: !isCompleted ? 12 : 0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isCompleted
-                            ? Colors.green.withOpacity(0.1)
-                            : entry.medicine.colorValue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: isCompleted
-                          ? const Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                              size: 24,
-                            )
-                          : Image.asset(
-                              entry.medicine.iconAssetPath,
-                              width: 36,
-                              height: 36,
-                              fit: BoxFit.fitHeight,
-                            ),
+          Row(
+            children: [
+              // Accent bar for pending items
+              if (!isCompleted)
+                Container(
+                  width: 4,
+                  height: 52,
+                  margin: const EdgeInsets.only(right: 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isOverdue
+                          ? [Colors.red.shade400, Colors.red.shade600]
+                          : [medicineColor.withOpacity(0.8), medicineColor],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.medicine.name,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black,
-                              decoration: isCompleted
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              decorationColor: isDark
-                                  ? Colors.white38
-                                  : Colors.black38,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Text(
-                                DateFormat.jm().format(entry.scheduledDateTime),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isOverdue
-                                      ? Colors.red
-                                      : isDark
-                                      ? Colors.white60
-                                      : Colors.black54,
-                                  fontWeight: isOverdue
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                              ),
-                              if (entry.medicine.dosage.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  '•',
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white38
-                                        : Colors.black38,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  entry.medicine.dosage,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.white60
-                                        : Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (!isCompleted) ...[
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          label: 'Take',
-                          icon: Icons.check,
-                          onPressed: onTake,
-                          isPrimary: true,
-                          isDark: isDark,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: onSkip,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Text(
-                            'Skip',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: isDark ? Colors.white54 : Colors.black45,
-                            ),
-                          ),
-                        ),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isOverdue ? Colors.red : medicineColor).withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                ],
+                ),
+              // Medicine icon
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: isCompleted
+                      ? LinearGradient(
+                          colors: [
+                            const Color(0xFF10B981).withOpacity(0.15),
+                            const Color(0xFF10B981).withOpacity(0.08),
+                          ],
+                        )
+                      : LinearGradient(
+                          colors: [
+                            medicineColor.withOpacity(0.15),
+                            medicineColor.withOpacity(0.08),
+                          ],
+                        ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isCompleted
+                        ? const Color(0xFF10B981).withOpacity(0.2)
+                        : medicineColor.withOpacity(0.15),
+                    width: 1,
+                  ),
+                ),
+                child: isCompleted
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF10B981),
+                        size: 26,
+                      )
+                    : Center(
+                        child: Image.asset(
+                          entry.medicine.iconAssetPath,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 14),
+              // Medicine info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.medicine.name,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
+                        decorationColor: isDark
+                            ? Colors.white38
+                            : Colors.black38,
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isOverdue
+                                ? Colors.red.withOpacity(0.12)
+                                : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 12,
+                                color: isOverdue
+                                    ? Colors.red
+                                    : (isDark ? Colors.white54 : Colors.black45),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                DateFormat.jm().format(entry.scheduledDateTime),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isOverdue
+                                      ? Colors.red
+                                      : isDark
+                                          ? Colors.white60
+                                          : Colors.black54,
+                                  fontWeight: isOverdue
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (entry.medicine.dosage.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              entry.medicine.dosage,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (!isCompleted) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _PremiumActionButton(
+                    label: 'Take',
+                    icon: Icons.check_rounded,
+                    onPressed: onTake,
+                    isPrimary: true,
+                    isDark: isDark,
+                    accentColor: const Color(0xFF6366F1),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: onSkip,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Skip',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
+class _PremiumActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
   final bool isPrimary;
   final bool isDark;
-  const _ActionButton({
+  final Color accentColor;
+  
+  const _PremiumActionButton({
     required this.label,
     required this.icon,
     required this.onPressed,
     required this.isPrimary,
     required this.isDark,
+    required this.accentColor,
   });
+  
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onPressed,
     child: Container(
-      height: 44,
+      height: 48,
       decoration: BoxDecoration(
-        color: isPrimary
-            ? (isDark ? Colors.white : Colors.black)
-            : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF5F5F5)),
-        borderRadius: BorderRadius.circular(12),
+        gradient: isPrimary
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark 
+                    ? [Colors.white, const Color(0xFFE5E5E5)]
+                    : [const Color(0xFF1A1A1A), Colors.black],
+              )
+            : null,
+        color: isPrimary ? null : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF5F5F5)),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isPrimary
+            ? [
+                BoxShadow(
+                  color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1107,15 +1323,16 @@ class _ActionButton extends StatelessWidget {
                 ? (isDark ? Colors.black : Colors.white)
                 : (isDark ? Colors.white70 : Colors.black54),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
               color: isPrimary
                   ? (isDark ? Colors.black : Colors.white)
                   : (isDark ? Colors.white70 : Colors.black54),
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -1132,22 +1349,35 @@ class _MinimalFAB extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      height: 64,
-      width: 64,
+      height: 68,
+      width: 68,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white : Colors.black,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark 
+              ? [Colors.white, const Color(0xFFE8E8E8)]
+              : [const Color(0xFF2A2A2A), Colors.black],
+        ),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 16,
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.35),
+            blurRadius: 20,
             offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: (isDark ? Colors.white : const Color(0xFF6366F1)).withOpacity(0.2),
+            blurRadius: 40,
+            offset: const Offset(0, 4),
+            spreadRadius: 4,
           ),
         ],
       ),
       child: Icon(
-        Icons.add,
-        size: 28,
+        Icons.add_rounded,
+        size: 32,
         color: isDark ? Colors.black : Colors.white,
       ),
     ),

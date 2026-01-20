@@ -1065,57 +1065,99 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF121212) : Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark 
+              ? [const Color(0xFF121212).withOpacity(0.95), const Color(0xFF121212)]
+              : [Colors.white.withOpacity(0.95), Colors.white],
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: (_isSaving || !isValid) ? null : _saveMedicine,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isValid
-                  ? (isDark ? Colors.white : Colors.black)
-                  : (isDark ? Colors.white24 : Colors.black12),
-              foregroundColor: isValid
-                  ? (isDark ? Colors.black : Colors.white)
-                  : (isDark ? Colors.white38 : Colors.black38),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              disabledBackgroundColor: isDark ? Colors.white24 : Colors.black12,
-              disabledForegroundColor: isDark ? Colors.white38 : Colors.black38,
+        child: GestureDetector(
+          onTap: (_isSaving || !isValid) ? null : _saveMedicine,
+          child: Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: isValid
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark 
+                          ? [Colors.white, const Color(0xFFE8E8E8)]
+                          : [const Color(0xFF2A2A2A), Colors.black],
+                    )
+                  : null,
+              color: isValid ? null : (isDark ? Colors.white12 : Colors.black12),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: isValid
+                  ? [
+                      BoxShadow(
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.15),
+                        blurRadius: 24,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
             ),
             child: _isSaving
-                ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: isDark ? Colors.black : Colors.white,
+                ? Center(
+                    child: SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDark ? Colors.black : Colors.white,
+                        ),
+                      ),
                     ),
                   )
-                : Text(
-                    isEditing ? 'Update Medicine' : 'Save Medicine',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isEditing ? Icons.check_rounded : Icons.add_rounded,
+                        size: 22,
+                        color: isValid
+                            ? (isDark ? Colors.black : Colors.white)
+                            : (isDark ? Colors.white38 : Colors.black38),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        isEditing ? 'Save Changes' : 'Add Medicine',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isValid
+                              ? (isDark ? Colors.black : Colors.white)
+                              : (isDark ? Colors.white38 : Colors.black38),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
                   ),
           ),
         ),
       ),
     );
   }
+
 
   String _typeFromIcon(int icon) => _iconToMedicineType[icon] ?? 'tablet';
   int _iconFromType(String type) => _medicineTypeIcons[type] ?? 1;
@@ -1268,14 +1310,31 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white38 : Colors.black38,
-        letterSpacing: 1.0,
-      ),
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white54 : Colors.black54,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1386,30 +1445,57 @@ class _TimeChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white : Colors.black,
-          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark 
+                ? [Colors.white, const Color(0xFFE8E8E8)]
+                : [const Color(0xFF2A2A2A), Colors.black],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 16,
+              color: isDark ? Colors.black54 : Colors.white70,
+            ),
+            const SizedBox(width: 6),
             Text(
               time.format(context),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.black : Colors.white,
+                letterSpacing: -0.3,
               ),
             ),
             if (onRemove != null) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: onRemove,
-                child: Icon(
-                  Icons.close,
-                  size: 16,
-                  color: isDark ? Colors.black : Colors.white,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.black : Colors.white).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: isDark ? Colors.black : Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -1438,20 +1524,37 @@ class _QuickTimeChip extends StatelessWidget {
     return GestureDetector(
       onTap: () => onTap(time),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark 
+                ? [const Color(0xFF1E1E2E), const Color(0xFF181825)]
+                : [Colors.white, const Color(0xFFF5F5F5)],
           ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark 
+                ? Colors.white.withOpacity(0.1) 
+                : Colors.black.withOpacity(0.08),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
+            letterSpacing: -0.2,
           ),
         ),
       ),
