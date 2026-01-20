@@ -7,6 +7,8 @@ import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/onboarding_screen.dart';
 
 void main() async {
@@ -39,9 +41,7 @@ class PrivacyMedsApp extends StatelessWidget {
             themeMode: settings.themeMode,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
-            home: settings.onboardingCompleted 
-                ? const DashboardScreen() 
-                : const OnboardingScreen(),
+            home: const SplashScreen(),
           );
         },
       ),
