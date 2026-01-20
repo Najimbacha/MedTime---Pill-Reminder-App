@@ -26,6 +26,8 @@ import 'add_edit_medicine_screen.dart';
 import 'settings_screen.dart';
 import 'package:lottie/lottie.dart';
 import 'package:confetti/confetti.dart';
+import '../services/streak_service.dart';
+import 'achievements_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,6 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _showSuccessAnimation = false;
   late AnimationController _progressAnimationController;
   late Animation<double> _progressAnimation;
+  int _streak = 0;
 
   @override
   void initState() {
@@ -87,6 +90,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     await scheduleProvider.rescheduleAllNotifications(
       medicineProvider.medicines,
     );
+    // Update streak data
+    final streak = StreakService.instance.currentStreak;
+    if (mounted) setState(() => _streak = streak);
+    
     _progressAnimationController.forward(from: 0);
   }
 
@@ -222,6 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ? pendingEntries.first.scheduledDateTime
                                       : null,
                                   animation: _progressAnimation,
+                                  streak: _streak,
                                 ),
                                 const SizedBox(height: 32),
                                 if (pendingEntries.isNotEmpty) ...[
@@ -444,11 +452,21 @@ class _DashboardScreenState extends State<DashboardScreen>
         entry.scheduledDateTime,
       );
       await medicineProvider.decrementStock(entry.medicine.id!);
+      
+      // Update streak
+      final isPerfectDay = await StreakService.instance.onMedicineTaken();
+      
       if (mounted) {
         await HapticHelper.success();
         await SoundHelper.playSuccess();
-        await _loadData();
-        _triggerSuccessAnimation();
+        await _loadData(); // This will refresh streak count
+        
+        if (isPerfectDay) {
+          _confettiController.play();
+          _showFeedback('Perfect day! Streak increased! 🔥');
+        } else {
+          _triggerSuccessAnimation();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -720,12 +738,14 @@ class _StatsCard extends StatelessWidget {
   final bool isDark;
   final DateTime? nextSchedule;
   final Animation<double> animation;
+  final int streak;
   const _StatsCard({
     required this.completed,
     required this.total,
     required this.isDark,
     this.nextSchedule,
     required this.animation,
+    this.streak = 0,
   });
   @override
   Widget build(BuildContext context) {
@@ -872,83 +892,128 @@ class _StatsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 24),
+          // Stats Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isComplete) ...[
-                  Row(
-                    children: [
-                      Text(
-                        'All done! ',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text('🎉', style: TextStyle(fontSize: 18)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$total ${total == 1 ? 'medicine' : 'medicines'} taken',
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Daily Progress',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: accentColor,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ),
-                ] else ...[
-                  Text(
-                    '$remaining ${remaining == 1 ? 'medicine' : 'medicines'}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : Colors.black,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'remaining today',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white60 : Colors.black54,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (nextSchedule != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.schedule_rounded, size: 14, color: accentColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Next at ${DateFormat.jm().format(nextSchedule!)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: accentColor,
-                              fontWeight: FontWeight.w600,
+                    if (streak > 0)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AchievementsScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF5722).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFFFF5722).withOpacity(0.3),
+                              width: 1,
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.local_fire_department_rounded,
+                                color: Color(0xFFFF5722),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$streak',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF5722),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (isComplete) ...[
+                  Text(
+                    'All Done!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                      letterSpacing: -0.5,
+                    ),
+                  )
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '$completed',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        '/$total',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white38 : Colors.black26,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'doses',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white38 : Colors.black26,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (nextSchedule != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 14,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Next at ${DateFormat('h:mm a').format(nextSchedule!)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ],

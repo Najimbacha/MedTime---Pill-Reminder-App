@@ -5,10 +5,10 @@ import 'providers/schedule_provider.dart';
 import 'providers/log_provider.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
+import 'services/streak_service.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'widgets/notification_handler.dart';
 
@@ -31,6 +31,13 @@ void main() async {
       onTimeout: () => debugPrint('⚠️ SettingsService init timed out'),
     );
     debugPrint('✅ SettingsService Initialized');
+
+    debugPrint('🏆 Initializing StreakService...');
+    await StreakService.instance.initialize().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => debugPrint('⚠️ StreakService init timed out'),
+    );
+    debugPrint('✅ StreakService Initialized');
 
     runApp(const PrivacyMedsApp());
   } catch (e, stack) {

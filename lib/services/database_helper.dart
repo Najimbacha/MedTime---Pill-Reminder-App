@@ -321,4 +321,11 @@ class DatabaseHelper {
   Future<void> clearAllData() async {
     await resetAllData();
   }
+
+  /// Get all logs
+  Future<List<Log>> getAllLogs() async {
+    final db = await database;
+    final result = await db.query('logs', orderBy: 'scheduled_time DESC');
+    return result.map((json) => Log.fromMap(json)).toList();
+  }
 }
