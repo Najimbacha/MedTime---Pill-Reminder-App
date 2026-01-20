@@ -65,16 +65,15 @@ class Schedule {
     }
   }
 
-  /// Get next scheduled DateTime for today
+  /// Get next scheduled DateTime (today or next valid day)
   DateTime? getNextScheduledTime() {
-    if (!shouldTriggerToday()) return null;
-
     final now = DateTime.now();
     final parts = timeOfDay.split(':');
     final hour = int.parse(parts[0]);
     final minute = int.parse(parts[1]);
 
-    final scheduledTime = DateTime(
+    // Start with today's scheduled time
+    DateTime scheduledTime = DateTime(
       now.year,
       now.month,
       now.day,
@@ -82,10 +81,79 @@ class Schedule {
       minute,
     );
 
-    // If time has passed today, return null
-    if (scheduledTime.isBefore(now)) return null;
+    // If time has passed today, check for next valid day
+    if (scheduledTime.isBefore(now)) {
+      switch (frequencyType) {
+        case FrequencyType.daily:
+          // For daily, next is tomorrow
+          scheduledTime = scheduledTime.add(const Duration(days: 1));
+          break;
+        case FrequencyType.specificDays:
+          // Find next valid weekday
+          scheduledTime = _getNextSpecificDay(scheduledTime);
+          break;
+        case FrequencyType.interval:
+          // Find next interval day
+          scheduledTime = _getNextIntervalDay(scheduledTime);
+          break;
+        case FrequencyType.asNeeded:
+          // As needed schedules don't auto-schedule
+          return null;
+      }
+    } else {
+      // Time hasn't passed today - check if today is a valid day
+      if (!shouldTriggerToday()) {
+        switch (frequencyType) {
+          case FrequencyType.specificDays:
+            scheduledTime = _getNextSpecificDay(scheduledTime);
+            break;
+          case FrequencyType.interval:
+            scheduledTime = _getNextIntervalDay(scheduledTime);
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
+    // Check if scheduled time is within date range
+    if (endDate != null) {
+      final end = DateTime.parse(endDate!);
+      if (scheduledTime.isAfter(end)) return null;
+    }
 
     return scheduledTime;
+  }
+
+  /// Get next specific weekday for scheduling
+  DateTime _getNextSpecificDay(DateTime from) {
+    final days = daysList;
+    if (days.isEmpty) return from;
+
+    DateTime next = from;
+    for (int i = 0; i < 7; i++) {
+      next = from.add(Duration(days: i + 1));
+      if (days.contains(next.weekday)) {
+        return DateTime(next.year, next.month, next.day, 
+            int.parse(timeOfDay.split(':')[0]), 
+            int.parse(timeOfDay.split(':')[1]));
+      }
+    }
+    return from; // Fallback
+  }
+
+  /// Get next interval day for scheduling
+  DateTime _getNextIntervalDay(DateTime from) {
+    if (intervalDays == null || startDate == null) return from;
+    
+    final start = DateTime.parse(startDate!);
+    final daysSinceStart = from.difference(start).inDays;
+    final daysUntilNext = intervalDays! - (daysSinceStart % intervalDays!);
+    
+    final next = from.add(Duration(days: daysUntilNext));
+    return DateTime(next.year, next.month, next.day,
+        int.parse(timeOfDay.split(':')[0]),
+        int.parse(timeOfDay.split(':')[1]));
   }
 
   /// Get human-readable frequency description

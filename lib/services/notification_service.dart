@@ -14,7 +14,17 @@ class NotificationService {
   // Callback for when notification is tapped
   Function(int medicineId, String action)? onNotificationAction;
 
+  // Permission status
+  bool _notificationsPermissionGranted = false;
+  bool _exactAlarmsPermissionGranted = false;
+
   NotificationService._init();
+
+  // Getters for permission status
+  bool get notificationsPermissionGranted => _notificationsPermissionGranted;
+  bool get exactAlarmsPermissionGranted => _exactAlarmsPermissionGranted;
+  bool get allPermissionsGranted => 
+      _notificationsPermissionGranted && _exactAlarmsPermissionGranted;
 
   /// Initialize notification service
   Future<void> initialize() async {
@@ -43,30 +53,71 @@ class NotificationService {
     );
 
     // Request permissions
-    await _requestPermissions();
+    await requestAllPermissions();
   }
 
-  /// Request notification permissions
-  Future<void> _requestPermissions() async {
-    // Android 13+ requires runtime permission
+  /// Request all required permissions
+  Future<bool> requestAllPermissions() async {
+    _notificationsPermissionGranted = await _requestNotificationsPermission();
+    _exactAlarmsPermissionGranted = await _requestExactAlarmPermission();
+    return allPermissionsGranted;
+  }
+
+  /// Request notification permissions (Android 13+)
+  Future<bool> _requestNotificationsPermission() async {
+    if (!Platform.isAndroid) {
+      // iOS permissions are handled during initialization
+      return true;
+    }
+
     final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     
     if (androidPlugin != null) {
-      await androidPlugin.requestNotificationsPermission();
+      final granted = await androidPlugin.requestNotificationsPermission();
+      return granted ?? false;
+    }
+    return true;
+  }
+
+  /// Request exact alarm permission (Android 12+)
+  Future<bool> _requestExactAlarmPermission() async {
+    if (!Platform.isAndroid) {
+      return true;
     }
 
-    // iOS permissions
-    final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     
-    if (iosPlugin != null) {
-      await iosPlugin.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+    if (androidPlugin != null) {
+      final granted = await androidPlugin.requestExactAlarmsPermission();
+      return granted ?? false;
     }
+    return true;
+  }
+
+  /// Check if notifications are enabled
+  Future<bool> areNotificationsEnabled() async {
+    if (Platform.isAndroid) {
+      final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        return await androidPlugin.areNotificationsEnabled() ?? false;
+      }
+    }
+    return true;
+  }
+
+  /// Check if exact alarms can be scheduled
+  Future<bool> canScheduleExactAlarms() async {
+    if (Platform.isAndroid) {
+      final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        return await androidPlugin.canScheduleExactNotifications() ?? false;
+      }
+    }
+    return true;
   }
 
   /// Handle notification tap
@@ -94,13 +145,19 @@ class NotificationService {
     required String dosage,
     required DateTime scheduledTime,
   }) async {
-    // Create notification details with actions
+    // Create notification details with actions and custom sound
     final androidDetails = AndroidNotificationDetails(
       'medicine_reminders',
       'Medicine Reminders',
       channelDescription: 'Notifications for medicine reminders',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      sound: const RawResourceAndroidNotificationSound('alert'),
+      playSound: true,
+      enableVibration: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
       actions: [
         const AndroidNotificationAction(
           'take',
@@ -120,6 +177,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alert.mp3',
     );
 
     final notificationDetails = NotificationDetails(
@@ -150,8 +208,14 @@ class NotificationService {
       'medicine_reminders',
       'Medicine Reminders',
       channelDescription: 'Notifications for medicine reminders',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      sound: const RawResourceAndroidNotificationSound('alert'),
+      playSound: true,
+      enableVibration: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
       actions: [
         const AndroidNotificationAction(
           'take',
@@ -171,6 +235,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alert.mp3',
     );
 
     final notificationDetails = NotificationDetails(
@@ -236,6 +301,8 @@ class NotificationService {
       channelDescription: 'Alerts when medicine stock is low',
       importance: Importance.high,
       priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -269,6 +336,7 @@ class NotificationService {
       channelDescription: 'Reminders when it is time to refill medicine',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
+      playSound: true,
     );
 
     const iosDetails = DarwinNotificationDetails(

@@ -316,4 +316,9 @@ class DatabaseHelper {
     await db.delete('schedules');
     await db.delete('medicines');
   }
+
+  /// Backward-compatible alias for clearing all data
+  Future<void> clearAllData() async {
+    await resetAllData();
+  }
 }
