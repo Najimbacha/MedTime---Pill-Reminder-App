@@ -1281,18 +1281,45 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         await HapticHelper.success();
         setState(() => _isSaving = false);
         Navigator.pop(context);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              widget.medicine == null
-                  ? '✓ Medicine added successfully'
-                  : '✓ Medicine updated successfully',
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Color(0xFF10B981),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.medicine == null
+                      ? 'Medicine added successfully'
+                      : 'Medicine updated successfully',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.white,
+                  ),
+                ),
+              ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: isDark ? const Color(0xFF1E1E2E) : const Color(0xFF1A1A1A),
             behavior: SnackBarBehavior.floating,
+            elevation: 8,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
+            duration: const Duration(seconds: 2),
           ),
         );
         return;

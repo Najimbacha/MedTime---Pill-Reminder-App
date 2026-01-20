@@ -1,32 +1,43 @@
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import '../services/settings_service.dart';
 
-/// Utility class for audio feedback using bundled assets
+/// Utility class for audio feedback using system sounds
+/// Uses SystemSound for reliable cross-device compatibility
 class SoundHelper {
-  static final AudioPlayer _clickPlayer = AudioPlayer(playerId: 'click_player');
-  static final AudioPlayer _successPlayer = AudioPlayer(
-    playerId: 'success_player',
-  );
-  static final AudioPlayer _alertPlayer = AudioPlayer(playerId: 'alert_player');
-
-  static Future<void> _playAsset(AudioPlayer player, AssetSource source) async {
+  
+  static Future<void> playClick() async {
     if (!SettingsService.instance.soundEnabled) return;
     try {
-      await player.play(source);
-    } catch (_) {
-      // ignore failures; sound is optional
+      await SystemSound.play(SystemSoundType.click);
+    } catch (e) {
+      debugPrint('SoundHelper: click failed: $e');
     }
   }
 
-  static Future<void> playClick() async {
-    await _playAsset(_clickPlayer, AssetSource('sounds/click.mp3'));
-  }
-
   static Future<void> playSuccess() async {
-    await _playAsset(_successPlayer, AssetSource('sounds/success.mp3'));
+    if (!SettingsService.instance.soundEnabled) return;
+    try {
+      // Play click sound as success indicator (system sound)
+      await SystemSound.play(SystemSoundType.click);
+      // Add a small delay and play again for emphasis
+      await Future.delayed(const Duration(milliseconds: 100));
+      await SystemSound.play(SystemSoundType.click);
+    } catch (e) {
+      debugPrint('SoundHelper: success failed: $e');
+    }
   }
 
   static Future<void> playAlert() async {
-    await _playAsset(_alertPlayer, AssetSource('sounds/alert.mp3'));
+    if (!SettingsService.instance.soundEnabled) return;
+    try {
+      await SystemSound.play(SystemSoundType.alert);
+    } catch (e) {
+      debugPrint('SoundHelper: alert failed: $e');
+    }
+  }
+
+  static Future<void> dispose() async {
+    // Nothing to dispose for system sounds
   }
 }

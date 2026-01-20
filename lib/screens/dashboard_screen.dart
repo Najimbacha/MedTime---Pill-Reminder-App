@@ -1096,45 +1096,27 @@ class _MinimalMedicineCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              // Medicine icon
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: isCompleted
-                      ? LinearGradient(
-                          colors: [
-                            const Color(0xFF10B981).withOpacity(0.15),
-                            const Color(0xFF10B981).withOpacity(0.08),
-                          ],
-                        )
-                      : LinearGradient(
-                          colors: [
-                            medicineColor.withOpacity(0.15),
-                            medicineColor.withOpacity(0.08),
-                          ],
-                        ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isCompleted
-                        ? const Color(0xFF10B981).withOpacity(0.2)
-                        : medicineColor.withOpacity(0.15),
-                    width: 1,
-                  ),
-                ),
+              // Medicine icon - larger, no background
+              SizedBox(
+                width: 56,
+                height: 56,
                 child: isCompleted
-                    ? const Icon(
-                        Icons.check_circle_rounded,
-                        color: Color(0xFF10B981),
-                        size: 26,
-                      )
-                    : Center(
-                        child: Image.asset(
-                          entry.medicine.iconAssetPath,
-                          width: 32,
-                          height: 32,
-                          fit: BoxFit.contain,
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.15),
+                          shape: BoxShape.circle,
                         ),
+                        child: const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF10B981),
+                          size: 32,
+                        ),
+                      )
+                    : Image.asset(
+                        entry.medicine.iconAssetPath,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.contain,
                       ),
               ),
               const SizedBox(width: 14),
