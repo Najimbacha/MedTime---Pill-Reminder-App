@@ -45,6 +45,12 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
 
     try {
       final profile = authProvider.userProfile;
+      
+      // Auto-enable sharing when inviting a caregiver
+      if (profile != null && !profile.shareEnabled) {
+         await authProvider.setShareEnabled(true);
+      }
+
       _invite = await _authService.generateInviteCode(
         patientName: profile?.displayName,
       );

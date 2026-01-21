@@ -6,6 +6,7 @@ import '../models/log.dart';
 import '../models/medicine.dart';
 import 'auth_service.dart';
 import 'database_helper.dart';
+import 'caregiver_notification_service.dart';
 
 /// Service for syncing adherence data to Firestore
 /// Enables real-time sharing with caregivers
@@ -57,13 +58,26 @@ class SyncService extends ChangeNotifier {
         return;
       }
 
+      String statusStr;
+      switch (log.status) {
+        case LogStatus.take:
+          statusStr = 'taken';
+          break;
+        case LogStatus.skip:
+          statusStr = 'skipped';
+          break;
+        case LogStatus.missed:
+          statusStr = 'missed';
+          break;
+      }
+
       final data = SharedAdherenceData(
         id: '',
         odMedicineId: medicine.id.toString(),
         medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
         scheduledTime: log.scheduledTime,
         actualTime: log.actualTime,
-        status: log.status.name,
+        status: statusStr,
       );
 
       _isSyncing = true;
@@ -77,6 +91,17 @@ class SyncService extends ChangeNotifier {
 
       _lastSyncTime = DateTime.now();
       _syncError = null;
+      
+      // TRIGGER NOTIFICATION IF MISSED
+      if (log.status == LogStatus.missed && profile.linkedCaregiverIds.isNotEmpty) {
+        debugPrint('🔵 SyncService: Missed dose detected, sending alerts...');
+        await CaregiverNotificationService().sendMissedDoseAlert(
+          patientName: profile.displayName ?? 'Patient', 
+          medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
+          caregiverIds: profile.linkedCaregiverIds,
+        );
+      }
+      
       debugPrint('✅ SyncService.uploadAdherenceLog: Successfully synced');
     } catch (e) {
       debugPrint('⚠️ SyncService.uploadAdherenceLog: Error (non-fatal): $e');
@@ -208,13 +233,26 @@ class SyncService extends ChangeNotifier {
         final medicine = medicineMap[log.medicineId];
         if (medicine == null) continue;
 
+        String statusStr;
+        switch (log.status) {
+          case LogStatus.take:
+            statusStr = 'taken';
+            break;
+          case LogStatus.skip:
+            statusStr = 'skipped';
+            break;
+          case LogStatus.missed:
+            statusStr = 'missed';
+            break;
+        }
+
         final data = SharedAdherenceData(
           id: '',
           odMedicineId: medicine.id.toString(),
           medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
           scheduledTime: log.scheduledTime,
           actualTime: log.actualTime,
-          status: log.status.name,
+          status: statusStr,
         );
 
         // Check if already synced

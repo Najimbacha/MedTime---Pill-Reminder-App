@@ -3,6 +3,8 @@ import '../models/medicine.dart';
 import '../services/database_helper.dart';
 import '../services/notification_service.dart';
 import '../models/schedule.dart';
+import '../services/auth_service.dart';
+import '../services/caregiver_notification_service.dart';
 
 /// Provider for managing medicines
 class MedicineProvider with ChangeNotifier {
@@ -94,11 +96,28 @@ class MedicineProvider with ChangeNotifier {
 
         // Check if stock is now low and show alert
         if (updatedMedicine.isLowStock) {
+          // Local Alert
           await _notifications.showLowStockAlert(
             medicineId: medicineId,
             medicineName: updatedMedicine.name,
             currentStock: updatedMedicine.currentStock,
           );
+
+          // Remote Alert (Caregivers)
+          try {
+             final authService = AuthService();
+             final profile = await authService.getCurrentUserProfile();
+             if (profile != null && profile.shareEnabled && profile.linkedCaregiverIds.isNotEmpty) {
+               await CaregiverNotificationService().sendLowStockAlert(
+                 patientName: profile.displayName ?? 'Patient',
+                 medicineName: updatedMedicine.name,
+                 remainingCount: updatedMedicine.currentStock,
+                 caregiverIds: profile.linkedCaregiverIds,
+               );
+             }
+          } catch (e) {
+            debugPrint('Error sending remote low stock alert: $e');
+          }
         }
 
         await _updateRefillReminder(updatedMedicine);

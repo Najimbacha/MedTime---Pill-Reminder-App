@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
+import '../services/caregiver_notification_service.dart';
 
 /// State management for authentication
 class AuthProvider extends ChangeNotifier {
@@ -32,6 +33,15 @@ class AuthProvider extends ChangeNotifier {
 
     if (user != null) {
       await _loadUserProfile();
+      
+      // Initialize notifications and update token
+      try {
+        final notificationService = CaregiverNotificationService();
+        await notificationService.initialize();
+        await notificationService.updateToken(user.uid);
+      } catch (e) {
+        debugPrint('Error initializing notifications: $e');
+      }
     } else {
       _userProfile = null;
     }

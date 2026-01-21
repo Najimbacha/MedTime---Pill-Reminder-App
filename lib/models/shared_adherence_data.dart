@@ -53,13 +53,18 @@ class SharedAdherenceData {
   }
 
   factory SharedAdherenceData.fromMap(String id, Map<String, dynamic> map) {
+    String rawStatus = map['status'] ?? 'taken';
+    // Normalize legacy/incorrect status strings
+    if (rawStatus == 'take') rawStatus = 'taken';
+    if (rawStatus == 'skip') rawStatus = 'skipped';
+
     return SharedAdherenceData(
       id: id,
       odMedicineId: map['odMedicineId'] ?? '',
       medicineName: map['medicineName'] ?? '',
       scheduledTime: (map['scheduledTime'] as Timestamp).toDate(),
       actualTime: (map['actualTime'] as Timestamp?)?.toDate(),
-      status: map['status'] ?? 'taken',
+      status: rawStatus,
       syncedAt: (map['syncedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
