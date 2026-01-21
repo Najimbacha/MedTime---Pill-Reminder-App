@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1046606710142",
+    "project_id": "medtime-50ea6",
+    "storage_bucket": "medtime-50ea6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1046606710142:android:b15d6a3429727a5ac61f2f",
+        "android_client_info": {
+          "package_name": "com.privacymeds.privacy_meds"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1046606710142-5a472814d99ampg0fajmlfm0f90chft3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.privacymeds.privacy_meds",
+            "certificate_hash": "db2122a3210226975682e964bd29855067f46ce2"
+          }
+        },
+        {
+          "client_id": "1046606710142-gcarcuhhg66hem13oo6gnvuvc0vq0ffh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqIN_Fn_R4cjv59Nond9BtdzE1MKdRQSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1046606710142-gcarcuhhg66hem13oo6gnvuvc0vq0ffh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

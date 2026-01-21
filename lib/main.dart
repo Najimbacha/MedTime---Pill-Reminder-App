@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'providers/medicine_provider.dart';
 import 'providers/schedule_provider.dart';
 import 'providers/log_provider.dart';
+import 'providers/auth_provider.dart';
+import 'providers/sync_provider.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/streak_service.dart';
@@ -17,6 +21,19 @@ void main() async {
   debugPrint('🚀 App Starting...');
 
   try {
+    // Initialize Firebase
+    debugPrint('🔥 Initializing Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        debugPrint('⚠️ Firebase init timed out - continuing without cloud features');
+        throw TimeoutException('Firebase init timed out');
+      },
+    );
+    debugPrint('✅ Firebase Initialized');
+
     // Initialize services
     debugPrint('🔔 Initializing NotificationService...');
     await NotificationService.instance.initialize().timeout(
@@ -43,7 +60,15 @@ void main() async {
   } catch (e, stack) {
     debugPrint('🔴 Application Init Error: $e');
     debugPrint(stack.toString());
+    // Run app anyway - Firebase features will be unavailable
+    runApp(const PrivacyMedsApp());
   }
+}
+
+/// Custom timeout exception
+class TimeoutException implements Exception {
+  final String message;
+  TimeoutException(this.message);
 }
 
 class PrivacyMedsApp extends StatelessWidget {
@@ -56,6 +81,8 @@ class PrivacyMedsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MedicineProvider()),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
         ChangeNotifierProvider(create: (_) => LogProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => SyncProvider()),
         ChangeNotifierProvider.value(value: SettingsService.instance),
       ],
       child: Consumer<SettingsService>(

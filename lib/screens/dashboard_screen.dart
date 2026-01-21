@@ -10,6 +10,7 @@ import '../models/schedule.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
+import '../providers/auth_provider.dart';
 import '../core/components/progress_ring.dart';
 import '../core/components/section_header.dart';
 import '../core/components/timeline_item.dart';
@@ -364,29 +365,89 @@ class _DashboardScreenState extends State<DashboardScreen>
     return true;
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
   SliverAppBar _buildAppBar(bool isDark) {
+    final authProvider = context.watch<AuthProvider>();
+    final name = authProvider.userProfile?.displayName 
+                 ?? authProvider.firebaseUser?.displayName 
+                 ?? 'Friend';
+    final photoUrl = authProvider.firebaseUser?.photoURL;
+
     return SliverAppBar(
       floating: false,
       pinned: true,
       expandedHeight: 0,
-      toolbarHeight: 64,
+      toolbarHeight: 70, // Slightly taller for avatar
       backgroundColor: isDark
           ? const Color(0xFF0A0A0A)
           : const Color(0xFFFAFAFA),
       elevation: 0,
-      title: Text(
-        DateFormat('EEEE').format(DateTime.now()),
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: isDark ? Colors.white : Colors.black,
-        ),
+      title: Row(
+        children: [
+          // Avatar
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+              child: photoUrl == null
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Greeting & Name
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _getGreeting(),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       actions: [
         IconButton(
           icon: Icon(
             Icons.settings_outlined,
             color: isDark ? Colors.white : Colors.black,
+            size: 28,
           ),
           onPressed: () => Navigator.push(
             context,
@@ -444,23 +505,43 @@ class _DashboardScreenState extends State<DashboardScreen>
     MedicineProvider medicineProvider,
     LogProvider logProvider,
   ) async {
+    // Guard against null medicine ID
+    final medicineId = entry.medicine.id;
+    if (medicineId == null) {
+      debugPrint('❌ _handleTake: medicine.id is null!');
+      _showFeedback('Error: Invalid medicine', isError: true);
+      return;
+    }
+
+    debugPrint('🔵 _handleTake: Starting for ${entry.medicine.name} (id: $medicineId)');
     await HapticHelper.light();
-    setState(() {});
+
     try {
+      debugPrint('🔵 _handleTake: Calling markAsTaken...');
       await logProvider.markAsTaken(
-        entry.medicine.id!,
+        medicineId,
         entry.scheduledDateTime,
+        medicine: entry.medicine,
       );
-      await medicineProvider.decrementStock(entry.medicine.id!);
-      
+      debugPrint('✅ _handleTake: markAsTaken completed');
+
+      debugPrint('🔵 _handleTake: Decrementing stock...');
+      await medicineProvider.decrementStock(medicineId);
+      debugPrint('✅ _handleTake: Stock decremented');
+
       // Update streak
+      debugPrint('🔵 _handleTake: Updating streak...');
       final isPerfectDay = await StreakService.instance.onMedicineTaken();
-      
+      debugPrint('✅ _handleTake: Streak updated (perfectDay: $isPerfectDay)');
+
       if (mounted) {
         await HapticHelper.success();
         await SoundHelper.playSuccess();
-        await _loadData(); // This will refresh streak count
         
+        debugPrint('🔵 _handleTake: Reloading data...');
+        await _loadData();
+        debugPrint('✅ _handleTake: Data reloaded');
+
         if (isPerfectDay) {
           _confettiController.play();
           _showFeedback('Perfect day! Streak increased! 🔥');
@@ -468,11 +549,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           _triggerSuccessAnimation();
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ _handleTake ERROR: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
       if (mounted) {
         await HapticHelper.error();
-        _showFeedback('Failed to mark as taken', isError: true);
-        setState(() {});
+        _showFeedback('Failed to mark as taken: $e', isError: true);
       }
     }
   }
@@ -481,17 +563,36 @@ class _DashboardScreenState extends State<DashboardScreen>
     _ScheduleEntry entry,
     LogProvider logProvider,
   ) async {
+    // Guard against null medicine ID
+    final medicineId = entry.medicine.id;
+    if (medicineId == null) {
+      debugPrint('❌ _handleSkip: medicine.id is null!');
+      _showFeedback('Error: Invalid medicine', isError: true);
+      return;
+    }
+
+    debugPrint('🔵 _handleSkip: Starting for ${entry.medicine.name} (id: $medicineId)');
     await HapticHelper.warning();
     await SoundHelper.playAlert();
+
     try {
+      debugPrint('🔵 _handleSkip: Calling markAsSkipped...');
       await logProvider.markAsSkipped(
-        entry.medicine.id!,
+        medicineId,
         entry.scheduledDateTime,
+        medicine: entry.medicine,
       );
+      debugPrint('✅ _handleSkip: markAsSkipped completed');
+
+      debugPrint('🔵 _handleSkip: Reloading data...');
       await _loadData();
+      debugPrint('✅ _handleSkip: Data reloaded');
+
       if (mounted) setState(() {});
-    } catch (e) {
-      if (mounted) _showFeedback('Failed to skip', isError: true);
+    } catch (e, stackTrace) {
+      debugPrint('❌ _handleSkip ERROR: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      if (mounted) _showFeedback('Failed to skip: $e', isError: true);
     }
   }
 
@@ -534,9 +635,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     return logs.firstWhereOrNull(
       (log) =>
           log.medicineId == medicineId &&
+          log.scheduledTime.year == scheduledDateTime.year &&
+          log.scheduledTime.month == scheduledDateTime.month &&
+          log.scheduledTime.day == scheduledDateTime.day &&
           log.scheduledTime.hour == scheduledDateTime.hour &&
-          log.scheduledTime.minute == scheduledDateTime.minute &&
-          log.scheduledTime.day == scheduledDateTime.day,
+          log.scheduledTime.minute == scheduledDateTime.minute,
     );
   }
 

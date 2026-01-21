@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/log.dart';
+import '../models/medicine.dart';
 import '../models/schedule.dart'; // Added import for Schedule
 import '../services/database_helper.dart';
+import '../services/sync_service.dart';
 
 /// Provider for managing adherence logs
 class LogProvider with ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
+  final SyncService _syncService = SyncService();
 
   List<Log> _logs = [];
   bool _isLoading = false;
@@ -20,7 +23,8 @@ class LogProvider with ChangeNotifier {
     final endOfDay = startOfDay.add(const Duration(days: 1));
     
     return _logs.where((log) {
-      return log.scheduledTime.isAfter(startOfDay) &&
+      // Use >= for start to include logs at exactly midnight
+      return !log.scheduledTime.isBefore(startOfDay) &&
           log.scheduledTime.isBefore(endOfDay);
     }).toList();
   }
@@ -37,11 +41,15 @@ class LogProvider with ChangeNotifier {
 
     try {
       // Load last 30 days of logs
-      final endDate = DateTime.now();
-      final startDate = endDate.subtract(const Duration(days: 30));
-      _logs = await _db.getLogsByDateRange(startDate, endDate);
+      // IMPORTANT: Use end of today, not DateTime.now(), to include logs 
+      // with scheduled times later today (e.g., 6 PM when it's currently 1 PM)
+      final now = DateTime.now();
+      final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      final startDate = now.subtract(const Duration(days: 30));
+      _logs = await _db.getLogsByDateRange(startDate, endOfToday);
+      debugPrint('✅ LogProvider.loadLogs: Loaded ${_logs.length} logs');
     } catch (e) {
-      debugPrint('Error loading logs: $e');
+      debugPrint('❌ Error loading logs: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -50,14 +58,44 @@ class LogProvider with ChangeNotifier {
 
   /// Add a new log entry
   Future<Log?> addLog(Log log) async {
+    debugPrint('🔵 LogProvider.addLog: Adding log for medicineId=${log.medicineId}, status=${log.status.name}');
     try {
       final newLog = await _db.createLog(log);
+      debugPrint('✅ LogProvider.addLog: Created log with id=${newLog.id}');
       _logs.insert(0, newLog); // Add to beginning for chronological order
+      debugPrint('✅ LogProvider.addLog: Added to local list, notifying listeners');
       notifyListeners();
       return newLog;
-    } catch (e) {
-      debugPrint('Error adding log: $e');
-      return null;
+    } catch (e, stackTrace) {
+      debugPrint('❌ LogProvider.addLog ERROR: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      rethrow; // Re-throw so calling code knows about the error
+    }
+  }
+
+  /// Add a log and sync to cloud
+  Future<Log?> addLogWithSync(Log log, Medicine medicine) async {
+    debugPrint('🔵 LogProvider.addLogWithSync: Adding log for ${medicine.name} (id=${log.medicineId})');
+    try {
+      final newLog = await _db.createLog(log);
+      debugPrint('✅ LogProvider.addLogWithSync: Created log with id=${newLog.id}');
+      _logs.insert(0, newLog);
+      debugPrint('✅ LogProvider.addLogWithSync: Added to local list, notifying listeners');
+      notifyListeners();
+
+      // Sync to cloud (fire and forget, don't block UI)
+      debugPrint('🔵 LogProvider.addLogWithSync: Starting cloud sync (async)...');
+      _syncService.uploadAdherenceLog(log: newLog, medicine: medicine).then((_) {
+        debugPrint('✅ LogProvider.addLogWithSync: Cloud sync completed');
+      }).catchError((e) {
+        debugPrint('⚠️ LogProvider.addLogWithSync: Cloud sync failed (non-blocking): $e');
+      });
+
+      return newLog;
+    } catch (e, stackTrace) {
+      debugPrint('❌ LogProvider.addLogWithSync ERROR: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      rethrow; // Re-throw so calling code knows about the error
     }
   }
 
@@ -78,36 +116,51 @@ class LogProvider with ChangeNotifier {
   }
 
   /// Mark medicine as taken
-  Future<void> markAsTaken(int medicineId, DateTime scheduledTime) async {
+  Future<void> markAsTaken(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.take,
     );
-    await addLog(log);
+    
+    if (medicine != null) {
+      await addLogWithSync(log, medicine);
+    } else {
+      await addLog(log);
+    }
   }
 
   /// Mark medicine as skipped
-  Future<void> markAsSkipped(int medicineId, DateTime scheduledTime) async {
+  Future<void> markAsSkipped(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.skip,
     );
-    await addLog(log);
+    
+    if (medicine != null) {
+      await addLogWithSync(log, medicine);
+    } else {
+      await addLog(log);
+    }
   }
 
   /// Mark medicine as missed
-  Future<void> markAsMissed(int medicineId, DateTime scheduledTime) async {
+  Future<void> markAsMissed(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: null,
       status: LogStatus.missed,
     );
-    await addLog(log);
+    
+    if (medicine != null) {
+      await addLogWithSync(log, medicine);
+    } else {
+      await addLog(log);
+    }
   }
 
   /// Get adherence statistics for a date range
