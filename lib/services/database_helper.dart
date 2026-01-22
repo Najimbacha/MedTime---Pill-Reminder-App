@@ -155,6 +155,15 @@ class DatabaseHelper {
     );
   }
 
+  /// Increment medicine stock by 1
+  Future<void> incrementStock(int medicineId) async {
+    final db = await database;
+    await db.rawUpdate(
+      'UPDATE medicines SET current_stock = current_stock + 1 WHERE id = ?',
+      [medicineId],
+    );
+  }
+
   /// Delete all stored data
   Future<void> deleteAllData() async {
     final db = await database;
@@ -238,7 +247,7 @@ class DatabaseHelper {
       'logs',
       where: 'medicine_id = ?',
       whereArgs: [medicineId],
-      orderBy: 'scheduled_time DESC',
+      orderBy: 'scheduled_time DESC, id DESC',
     );
     return result.map((map) => Log.fromMap(map)).toList();
   }
@@ -250,7 +259,8 @@ class DatabaseHelper {
       'logs',
       where: 'scheduled_time BETWEEN ? AND ?',
       whereArgs: [start.toIso8601String(), end.toIso8601String()],
-      orderBy: 'scheduled_time DESC',
+      // Sort by time DESC, then by param ID DESC to ensure latest log (e.g. undo/redo) is first
+      orderBy: 'scheduled_time DESC, id DESC',
     );
     return result.map((map) => Log.fromMap(map)).toList();
   }

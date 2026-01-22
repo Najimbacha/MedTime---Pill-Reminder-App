@@ -19,6 +19,7 @@ import '../providers/schedule_provider.dart';
 import '../services/interaction_service.dart';
 import '../utils/sound_helper.dart';
 import '../utils/haptic_helper.dart';
+import '../utils/common_medicines.dart';
 
 /// Screen for adding or editing a medicine
 class AddEditMedicineScreen extends StatefulWidget {
@@ -260,11 +261,88 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     // Medicine Section
                     _SectionLabel(label: 'MEDICINE', isDark: isDark),
                     const SizedBox(height: 8),
-                    _MinimalTextField(
-                      label: '',
-                      hint: 'e.g., Aspirin',
-                      controller: _nameController,
-                      isDark: isDark,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text == '') {
+                              return const Iterable<String>.empty();
+                            }
+                            return CommonMedicines.names.where((String option) {
+                              return option.toLowerCase().contains(
+                                    textEditingValue.text.toLowerCase(),
+                                  );
+                            });
+                          },
+                          onSelected: (String selection) {
+                            _nameController.text = selection;
+                            final defaultMed = CommonMedicines.find(selection);
+                            if (defaultMed != null) {
+                              setState(() {
+                                _selectedIcon = defaultMed.typeIcon;
+                                _selectedColor = defaultMed.color;
+                                // Also try to guess type string
+                                _selectedMedicineType = _iconToMedicineType[_selectedIcon] ?? 'tablet';
+                              });
+                              HapticHelper.medium();
+                            }
+                          },
+                          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                            // Sync internal controller with our form controller
+                            if (controller.text != _nameController.text) {
+                               controller.text = _nameController.text;
+                            }
+                            // Listen to changes to update our controller (for form validation)
+                            // Actually, better to just use the one controller.
+                            // But Autocomplete wants its own. 
+                            // Let's attach our listener to the passed controller to sync back.
+                            return _MinimalTextField(
+                              label: '',
+                              hint: 'e.g., Aspirin',
+                              controller: controller, // Use Autocomplete's controller
+                              focusNode: focusNode,
+                              isDark: isDark,
+                              onChanged: (val) {
+                                  _nameController.text = val;
+                                  _checkForInteractions(); // Trigger interaction check
+                              },
+                            );
+                          },
+                          optionsViewBuilder: (context, onSelected, options) {
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: Material(
+                                elevation: 8,
+                                borderRadius: BorderRadius.circular(16),
+                                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                                child: Container(
+                                  width: constraints.maxWidth,
+                                  constraints: const BoxConstraints(maxHeight: 200),
+                                  decoration: BoxDecoration(
+                                     borderRadius: BorderRadius.circular(16),
+                                     color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                                  ),
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    shrinkWrap: true,
+                                    itemCount: options.length,
+                                    itemBuilder: (BuildContext context, int index) {
+                                      final String option = options.elementAt(index);
+                                      return ListTile(
+                                        title: Text(
+                                            option,
+                                            style: TextStyle(color: isDark ? Colors.white : Colors.black)
+                                        ),
+                                        onTap: () => onSelected(option),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }
                     ),
                     const SizedBox(height: 24),
 
@@ -432,24 +510,37 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildDosageUnitDropdown(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.black.withOpacity(0.08),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _dosageUnit,
           isExpanded: true,
-          isDense: true,
           dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black,
+          ),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: isDark ? Colors.white70 : Colors.black54,
           ),
           items: _dosageUnits.map((unit) {
             return DropdownMenuItem(value: unit, child: Text(unit));
@@ -476,8 +567,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
       ),
       child: Row(
         children: options.map((option) {
@@ -495,13 +588,23 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 });
                 HapticHelper.selection();
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDark ? Colors.white : Colors.black)
+                      ? (isDark ? const Color(0xFF6366F1) : Colors.white)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   option['label'] as String,
@@ -510,8 +613,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isSelected
-                        ? (isDark ? Colors.black : Colors.white)
-                        : (isDark ? Colors.white60 : Colors.black54),
+                        ? (isDark ? Colors.white : Colors.black)
+                        : (isDark ? Colors.white54 : Colors.black54),
                   ),
                 ),
               ),
@@ -889,82 +992,82 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildMedicineTypeSelector(bool isDark) {
     final types = [
-      {
-        'label': 'Tablet',
-        'value': 'tablet',
-        'iconPath': _medicineTypeIconPaths['tablet'],
-      },
-      {
-        'label': 'Liquid',
-        'value': 'liquid',
-        'iconPath': _medicineTypeIconPaths['liquid'],
-      },
-      {
-        'label': 'Injection',
-        'value': 'injection',
-        'iconPath': _medicineTypeIconPaths['injection'],
-      },
-      {
-        'label': 'Drop',
-        'value': 'drop',
-        'iconPath': _medicineTypeIconPaths['drop'],
-      },
+      {'label': 'Tablet', 'value': 'tablet', 'iconPath': _medicineTypeIconPaths['tablet']},
+      {'label': 'Liquid', 'value': 'liquid', 'iconPath': _medicineTypeIconPaths['liquid']},
+      {'label': 'Injection', 'value': 'injection', 'iconPath': _medicineTypeIconPaths['injection']},
+      {'label': 'Drop', 'value': 'drop', 'iconPath': _medicineTypeIconPaths['drop']},
     ];
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 12,
+      runSpacing: 12,
       children: types.map((type) {
         final isSelected = _selectedMedicineType == type['value'];
+        final primaryColor = Color(_selectedColor);
+        
         return GestureDetector(
           onTap: () {
             setState(() {
               _selectedMedicineType = type['value'] as String;
               _selectedIcon = _iconFromType(type['value'] as String);
             });
+            HapticHelper.selection();
           },
-          child: Container(
-            width: (MediaQuery.of(context).size.width - 56) / 4,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: (MediaQuery.of(context).size.width - 70) / 4,
+            height: 90,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? (isDark ? Colors.white : Colors.black)
-                  : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
-              borderRadius: BorderRadius.circular(12),
+                  ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1))
+                  : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected
-                    ? (isDark ? Colors.white : Colors.black)
-                    : (isDark
-                          ? const Color(0xFF2A2A2A)
-                          : const Color(0xFFE5E5E5)),
+                    ? primaryColor
+                    : (isDark ? Colors.white10 : Colors.grey.shade200),
+                width: isSelected ? 2 : 1.5,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      )
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
             ),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (type['iconPath'] != null)
                   Image.asset(
                     type['iconPath'] as String,
-                    width: 32,
-                    height: 32,
-                    fit: BoxFit.contain,
+                    width: 36,
+                    height: 36,
+                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
                   )
                 else
                   Icon(
                     Icons.medication_outlined,
-                    color: isSelected
-                        ? (isDark ? Colors.black : Colors.white)
-                        : (isDark ? Colors.white60 : Colors.black54),
-                    size: 24,
+                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
+                    size: 32,
                   ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   type['label'] as String,
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? (isDark ? Colors.black : Colors.white)
-                        : (isDark ? Colors.white60 : Colors.black54),
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
                   ),
                 ),
               ],
@@ -976,32 +1079,49 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Widget _buildColorSelector(bool isDark) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: AppColors.medicineColors.map((color) {
-        final isSelected = _selectedColor == color.value;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedColor = color.value),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? (isDark ? Colors.white : Colors.black)
-                    : Colors.transparent,
-                width: 2,
+    return Container(
+      height: 60,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: AppColors.medicineColors.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final color = AppColors.medicineColors[index];
+          final isSelected = _selectedColor == color.value;
+          
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedColor = color.value);
+              HapticHelper.selection();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: isSelected ? 12 : 6,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
+              child: isSelected
+                  ? const Center(
+                      child: Icon(Icons.check_rounded, color: Colors.white, size: 24),
+                    )
+                  : null,
             ),
-            child: isSelected
-                ? const Icon(Icons.check, color: Colors.white, size: 16)
-                : null,
-          ),
-        );
-      }).toList(),
+          );
+        },
+      ),
     );
   }
 
@@ -1366,6 +1486,8 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+
+
 class _MinimalTextField extends StatelessWidget {
   final String label;
   final String? hint;
@@ -1373,6 +1495,8 @@ class _MinimalTextField extends StatelessWidget {
   final bool isDark;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onChanged;
 
   const _MinimalTextField({
     required this.label,
@@ -1381,6 +1505,8 @@ class _MinimalTextField extends StatelessWidget {
     required this.isDark,
     this.validator,
     this.keyboardType,
+    this.focusNode,
+    this.onChanged,
   });
 
   @override
@@ -1392,60 +1518,56 @@ class _MinimalTextField extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12, // Slightly larger
               fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white38 : Colors.black38,
-              letterSpacing: 1.0,
+              color: isDark ? Colors.white54 : Colors.black54, // Softer label
+              letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
         ],
-        TextFormField(
-          controller: controller,
-          validator: validator,
-          keyboardType: keyboardType,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : Colors.black,
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.08),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(
-              color: isDark ? Colors.white24 : Colors.black26,
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            onChanged: onChanged,
+            validator: validator,
+            keyboardType: keyboardType,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
             ),
-            filled: true,
-            fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isDark
-                    ? const Color(0xFF2A2A2A)
-                    : const Color(0xFFE5E5E5),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white30 : Colors.black38,
+                fontWeight: FontWeight.w500,
               ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isDark
-                    ? const Color(0xFF2A2A2A)
-                    : const Color(0xFFE5E5E5),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
               ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isDark ? Colors.white : Colors.black,
-                width: 1.5,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.red),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
             ),
           ),
         ),

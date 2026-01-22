@@ -159,46 +159,73 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
   }
 
   Widget _buildInviteView(ColorScheme colorScheme) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerDecoration = BoxDecoration(
+      color: theme.cardColor,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Info Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: containerDecoration,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
                     Icons.family_restroom,
                     color: colorScheme.primary,
-                    size: 32,
+                    size: 28,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Share this code with your caregiver so they can monitor your medication adherence.',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Share this code with your caregiver so they can monitor your medication adherence.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 32),
 
           // QR Code
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -207,63 +234,88 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
               version: QrVersions.auto,
               size: 200,
               backgroundColor: Colors.white,
-              errorCorrectionLevel: QrErrorCorrectLevel.M,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.circle,
+                color: Colors.black, // High contrast for QR
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.circle,
+                color: Colors.black,
+              ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
-          // Invite Code
+          // Invite Code Section
           Text(
-            'Invite Code',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+            'INVITE CODE',
+            style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
                 ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           GestureDetector(
             onTap: _copyCode,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.primary.withOpacity(0.2),
+                  width: 1.5,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     _invite?.code ?? '------',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 8,
-                          color: colorScheme.onPrimaryContainer,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 6,
+                          color: colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 24),
                   Icon(
-                    Icons.copy,
-                    color: colorScheme.onPrimaryContainer,
+                    Icons.copy_rounded,
+                    color: colorScheme.primary,
+                    size: 20,
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             _formatTimeRemaining(),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+            style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w500,
                 ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
 
           // Share Button
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            height: 56,
+            child: FilledButton.icon(
               onPressed: _shareCode,
-              icon: const Icon(Icons.share),
-              label: const Text('Share Invite'),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text(
+                'Share Invite',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 2,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -271,30 +323,35 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           // Regenerate Button
           TextButton.icon(
             onPressed: _generateInvite,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             label: const Text('Generate New Code'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+            ),
           ),
           const SizedBox(height: 32),
 
           // Instructions
-          Card(
-            color: colorScheme.surfaceContainerHighest,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'How it works:',
-                    style: Theme.of(context).textTheme.titleMedium,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: containerDecoration.copyWith(
+              color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How it works',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 12),
-                  _buildStep('1', 'Share the code with your caregiver'),
-                  _buildStep('2', 'They enter the code in their MedTime app'),
-                  _buildStep('3', 'They can view your medication schedule'),
-                  _buildStep('4', 'They receive alerts if you miss a dose'),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                _buildStep('1', 'Share the code with your caregiver'),
+                _buildStep('2', 'They enter the code in their MedTime app'),
+                _buildStep('3', 'They can view your medication schedule'),
+                _buildStep('4', 'They receive alerts if you miss a dose'),
+              ],
             ),
           ),
         ],

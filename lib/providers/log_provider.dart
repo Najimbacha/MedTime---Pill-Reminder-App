@@ -34,6 +34,13 @@ class LogProvider with ChangeNotifier {
     return _logs.where((log) => log.medicineId == medicineId).toList();
   }
 
+  /// Get logs for a specific date (from DB)
+  Future<List<Log>> getLogsByDate(DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return await _db.getLogsByDateRange(startOfDay, endOfDay);
+  }
+
   /// Load all logs from database
   Future<void> loadLogs() async {
     _isLoading = true;
@@ -115,8 +122,21 @@ class LogProvider with ChangeNotifier {
     }
   }
 
+  /// Delete a log entry (Undo)
+  Future<bool> deleteLog(int id) async {
+    try {
+      await _db.deleteLog(id);
+      _logs.removeWhere((l) => l.id == id);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error deleting log: $e');
+      return false;
+    }
+  }
+
   /// Mark medicine as taken
-  Future<void> markAsTaken(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsTaken(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
@@ -125,14 +145,14 @@ class LogProvider with ChangeNotifier {
     );
     
     if (medicine != null) {
-      await addLogWithSync(log, medicine);
+      return await addLogWithSync(log, medicine) as Log;
     } else {
-      await addLog(log);
+      return await addLog(log) as Log;
     }
   }
 
   /// Mark medicine as skipped
-  Future<void> markAsSkipped(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsSkipped(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
@@ -141,14 +161,14 @@ class LogProvider with ChangeNotifier {
     );
     
     if (medicine != null) {
-      await addLogWithSync(log, medicine);
+      return await addLogWithSync(log, medicine) as Log;
     } else {
-      await addLog(log);
+      return await addLog(log) as Log;
     }
   }
 
   /// Mark medicine as missed
-  Future<void> markAsMissed(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsMissed(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
@@ -157,9 +177,9 @@ class LogProvider with ChangeNotifier {
     );
     
     if (medicine != null) {
-      await addLogWithSync(log, medicine);
+      return await addLogWithSync(log, medicine) as Log;
     } else {
-      await addLog(log);
+      return await addLog(log) as Log;
     }
   }
 

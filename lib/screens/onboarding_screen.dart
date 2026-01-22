@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../services/notification_service.dart';
-import 'dashboard_screen.dart';
+import 'main_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -27,6 +27,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       description: 'Interact warnings, refill predictions, and AI cabinet scanning at your fingertips.',
       icon: Icons.auto_awesome_rounded,
       color: Colors.purple,
+    ),
+    OnboardingPage(
+      title: 'Family & Caregivers',
+      description: 'Share adherence data securely with loved ones. Keep them in the loop, real-time.',
+      icon: Icons.favorite_rounded, // or family_restroom
+      color: Colors.pink,
     ),
     OnboardingPage(
       title: 'Beautiful Experience',
@@ -163,7 +169,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (context.mounted) {
       context.read<SettingsService>().setOnboardingCompleted(true);
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        MaterialPageRoute(builder: (context) => const MainScreen()),
       );
     }
   }

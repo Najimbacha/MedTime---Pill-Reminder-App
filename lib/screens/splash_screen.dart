@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../services/settings_service.dart';
 import '../services/notification_service.dart';
-import 'dashboard_screen.dart';
+import 'main_screen.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -57,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => settings.onboardingCompleted ? const DashboardScreen() : const OnboardingScreen(),
+        builder: (_) => settings.onboardingCompleted ? const MainScreen() : const OnboardingScreen(),
       ),
     );
   }

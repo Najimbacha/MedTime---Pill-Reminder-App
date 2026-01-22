@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/staggered_list_animation.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/log_provider.dart';
 import '../providers/medicine_provider.dart';
 import '../models/log.dart';
+import '../widgets/medicine_log_card.dart';
+import '../widgets/empty_state_widget.dart';
 
-/// Screen showing adherence history
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -15,247 +18,276 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   DateTime _selectedDate = DateTime.now();
-  Map<String, dynamic>? _stats;
+  // Using 7 days for the chart
+  List<Map<String, dynamic>> _weeklyStats = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    _loadData();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
     final logProvider = context.read<LogProvider>();
-    final startOfMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
-    final endOfMonth = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
     
-    final stats = await logProvider.getAdherenceStats(startOfMonth, endOfMonth);
+    // Load weekly stats for the chart (last 7 days from selected date)
+    // For simplicity, let's show the "current week" of the selected date
+    // Or just last 7 days ending at selected date. Let's do 7 days ending selected.
+    final List<Map<String, dynamic>> stats = [];
+    for (int i = 6; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final dayLogs = await logProvider.getLogsByDate(date);
+      final taken = dayLogs.where((l) => l.status == LogStatus.take).length;
+      final total = dayLogs.length;
+      stats.add({
+        'day': DateFormat('E').format(date).substring(0, 1), // M, T, W
+        'rate': total > 0 ? (taken / total) * 100 : 0.0,
+        'date': date,
+      });
+    }
+
+    if (mounted) {
+      setState(() {
+        _weeklyStats = stats;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onDateChanged(DateTime newDate) {
     setState(() {
-      _stats = stats;
+      _selectedDate = newDate;
     });
+    _loadData();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final logProvider = context.watch<LogProvider>();
+    final medicineProvider = context.watch<MedicineProvider>();
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F0F13) : const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text(
-          'History & Reports',
-          style: TextStyle(fontSize: 22),
-        ),
+        title: const Text('History', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: Consumer2<LogProvider, MedicineProvider>(
-        builder: (context, logProvider, medicineProvider, child) {
-          final logs = logProvider.logs;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                // Stats Card
-                if (_stats != null) _buildStatsCard(),
-                const SizedBox(height: 24),
-
-                // Month Selector
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, size: 32),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = DateTime(
-                            _selectedDate.year,
-                            _selectedDate.month - 1,
-                          );
-                        });
-                        _loadStats();
-                      },
-                    ),
-                    Text(
-                      DateFormat('MMMM yyyy').format(_selectedDate),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                // 1. Calendar Strip & Chart Area
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, size: 32),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = DateTime(
-                            _selectedDate.year,
-                            _selectedDate.month + 1,
-                          );
-                        });
-                        _loadStats();
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Date Selector
+                      _buildDateSelector(isDark),
+                      const SizedBox(height: 24),
+                      // Chart
+                      SizedBox(
+                        height: 180,
+                        child: _buildWeeklyChart(isDark),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
 
-                // Logs List
-                const Text(
-                  'Recent Activity',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                // 2. Logs List
+                Expanded(
+                  child: FutureBuilder<List<Log>>(
+                    future: logProvider.getLogsByDate(_selectedDate),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox();
+                      
+                      final logs = snapshot.data!;
+                      if (logs.isEmpty) return _buildEmptyState(isDark);
+
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100), // Bottom padding for glass nav
+                        child: SimpleStaggeredList(
+                          children: logs.map((log) {
+                            final medicine = medicineProvider.getMedicineById(log.medicineId);
+                            if (medicine == null) return const SizedBox.shrink();
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: MedicineLogCard(
+                                medicineName: medicine.name,
+                                dosage: medicine.dosage,
+                                status: log.status,
+                                scheduledTime: log.scheduledTime,
+                                colorValue: medicine.color,
+                                iconAssetPath: medicine.iconAssetPath,
+                                medicineType: medicine.typeIcon == 1 ? 'Pill' : 'Medicine',
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                const SizedBox(height: 12),
-
-                if (logs.isEmpty)
-                  _buildEmptyState()
-                else
-                  ...logs.take(20).map((log) {
-                    final medicine = medicineProvider.getMedicineById(log.medicineId);
-                    if (medicine == null) return const SizedBox.shrink();
-                    return _buildLogItem(log, medicine.name);
-                  }),
               ],
             ),
-          );
-        },
-      ),
     );
   }
 
-  Widget _buildStatsCard() {
-    final total = _stats!['total'] as int;
-    final taken = _stats!['taken'] as int;
-    final skipped = _stats!['skipped'] as int;
-    final missed = _stats!['missed'] as int;
-    final adherenceRate = _stats!['adherence_rate'] as String;
-
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+  Widget _buildDateSelector(bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          onPressed: () => _onDateChanged(_selectedDate.subtract(const Duration(days: 1))),
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
+          style: IconButton.styleFrom(
+            backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
+            padding: const EdgeInsets.all(12),
+          ),
+        ),
+        Column(
           children: [
             Text(
-              'Adherence Rate',
+              DateFormat('EEEE').format(_selectedDate),
               style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
+                fontSize: 14,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
-              '$adherenceRate%',
+              DateFormat('MMM d, yyyy').format(_selectedDate),
               style: const TextStyle(
-                fontSize: 48,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.green,
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Taken', taken, Colors.green),
-                _buildStatItem('Skipped', skipped, Colors.orange),
-                _buildStatItem('Missed', missed, Colors.red),
-              ],
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, int value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value.toString(),
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[600],
+        IconButton(
+          onPressed: () {
+            if (_selectedDate.add(const Duration(days: 1)).isAfter(DateTime.now())) return;
+            _onDateChanged(_selectedDate.add(const Duration(days: 1)));
+          },
+          icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+          style: IconButton.styleFrom(
+            backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
+            padding: const EdgeInsets.all(12),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLogItem(Log log, String medicineName) {
-    IconData icon;
-    Color color;
-    
-    switch (log.status) {
-      case LogStatus.take:
-        icon = Icons.check_circle;
-        color = Colors.green;
-        break;
-      case LogStatus.skip:
-        icon = Icons.cancel;
-        color = Colors.orange;
-        break;
-      case LogStatus.missed:
-        icon = Icons.error;
-        color = Colors.red;
-        break;
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: color, size: 32),
-        title: Text(
-          medicineName,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          DateFormat('MMM d, yyyy - h:mm a').format(log.scheduledTime),
-          style: const TextStyle(fontSize: 16),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withAlpha(26),
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildWeeklyChart(bool isDark) {
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: 100,
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            // tooltipBgColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+            tooltipBgColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '${rod.toY.toInt()}%',
+                TextStyle(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            },
           ),
-          child: Text(
-            log.statusText.toUpperCase(),
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= _weeklyStats.length) return const SizedBox();
+                final day = _weeklyStats[value.toInt()]['day'] as String;
+                final date = _weeklyStats[value.toInt()]['date'] as DateTime;
+                final isSelected = date.day == _selectedDate.day && date.month == _selectedDate.month;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    day,
+                    style: TextStyle(
+                      color: isSelected 
+                          ? Colors.blue 
+                          : (isDark ? Colors.white38 : Colors.black38),
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
+        gridData: const FlGridData(show: false),
+        borderData: FlBorderData(show: false),
+        barGroups: _weeklyStats.asMap().entries.map((e) {
+          final index = e.key;
+          final data = e.value;
+          final rate = data['rate'] as double;
+          final date = data['date'] as DateTime;
+          final isSelected = date.day == _selectedDate.day && date.month == _selectedDate.month;
+
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: rate,
+                color: isSelected ? Colors.blue : (isDark ? Colors.white24 : Colors.grey.shade300),
+                width: 12,
+                borderRadius: BorderRadius.circular(6),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: 100, // Full height background
+                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+                ),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
+  Widget _buildEmptyState(bool isDark) {
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(
-              Icons.history,
-              size: 80,
-              color: Colors.grey[300],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No history yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.only(top: 40),
+        child: EmptyStateWidget(
+          title: 'No activity yet',
+          message: 'Records for this day will appear here once you take or skip your medicines.',
+          icon: Icons.history_edu_rounded,
         ),
       ),
     );
   }
 }
+

@@ -121,11 +121,30 @@ class MedicineProvider with ChangeNotifier {
         }
 
         await _updateRefillReminder(updatedMedicine);
-
         notifyListeners();
       }
     } catch (e) {
       debugPrint('Error decrementing stock: $e');
+    }
+  }
+
+  /// Increment stock (Undo Take)
+  Future<void> incrementStock(int medicineId) async {
+    try {
+      await _db.incrementStock(medicineId);
+      
+      final index = _medicines.indexWhere((m) => m.id == medicineId);
+      if (index != -1) {
+        final medicine = _medicines[index];
+        final updatedMedicine = medicine.copyWith(
+          currentStock: medicine.currentStock + 1,
+        );
+        _medicines[index] = updatedMedicine;
+        await _updateRefillReminder(updatedMedicine);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error incrementing stock: $e');
     }
   }
 

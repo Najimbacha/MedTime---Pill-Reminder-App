@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/sync_provider.dart';
 import '../utils/haptic_helper.dart';
 import 'accept_invite_screen.dart';
+import '../services/report_service.dart';
 
 /// Dashboard for caregivers to monitor their linked patients
 class CaregiverDashboardScreen extends StatefulWidget {
@@ -137,6 +138,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
   }
 }
 
+
+
 /// Card displaying a patient's info and adherence summary
 class _PatientCard extends StatefulWidget {
   final UserProfile patient;
@@ -150,6 +153,8 @@ class _PatientCard extends StatefulWidget {
 class _PatientCardState extends State<_PatientCard> {
   Map<String, dynamic>? _stats;
   bool _isExpanded = false;
+  final ReportService _reportService = ReportService();
+  bool _isGeneratingReport = false;
 
   @override
   void initState() {
@@ -167,10 +172,52 @@ class _PatientCardState extends State<_PatientCard> {
     }
   }
 
+  Future<void> _generateReport() async {
+    if (_isGeneratingReport) return;
+    
+    setState(() => _isGeneratingReport = true);
+    await HapticHelper.selection();
+
+    try {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating PDF Report...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // Fetch recent logs (take 100 via stream first element)
+      final syncProvider = context.read<SyncProvider>();
+      final logsStream = syncProvider.getLogsStream(widget.patient.id);
+      final logs = await logsStream.first; // Get current snapshot
+
+      await _reportService.generateCaregiverReport(
+        patientName: widget.patient.displayName ?? 'Patient',
+        stats: _stats ?? {},
+        recentLogs: logs,
+      );
+      
+    } catch (e) {
+      debugPrint('Error generating report: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate report: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingReport = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     final adherenceRate = (_stats?['adherenceRate'] ?? 0.0) as double;
     final adherenceColor = adherenceRate >= 80
@@ -179,127 +226,211 @@ class _PatientCardState extends State<_PatientCard> {
             ? Colors.orange
             : Colors.red;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ExpansionTile(
-        initiallyExpanded: _isExpanded,
-        onExpansionChanged: (expanded) {
-          setState(() {
-            _isExpanded = expanded;
-          });
-        },
-        leading: CircleAvatar(
-          backgroundColor: colorScheme.primaryContainer,
-          child: Text(
-            (widget.patient.displayName ?? 'P').substring(0, 1).toUpperCase(),
-            style: TextStyle(
-              color: colorScheme.onPrimaryContainer,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: _isExpanded,
+          onExpansionChanged: (expanded) {
+            setState(() {
+              _isExpanded = expanded;
+            });
+          },
+          tilePadding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                (widget.patient.displayName ?? 'P').substring(0, 1).toUpperCase(),
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+          ),
+          title: Text(
+            widget.patient.displayName ?? 'Patient',
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-        ),
-        title: Text(
-          widget.patient.displayName ?? 'Patient',
-          style: theme.textTheme.titleMedium,
-        ),
-        subtitle: Row(
-          children: [
-            Icon(
-              adherenceRate >= 80 ? Icons.check_circle : Icons.warning,
-              size: 16,
-              color: adherenceColor,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${adherenceRate.toStringAsFixed(0)}% adherence',
-              style: TextStyle(color: adherenceColor),
-            ),
-          ],
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Row(
               children: [
-                const Divider(),
-                const SizedBox(height: 8),
-                
-                // Stats Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStat(
-                      'Taken',
-                      '${_stats?['taken'] ?? 0}',
-                      Colors.green,
-                    ),
-                    _buildStat(
-                      'Missed',
-                      '${_stats?['missed'] ?? 0}',
-                      Colors.red,
-                    ),
-                    _buildStat(
-                      'Skipped',
-                      '${_stats?['skipped'] ?? 0}',
-                      Colors.orange,
-                    ),
-                  ],
+                Icon(
+                  adherenceRate >= 80 ? Icons.check_circle_rounded : Icons.warning_rounded,
+                  size: 16,
+                  color: adherenceColor,
                 ),
-                const SizedBox(height: 16),
-
-                // Today's Log Stream
+                const SizedBox(width: 6),
                 Text(
-                  "Today's Activity",
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                StreamBuilder<List<SharedAdherenceData>>(
-                  stream: context.read<SyncProvider>().getTodayLogsStream(widget.patient.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
-
-                    final logs = snapshot.data ?? [];
-
-                    if (logs.isEmpty) {
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'No activity recorded yet today',
-                              style: TextStyle(color: colorScheme.onSurfaceVariant),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    return Column(
-                      children: logs.take(5).map((log) => _buildLogItem(log)).toList(),
-                    );
-                  },
+                  '${adherenceRate.toStringAsFixed(0)}% adherence',
+                  style: TextStyle(
+                    color: adherenceColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isGeneratingReport)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  color: colorScheme.primary,
+                  onPressed: _generateReport,
+                  tooltip: 'Export PDF Report',
+                ),
+              RotationTransition(
+                turns: AlwaysStoppedAnimation(_isExpanded ? 0.5 : 0),
+                child: Icon(Icons.expand_more, color: theme.iconTheme.color),
+              ),
+            ],
+          ),
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(height: 1),
+                    const SizedBox(height: 20),
+                    
+                    // Stats Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStat(
+                          'Taken',
+                          '${_stats?['taken'] ?? 0}',
+                          Colors.green,
+                        ),
+                        _buildStat(
+                          'Missed',
+                          '${_stats?['missed'] ?? 0}',
+                          Colors.red,
+                        ),
+                        _buildStat(
+                          'Skipped',
+                          '${_stats?['skipped'] ?? 0}',
+                          Colors.orange,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+    
+                    // Today's Log Stream
+                    Row(
+                      children: [
+                        Icon(Icons.history, size: 16, color: colorScheme.outline),
+                        const SizedBox(width: 8),
+                        Text(
+                          "TODAY'S ACTIVITY",
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.outline,
+                            letterSpacing: 1.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    StreamBuilder<List<SharedAdherenceData>>(
+                      stream: context.read<SyncProvider>().getTodayLogsStream(widget.patient.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+    
+                        final logs = snapshot.data ?? [];
+    
+                        if (logs.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: colorScheme.outlineVariant.withOpacity(0.5),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: colorScheme.onSurfaceVariant,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'No activity yet',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+    
+                        return Column(
+                          children: logs.take(5).map((log) => _buildLogItem(log)).toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -347,22 +478,68 @@ class _PatientCardState extends State<_PatientCard> {
         color = colorScheme.onSurfaceVariant;
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        // border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.3)),
+        boxShadow: [
+           BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 8),
+          // Icon Box
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 16),
+          // Content
           Expanded(
-            child: Text(
-              log.medicineName,
-              style: theme.textTheme.bodyMedium,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  log.medicineName,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  log.status.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            _formatTime(log.scheduledTime),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+          // Time
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _formatTime(log.scheduledTime),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],

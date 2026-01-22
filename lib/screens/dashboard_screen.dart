@@ -22,12 +22,18 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_text_styles.dart';
 import '../utils/haptic_helper.dart';
+import '../widgets/glass_dialog.dart';
+import '../widgets/staggered_list_animation.dart';
 import '../utils/sound_helper.dart';
 import 'add_edit_medicine_screen.dart';
 import 'settings_screen.dart';
 import 'package:lottie/lottie.dart';
-import 'package:confetti/confetti.dart';
+import '../services/notification_service.dart';
 import '../services/streak_service.dart';
+import '../services/report_service.dart';
+import '../services/history_service.dart';
+import 'package:confetti/confetti.dart';
+import '../widgets/empty_state_widget.dart';
 import 'achievements_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -40,6 +46,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late ConfettiController _confettiController;
   bool _showSuccessAnimation = false;
+  /// Optmistic removal IDs for Dismissible items. Value true = taken, false = skipped
+  final Map<String, bool> _dismissedItems = {};
   late AnimationController _progressAnimationController;
   late Animation<double> _progressAnimation;
   int _streak = 0;
@@ -182,11 +190,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                               .toList();
                           final pendingEntries = validEntries
                               .where(
-                                (entry) =>
-                                    entry.timelineStatus !=
-                                    TimelineStatus.completed,
+                                (entry) {
+                                  if (entry.timelineStatus == TimelineStatus.completed) return false;
+                                  final key = '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
+                                  return !_dismissedItems.containsKey(key);
+                                }
                               )
                               .toList();
+
                           final completedEntries = validEntries
                               .where(
                                 (entry) =>
@@ -194,8 +205,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     TimelineStatus.completed,
                               )
                               .toList();
-                          final totalCount = validEntries.length;
-                          final completedCount = completedEntries.length;
+                              
+                          // Calculate Optimistic Stats
+                          // Prevent double counting: Only count optimistic if NOT yet in completedEntries (DB update pending)
+                          final alreadyCompletedKeys = completedEntries
+                              .map((e) => '${e.medicine.id}_${e.scheduledDateTime.toIso8601String()}')
+                              .toSet();
+                              
+                          final optimisticTakenCount = _dismissedItems.entries
+                              .where((e) => e.value == true && !alreadyCompletedKeys.contains(e.key))
+                              .length;
+                              
+                          final totalCount = validEntries.length; 
+                          final completedCount = completedEntries.length + optimisticTakenCount;
                           if (validEntries.isEmpty) {
                             return SliverPadding(
                               padding: const EdgeInsets.fromLTRB(
@@ -231,6 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       : null,
                                   animation: _progressAnimation,
                                   streak: _streak,
+                                  onExportReport: _exportReport,
                                 ),
                                 const SizedBox(height: 32),
                                 if (pendingEntries.isNotEmpty) ...[
@@ -240,21 +263,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     isDark: isDark,
                                   ),
                                   const SizedBox(height: 16),
-                                  ...pendingEntries.map(
-                                    (entry) => _AnimatedEntryCard(
-                                      key: ValueKey(
-                                        '${entry.medicine.id}_${entry.scheduledDateTime}',
+                                  SimpleStaggeredList(
+                                    children: pendingEntries.map(
+                                      (entry) => _AnimatedEntryCard(
+                                        key: ValueKey(
+                                          '${entry.medicine.id}_${entry.scheduledDateTime}',
+                                        ),
+                                        entry: entry,
+                                        isDark: isDark,
+                                        onTake: () => _handleTake(
+                                          entry,
+                                          medicineProvider,
+                                          logProvider,
+                                        ),
+                                        onSkip: () =>
+                                            _handleSkip(entry, logProvider),
                                       ),
-                                      entry: entry,
-                                      isDark: isDark,
-                                      onTake: () => _handleTake(
-                                        entry,
-                                        medicineProvider,
-                                        logProvider,
-                                      ),
-                                      onSkip: () =>
-                                          _handleSkip(entry, logProvider),
-                                    ),
+                                    ).toList(),
                                   ),
                                 ],
                                 if (pendingEntries.isEmpty &&
@@ -349,10 +374,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-      floatingActionButton: _MinimalFAB(
-        onTap: _navigateToAddMedicine,
-        isDark: isDark,
-      ),
     );
   }
 
@@ -380,124 +401,232 @@ class _DashboardScreenState extends State<DashboardScreen>
     final photoUrl = authProvider.firebaseUser?.photoURL;
 
     return SliverAppBar(
-      floating: false,
+      floating: true,
       pinned: true,
-      expandedHeight: 0,
-      toolbarHeight: 70, // Slightly taller for avatar
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFFAFAFA),
       elevation: 0,
-      title: Row(
-        children: [
-          // Avatar
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                width: 2,
-              ),
-            ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-              child: photoUrl == null
-                  ? Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Greeting & Name
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _getGreeting(),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+      scrolledUnderElevation: 0,
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA),
+      toolbarHeight: 90,
+      title: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+             // Premium Avatar with Glow
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  width: 2,
                 ),
               ),
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                  height: 1.1,
+              child: Center(
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  child: photoUrl == null
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        )
+                      : null,
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 16),
+            // Greeting & Name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${_getGreeting()},',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF1F2937),
+                      letterSpacing: -0.5,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
-        IconButton(
-          icon: Icon(
-            Icons.settings_outlined,
-            color: isDark ? Colors.white : Colors.black,
-            size: 28,
-          ),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+        // Settings Button Container
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 22), // Center vertically in 90h toolbar
+            child: IconButton(
+              icon: Icon(
+                Icons.settings_rounded, // Rounded icon
+                color: isDark ? Colors.white70 : Colors.black87,
+                size: 24,
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 8),
       ],
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const _EmptyStateGraphic(
-              calendarAsset: 'assets/icons/medicine/calendar.png',
-              pillAsset: 'assets/icons/medicine/pill_round.png',
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'No medications scheduled',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).textTheme.titleLarge?.color,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Add your first medicine to get started with tracking',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-            ),
-            const SizedBox(height: 28),
-            AppButton(
-              text: 'Add Medicine',
-              icon: Icons.add,
-              onPressed: _navigateToAddMedicine,
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        EmptyStateWidget(
+          title: 'No medications',
+          message: 'Add your first medicine to get started with tracking.',
+          icon: Icons.medication_outlined,
+          buttonText: 'Add Medicine',
+          onButtonPressed: _navigateToAddMedicine,
         ),
-      ),
+      ],
     );
+  }
+
+  // ... inside _DashboardScreenState ...
+  final HistoryService _historyService = HistoryService();
+
+
+
+// ...
+
+  Future<void> _exportReport() async {
+    await HapticHelper.selection();
+    
+    String? name;
+    if (mounted) {
+      name = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          String input = '';
+          return GlassDialog(
+            icon: Icons.picture_as_pdf_rounded,
+            title: 'Export Report',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter patient name to include in the report (optional)',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Patient Name',
+                    hintText: 'e.g. Najim Bacha',
+                    filled: true,
+                    fillColor: Theme.of(context).cardColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (v) => input = v,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, input),
+                child: const Text('Generate PDF'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+    
+    if (name == null && mounted) return; 
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              SizedBox(width: 16),
+              Text('Generating PDF Report...'),
+            ],
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+
+    try {
+      final reportService = ReportService();
+      
+      // Fetch required data on demand
+      final medicines = context.read<MedicineProvider>().medicines;
+      final overallAdherence = await _historyService.getOverallAdherence();
+      final recentLogs = await _historyService.getRecentLogs(limit: 30);
+      
+      // Create map for med names
+      final medNames = {for (var m in medicines) m.id!: m.name};
+
+      await reportService.generateAndShareReport(
+        medicines: medicines,
+        overallAdherence: overallAdherence,
+        streak: _streak, // Use current dashboard streak
+        recentLogs: recentLogs,
+        medicineNames: medNames,
+        patientName: name,
+      );
+    } catch (e) {
+      debugPrint('Error generating report: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _handleTake(
@@ -505,55 +634,47 @@ class _DashboardScreenState extends State<DashboardScreen>
     MedicineProvider medicineProvider,
     LogProvider logProvider,
   ) async {
-    // Guard against null medicine ID
     final medicineId = entry.medicine.id;
-    if (medicineId == null) {
-      debugPrint('❌ _handleTake: medicine.id is null!');
-      _showFeedback('Error: Invalid medicine', isError: true);
-      return;
-    }
+    if (medicineId == null) return;
 
-    debugPrint('🔵 _handleTake: Starting for ${entry.medicine.name} (id: $medicineId)');
+    final uniqueKey = '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
+    // Optimistic Update for Dismissible
+    setState(() {
+      _dismissedItems[uniqueKey] = true; // Taken
+    });
+
     await HapticHelper.light();
 
     try {
-      debugPrint('🔵 _handleTake: Calling markAsTaken...');
+      // 1. Mark as taken and get log
       await logProvider.markAsTaken(
         medicineId,
         entry.scheduledDateTime,
         medicine: entry.medicine,
       );
-      debugPrint('✅ _handleTake: markAsTaken completed');
 
-      debugPrint('🔵 _handleTake: Decrementing stock...');
+      // 2. Decrement stock
       await medicineProvider.decrementStock(medicineId);
-      debugPrint('✅ _handleTake: Stock decremented');
 
-      // Update streak
-      debugPrint('🔵 _handleTake: Updating streak...');
+      // 3. Update streak
       final isPerfectDay = await StreakService.instance.onMedicineTaken();
-      debugPrint('✅ _handleTake: Streak updated (perfectDay: $isPerfectDay)');
 
       if (mounted) {
         await HapticHelper.success();
         await SoundHelper.playSuccess();
         
-        debugPrint('🔵 _handleTake: Reloading data...');
         await _loadData();
-        debugPrint('✅ _handleTake: Data reloaded');
 
         if (isPerfectDay) {
           _confettiController.play();
-          _showFeedback('Perfect day! Streak increased! 🔥');
         } else {
           _triggerSuccessAnimation();
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('❌ _handleTake ERROR: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
       if (mounted) {
-        await HapticHelper.error();
+         HapticHelper.error();
         _showFeedback('Failed to mark as taken: $e', isError: true);
       }
     }
@@ -563,36 +684,67 @@ class _DashboardScreenState extends State<DashboardScreen>
     _ScheduleEntry entry,
     LogProvider logProvider,
   ) async {
-    // Guard against null medicine ID
     final medicineId = entry.medicine.id;
-    if (medicineId == null) {
-      debugPrint('❌ _handleSkip: medicine.id is null!');
-      _showFeedback('Error: Invalid medicine', isError: true);
-      return;
-    }
+    if (medicineId == null) return;
+    
+    final uniqueKey = '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
+    setState(() {
+      _dismissedItems[uniqueKey] = false; // Skipped
+    });
 
-    debugPrint('🔵 _handleSkip: Starting for ${entry.medicine.name} (id: $medicineId)');
-    await HapticHelper.warning();
-    await SoundHelper.playAlert();
+    await HapticHelper.light();
 
     try {
       debugPrint('🔵 _handleSkip: Calling markAsSkipped...');
-      await logProvider.markAsSkipped(
+      final log = await logProvider.markAsSkipped(
         medicineId,
         entry.scheduledDateTime,
         medicine: entry.medicine,
       );
       debugPrint('✅ _handleSkip: markAsSkipped completed');
 
-      debugPrint('🔵 _handleSkip: Reloading data...');
-      await _loadData();
-      debugPrint('✅ _handleSkip: Data reloaded');
-
-      if (mounted) setState(() {});
-    } catch (e, stackTrace) {
+      if (mounted) {
+        await _loadData();
+        
+        // Show Undo SnackBar
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.skip_next_rounded, color: Colors.white70),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Skipped ${entry.medicine.name}')),
+              ],
+            ),
+            action: SnackBarAction(
+              label: 'UNDO',
+              textColor: Colors.orangeAccent,
+              onPressed: () async {
+                // UNDO ACTION
+                await logProvider.deleteLog(log.id!);
+                await _loadData();
+                if (mounted) {
+                   HapticHelper.selection();
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text('Action undone'), duration: Duration(seconds: 1)),
+                   );
+                }
+              },
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
       debugPrint('❌ _handleSkip ERROR: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
-      if (mounted) _showFeedback('Failed to skip: $e', isError: true);
+      if (mounted) {
+         HapticHelper.error();
+        _showFeedback('Failed to skip: $e', isError: true);
+      }
     }
   }
 
@@ -633,13 +785,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     final medicineId = medicine.id;
     if (medicineId == null) return null;
     return logs.firstWhereOrNull(
-      (log) =>
-          log.medicineId == medicineId &&
-          log.scheduledTime.year == scheduledDateTime.year &&
-          log.scheduledTime.month == scheduledDateTime.month &&
-          log.scheduledTime.day == scheduledDateTime.day &&
-          log.scheduledTime.hour == scheduledDateTime.hour &&
-          log.scheduledTime.minute == scheduledDateTime.minute,
+      (log) {
+        if (log.medicineId != medicineId) return false;
+        
+        // Relaxed matching: Match if within 2 minutes to handle potential DB precision loss
+        final diff = log.scheduledTime.difference(scheduledDateTime).abs();
+        return diff.inMinutes < 2;
+      }
     );
   }
 
@@ -825,11 +977,67 @@ class _AnimatedEntryCardState extends State<_AnimatedEntryCard>
     scale: _scaleAnimation,
     child: Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: _MinimalMedicineCard(
-        entry: widget.entry,
-        isDark: widget.isDark,
-        onTake: _handleTap,
-        onSkip: widget.onSkip,
+      child: Dismissible(
+        key: ValueKey('${widget.entry.medicine.id}_${widget.entry.scheduledDateTime.toIso8601String()}'),
+        direction: DismissDirection.horizontal,
+        onDismissed: (direction) {
+          if (direction == DismissDirection.startToEnd) {
+            widget.onTake(); // Direct call, no scale animation
+          } else {
+            widget.onSkip(); // Skip
+          }
+        },
+        background: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981), // Green
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          alignment: Alignment.centerLeft,
+          child: const Row(
+            children: [
+              Icon(Icons.check_rounded, color: Colors.white, size: 32),
+              SizedBox(width: 8),
+              Text(
+                "Take",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        secondaryBackground: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey, // Grey
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          alignment: Alignment.centerRight,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                "Skip",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
+            ],
+          ),
+        ),
+        child: _MinimalMedicineCard(
+          entry: widget.entry,
+          isDark: widget.isDark,
+          onTake: _handleTap,
+          onSkip: widget.onSkip,
+        ),
       ),
     ),
   );
@@ -842,6 +1050,8 @@ class _StatsCard extends StatelessWidget {
   final DateTime? nextSchedule;
   final Animation<double> animation;
   final int streak;
+  final VoidCallback onExportReport;
+
   const _StatsCard({
     required this.completed,
     required this.total,
@@ -849,275 +1059,260 @@ class _StatsCard extends StatelessWidget {
     this.nextSchedule,
     required this.animation,
     this.streak = 0,
+    required this.onExportReport,
   });
+
   @override
   Widget build(BuildContext context) {
-    final ratio = total == 0 ? 0.0 : completed / total;
-    final clampedRatio = min(ratio, 1.0);
-    final percentage = (clampedRatio * 100).round();
-    final remaining = max(total - completed, 0);
-    final isComplete = remaining == 0 && total > 0;
+    // Premium Design Colors
+    final progressGradient = const LinearGradient(
+      colors: [Color(0xFF4F46E5), Color(0xFF6366F1)], // Indigo to Violet
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
     
-    // Premium gradient colors
-    final gradientColors = isDark
-        ? [const Color(0xFF1A1A2E), const Color(0xFF16213E)]
-        : [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)];
-    
-    final accentColor = isComplete 
-        ? const Color(0xFF10B981) // Emerald
-        : const Color(0xFF6366F1); // Indigo
-    
+    // Calculate progress
+    double percentage = 0;
+    if (total > 0) {
+      percentage = (completed / total);
+    }
+    double clampedRatio = percentage.clamp(0.0, 1.0);
+    int percentageInt = (percentage * 100).toInt();
+
+    // Lottie animation logic is handled by parent or replaced by simple ring here
+    // We'll use the gradient ring design
+
     return Container(
+      constraints: const BoxConstraints(minHeight: 140),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradientColors,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark 
-              ? Colors.white.withOpacity(0.1) 
-              : Colors.black.withOpacity(0.05),
-          width: 1.5,
-        ),
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(28), // Softer corners
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(isDark ? 0.15 : 0.08),
+            color: const Color(0xFF6366F1).withOpacity(isDark ? 0.15 : 0.08),
             blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
+            offset: const Offset(0, 12),
+            spreadRadius: -4,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.02),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          // Premium Progress Ring
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  accentColor.withOpacity(0.1),
-                  Colors.transparent,
-                ],
+          // 1. Gradient Progress Ring
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Background Ring
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 8,
+                  color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+                  strokeCap: StrokeCap.round,
+                ),
               ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Outer glow ring
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withOpacity(0.3),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                // Background ring
-                SizedBox(
-                  width: 70,
-                  height: 70,
-                  child: CircularProgressIndicator(
-                    value: 1,
-                    strokeWidth: 6,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08),
-                    ),
-                  ),
-                ),
-                // Progress ring with animation
-                SizedBox(
-                  width: 70,
-                  height: 70,
+              // Foreground Gradient Ring
+              SizedBox(
+                width: 80,
+                height: 80,
+                // ShaderMask for Gradient
+                child: ShaderMask(
+                  shaderCallback: (rect) {
+                    return progressGradient.createShader(rect);
+                  },
                   child: AnimatedBuilder(
                     animation: animation,
                     builder: (context, child) => CircularProgressIndicator(
                       value: clampedRatio * animation.value,
-                      strokeWidth: 6,
+                      strokeWidth: 8,
                       strokeCap: StrokeCap.round,
-                      backgroundColor: Colors.transparent,
-                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                      valueColor: const AlwaysStoppedAnimation(Colors.white), // Color ignored by ShaderMask but needed
                     ),
                   ),
                 ),
-                // Center content
-                if (isComplete)
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.15),
-                      shape: BoxShape.circle,
+              ),
+              // Percentage Text
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$percentageInt',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF1F2937),
+                      height: 1,
                     ),
-                    child: Icon(Icons.check_rounded, color: accentColor, size: 22),
-                  )
-                else
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$percentage',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black87,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text(
-                        '%',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white54 : Colors.black45,
-                        ),
-                      ),
-                    ],
                   ),
-              ],
-            ),
+                  Text(
+                    '%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white54 : Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+          
           const SizedBox(width: 24),
-          // Stats Info
+          
+          // 2. Stats Info & Actions
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Title Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       'Daily Progress',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white60 : Colors.black54,
-                        letterSpacing: 0.5,
+                        color: isDark ? Colors.white70 : Colors.grey[600],
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    if (streak > 0)
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AchievementsScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF5722).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFFFF5722).withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.local_fire_department_rounded,
-                                color: Color(0xFFFF5722),
-                                size: 14,
+                    // Action Buttons Row
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // PDF Button - Soft Blue
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: onExportReport,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.blue.withOpacity(0.2) : const Color(0xFFE3F2FD), // Soft Blue
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$streak',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFF5722),
-                                ),
+                              child: Icon(
+                                Icons.download_rounded,
+                                size: 16,
+                                color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                        if (streak > 0) ...[
+                          const SizedBox(width: 8),
+                          // Streak Button - Soft Orange
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AchievementsScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.orange.withOpacity(0.2) : const Color(0xFFFFCCBC), // Soft Orange
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.local_fire_department_rounded,
+                                    size: 14,
+                                    color: isDark ? Colors.orange.shade300 : Colors.deepOrange,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$streak',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.orange.shade300 : Colors.deepOrange,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (isComplete) ...[
-                  Text(
-                    'All Done!',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: accentColor,
-                      letterSpacing: -0.5,
+                
+                const SizedBox(height: 12),
+                
+                // Doses Count
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '$completed',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : const Color(0xFF1F2937),
+                        letterSpacing: -1,
+                      ),
                     ),
-                  )
-                ] else ...[
+                    Text(
+                      '/$total',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white38 : Colors.grey[400],
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'doses',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white38 : Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Next Schedule
+                if (nextSchedule != null) ...[
+                  const SizedBox(height: 6),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(
-                        '$completed',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 14,
+                        color: isDark ? Colors.white38 : Colors.grey[500],
                       ),
+                      const SizedBox(width: 6),
                       Text(
-                        '/$total',
+                        'Next at ${DateFormat('h:mm a').format(nextSchedule!)}',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white38 : Colors.black26,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'doses',
-                        style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white38 : Colors.black26,
+                          color: isDark ? Colors.white38 : Colors.grey[500],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  if (nextSchedule != null)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 14,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Next at ${DateFormat('h:mm a').format(nextSchedule!)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? Colors.white38 : Colors.black38,
-                          ),
-                        ),
-                      ],
-                    ),
                 ],
               ],
             ),
@@ -1268,24 +1463,27 @@ class _MinimalMedicineCard extends StatelessWidget {
               SizedBox(
                 width: 56,
                 height: 56,
-                child: isCompleted
-                    ? Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.15),
-                          shape: BoxShape.circle,
+                child: Hero(
+                  tag: 'medicine_icon_${entry.medicine.id}',
+                  child: isCompleted
+                      ? Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF10B981),
+                            size: 32,
+                          ),
+                        )
+                      : Image.asset(
+                          entry.medicine.iconAssetPath,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.contain,
                         ),
-                        child: const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF10B981),
-                          size: 32,
-                        ),
-                      )
-                    : Image.asset(
-                        entry.medicine.iconAssetPath,
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.contain,
-                      ),
+                ),
               ),
               const SizedBox(width: 14),
               // Medicine info
@@ -1560,78 +1758,4 @@ extension FirstWhereOrNullExtension<E> on Iterable<E> {
   }
 }
 
-class _EmptyStateGraphic extends StatefulWidget {
-  final String calendarAsset;
-  final String pillAsset;
 
-  const _EmptyStateGraphic({
-    required this.calendarAsset,
-    required this.pillAsset,
-    super.key,
-  });
-
-  @override
-  State<_EmptyStateGraphic> createState() => _EmptyStateGraphicState();
-}
-
-class _EmptyStateGraphicState extends State<_EmptyStateGraphic>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 3),
-  )..repeat(reverse: true);
-
-  late final Animation<double> _float = Tween(begin: 0.0, end: -10.0)
-      .chain(CurveTween(curve: Curves.easeInOut))
-      .animate(_controller);
-
-  late final Animation<double> _scale = Tween(begin: 0.96, end: 1.02)
-      .chain(CurveTween(curve: Curves.easeInOut))
-      .animate(_controller);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _float.value),
-          child: Transform.scale(
-            scale: _scale.value,
-            child: child,
-          ),
-        );
-      },
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Image.asset(
-            widget.calendarAsset,
-            width: 220,
-            fit: BoxFit.contain,
-          ),
-          Positioned(
-            bottom: 20,
-            right: 40,
-            child: Transform.rotate(
-              angle: -0.1,
-              child: Image.asset(
-                widget.pillAsset,
-                width: 72,
-                fit: BoxFit.contain,
-                color: Colors.white.withOpacity(0.9),
-                colorBlendMode: BlendMode.modulate,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

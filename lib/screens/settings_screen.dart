@@ -64,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface, // Clean background
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 60, 16, 32), // Top padding for header
+        padding: const EdgeInsets.fromLTRB(16, 60, 16, 120), // Top 60, Bottom 120 for Glass Nav
         child: Column(
           children: [
             // 1. Premium Header

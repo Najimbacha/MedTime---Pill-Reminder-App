@@ -11,7 +11,7 @@ import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/streak_service.dart';
 import 'core/theme/app_theme.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'widgets/notification_handler.dart';
