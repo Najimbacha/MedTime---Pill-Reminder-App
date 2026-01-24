@@ -15,44 +15,62 @@ class GlassBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(
-              color: isDark 
-                  ? const Color(0xFF1E1E2E).withOpacity(0.85) 
-                  : Colors.white.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          // Full width, no floating margins
+          decoration: BoxDecoration(
+            color: isDark 
+                ? const Color(0xFF0F172A).withOpacity(0.90) 
+                : Colors.white.withOpacity(0.90),
+            border: Border(
+              top: BorderSide(
                 color: isDark 
-                    ? Colors.white.withOpacity(0.1) 
-                    : Colors.white.withOpacity(0.5),
-                width: 1.5,
+                    ? Colors.white.withOpacity(0.08) 
+                    : Colors.black.withOpacity(0.05),
+                width: 1,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(context, 0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Home'),
-                _buildNavItem(context, 1, Icons.medication_rounded, Icons.medication_outlined, 'Cabinet'),
-                _buildNavItem(context, 2, Icons.history_rounded, Icons.history_outlined, 'History'),
-                _buildNavItem(context, 3, Icons.settings_rounded, Icons.settings_outlined, 'Settings'),
-              ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Container(
+              height: 64, // Standard tab bar height
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(
+                    context, 
+                    0, 
+                    Icons.home_rounded, 
+                    Icons.home_outlined, 
+                    'Home'
+                  ),
+                  _buildNavItem(
+                    context, 
+                    1, 
+                    Icons.medication_rounded, 
+                    Icons.medication_outlined, 
+                    'Meds'
+                  ),
+                  _buildNavItem(
+                    context, 
+                    2, 
+                    Icons.calendar_month_rounded, 
+                    Icons.calendar_month_outlined, 
+                    'History'
+                  ),
+                  _buildNavItem(
+                    context, 
+                    3, 
+                    Icons.settings_rounded, 
+                    Icons.settings_outlined, 
+                    'Settings'
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -64,28 +82,44 @@ class GlassBottomNavBar extends StatelessWidget {
     final isSelected = currentIndex == index;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? primaryColor.withOpacity(0.1) 
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!isSelected) {
+            onTap(index);
+          }
+        },
+        behavior: HitTestBehavior.opaque,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isSelected ? activeIcon : inactiveIcon,
-              color: isSelected ? primaryColor : theme.iconTheme.color?.withOpacity(0.5),
-              size: 26,
+            // Animated Icon
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              transform: Matrix4.identity()..scale(isSelected ? 1.1 : 1.0),
+              alignment: Alignment.center,
+              child: Icon(
+                isSelected ? activeIcon : inactiveIcon,
+                color: isSelected 
+                    ? primaryColor 
+                    : (isDark ? Colors.white38 : Colors.grey[500]),
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Label
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected 
+                    ? primaryColor 
+                    : (isDark ? Colors.white38 : Colors.grey[500]),
+              ),
             ),
           ],
         ),

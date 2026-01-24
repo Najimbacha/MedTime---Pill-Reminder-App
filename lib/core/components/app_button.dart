@@ -7,7 +7,7 @@ import '../theme/app_text_styles.dart';
 
 enum AppButtonType { primary, secondary, tertiary }
 
-class AppButton extends StatelessWidget {
+class AppButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
   final AppButtonType type;
@@ -26,19 +26,65 @@ class AppButton extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<AppButton> createState() => _AppButtonState();
+}
+
+class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.0,
+      upperBound: 0.05, 
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.onPressed != null && !widget.isLoading) {
+      _controller.forward();
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (widget.onPressed != null && !widget.isLoading) {
+      _controller.reverse();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.onPressed != null && !widget.isLoading) {
+      _controller.reverse();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     
     Widget button;
-    switch (type) {
+    switch (widget.type) {
       case AppButtonType.primary:
         button = ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: widget.isLoading ? null : widget.onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             disabledBackgroundColor: isDark ? AppColors.surface2Dark : AppColors.surface2Light,
-            minimumSize: Size(fullWidth ? double.infinity : 120, 48),
+            minimumSize: Size(widget.fullWidth ? double.infinity : 120, 48),
             padding: EdgeInsets.symmetric(
               horizontal: AppSpacing.xl,
               vertical: AppSpacing.md,
@@ -46,19 +92,20 @@ class AppButton extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: AppRadius.mediumRadius,
             ),
+            elevation: 0, // Flat for cleaner look
           ),
           child: _buildContent(),
         );
         break;
       case AppButtonType.secondary:
         button = OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: widget.isLoading ? null : widget.onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: BorderSide(
               color: isDark ? AppColors.borderDark : AppColors.borderLight,
             ),
-            minimumSize: Size(fullWidth ? double.infinity : 120, 48),
+            minimumSize: Size(widget.fullWidth ? double.infinity : 120, 48),
             padding: EdgeInsets.symmetric(
               horizontal: AppSpacing.xl,
               vertical: AppSpacing.md,
@@ -72,10 +119,10 @@ class AppButton extends StatelessWidget {
         break;
       case AppButtonType.tertiary:
         button = TextButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: widget.isLoading ? null : widget.onPressed,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.primary,
-            minimumSize: Size(fullWidth ? double.infinity : 120, 48),
+            minimumSize: Size(widget.fullWidth ? double.infinity : 120, 48),
             padding: EdgeInsets.symmetric(
               horizontal: AppSpacing.xl,
               vertical: AppSpacing.md,
@@ -89,11 +136,25 @@ class AppButton extends StatelessWidget {
         break;
     }
 
-    return button;
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: 1.0 - _controller.value,
+            child: child,
+          );
+        },
+        child: button,
+      ),
+    );
   }
 
   Widget _buildContent() {
-    if (isLoading) {
+    if (widget.isLoading) {
       return const SizedBox(
         height: 20,
         width: 20,
@@ -104,17 +165,17 @@ class AppButton extends StatelessWidget {
       );
     }
 
-    if (icon != null) {
+    if (widget.icon != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20),
+          Icon(widget.icon, size: 20),
           SizedBox(width: AppSpacing.sm),
-          Text(text, style: AppTextStyles.labelLarge),
+          Text(widget.text, style: AppTextStyles.labelLarge),
         ],
       );
     }
 
-    return Text(text, style: AppTextStyles.labelLarge);
+    return Text(widget.text, style: AppTextStyles.labelLarge);
   }
 }

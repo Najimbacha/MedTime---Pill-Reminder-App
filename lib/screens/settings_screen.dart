@@ -11,12 +11,15 @@ import '../utils/haptic_helper.dart';
 import '../utils/sound_helper.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
+import '../core/theme/app_colors.dart';
 import '../widgets/settings_widgets.dart'; // Premium UI Components
+import 'package:url_launcher/url_launcher.dart';
 
 import 'auth_screen.dart';
 import 'invite_caregiver_screen.dart';
 import 'accept_invite_screen.dart';
 import 'caregiver_dashboard_screen.dart';
+import 'notification_troubleshoot_screen.dart';
 
 /// Settings screen - Premium Redesign
 class SettingsScreen extends StatefulWidget {
@@ -63,10 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface, // Clean background
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 60, 16, 120), // Top 60, Bottom 120 for Glass Nav
-        child: Column(
-          children: [
+      extendBodyBehindAppBar: true,
+      body: Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 60, 16, 120), // Top 60, Bottom 120 for Glass Nav
+          child: Column(
+            children: [
             // 1. Premium Header
             Consumer<AuthProvider>(
               builder: (context, authProvider, _) {
@@ -86,7 +92,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. Family Sharing (Cloud) - High Importance / Account
+            // 2. Preferences (Sound, Haptics) - Personalization
+            Consumer<SettingsService>(
+              builder: (context, settings, _) {
+                return SettingsSection(
+                  title: 'PREFERENCES',
+                  children: [
+                    SettingsTile(
+                      icon: Icons.vibration, 
+                      iconColor: Colors.teal,
+                      title: 'Haptic Feedback',
+                      trailing: Switch(
+                        value: settings.hapticFeedbackEnabled,
+                        onChanged: (value) async {
+                           await settings.setHapticFeedback(value);
+                           if (value) {
+                             await HapticHelper.success();
+                             await SoundHelper.playClick();
+                           }
+                        },
+                      ),
+                      onTap: () async {
+                         final newVal = !settings.hapticFeedbackEnabled;
+                         await settings.setHapticFeedback(newVal);
+                         if (newVal) await HapticHelper.success();
+                      },
+                    ),
+                    SettingsTile(
+                      icon: Icons.volume_up,
+                      iconColor: Colors.indigo,
+                      title: 'Sound Effects',
+                      trailing: Switch(
+                         value: settings.soundEnabled,
+                         onChanged: (value) async {
+                           await settings.setSoundEnabled(value);
+                           if (value) await SoundHelper.playClick();
+                         },
+                      ),
+                      onTap: () async {
+                         final newVal = !settings.soundEnabled;
+                         await settings.setSoundEnabled(newVal);
+                         if (newVal) await SoundHelper.playClick();
+                      },
+                    ),
+                     SettingsTile(
+                       icon: Icons.palette,
+                       iconColor: Colors.pink,
+                       title: 'App Theme',
+                       showChevron: false,
+                       trailing: SegmentedButton<ThemeMode>(
+                          showSelectedIcon: false,
+                          style: SegmentedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          ),
+                          segments: const [
+                            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 18)),
+                            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 18)),
+                            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto, size: 18)),
+                          ],
+                          selected: {settings.themeMode},
+                          onSelectionChanged: (Set<ThemeMode> newSelection) async {
+                            await HapticHelper.selection();
+                            await SoundHelper.playClick();
+                            await settings.setThemeMode(newSelection.first);
+                          },
+                       ),
+                     ),
+                    SettingsTile(
+                      icon: Icons.inventory_2,
+                      iconColor: Colors.brown,
+                      title: 'Low Stock Alert',
+                      subtitle: 'Threshold: ${settings.lowStockThreshold} doses',
+                      onTap: () => _showLowStockDialog(context, settings),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            // 3. Notifications Section - Core Utility
+            SettingsSection(
+              title: 'NOTIFICATIONS',
+              children: [
+                SettingsTile(
+                  icon: _notificationsEnabled ? Icons.notifications_active : Icons.notifications_off,
+                  iconColor: _notificationsEnabled ? Colors.green : Colors.red,
+                  title: 'Reminders',
+                  subtitle: _notificationsEnabled ? 'Permission granted' : 'Permission required',
+                  trailing: Switch(
+                    value: _notificationsEnabled,
+                    onChanged: (value) => _requestPermissions(), // Always request if toggled
+                    activeColor: Colors.green,
+                  ),
+                  onTap: _requestPermissions,
+                ),
+                if (Platform.isAndroid)
+                  SettingsTile(
+                    icon: Icons.access_time_filled,
+                    iconColor: _exactAlarmsEnabled ? Colors.blue : Colors.orange,
+                    title: 'Exact Alarms',
+                    subtitle: _exactAlarmsEnabled ? 'For precise timing' : 'Required for accuracy',
+                    trailing: _exactAlarmsEnabled 
+                      ? const Icon(Icons.check_circle, color: Colors.green, size: 24)
+                      : OutlinedButton(
+                          onPressed: _requestPermissions,
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          child: const Text('Enable'),
+                        ),
+                    onTap: _exactAlarmsEnabled ? null : _requestPermissions, 
+                    showChevron: !_exactAlarmsEnabled,
+                  ),
+                
+                // Troubleshoot Tile
+                SettingsTile(
+                  icon: Icons.build_circle,
+                  iconColor: Colors.amber.shade800,
+                  title: 'Troubleshoot Issues',
+                  subtitle: 'Fix missed reminders',
+                  onTap: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (_) => const NotificationTroubleshootScreen()),
+                  ),
+                ),
+              ],
+            ),
+
+            // 4. Family Sharing (Cloud) - High Importance / Account
             Consumer<AuthProvider>(
               builder: (context, authProvider, _) {
                 final isSignedIn = authProvider.isSignedIn;
@@ -182,129 +317,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
-            // 3. Notifications Section - Core Utility
+
+
+            // 5. Legal & Data - Compliance
             SettingsSection(
-              title: 'NOTIFICATIONS',
+              title: 'LEGAL & DATA',
               children: [
                 SettingsTile(
-                  icon: _notificationsEnabled ? Icons.notifications_active : Icons.notifications_off,
-                  iconColor: _notificationsEnabled ? Colors.green : Colors.red,
-                  title: 'Reminders',
-                  subtitle: _notificationsEnabled ? 'Permission granted' : 'Permission required',
-                  trailing: Switch(
-                    value: _notificationsEnabled,
-                    onChanged: (value) => _requestPermissions(), // Always request if toggled
-                    activeColor: Colors.green,
-                  ),
-                  onTap: _requestPermissions,
+                  icon: Icons.privacy_tip,
+                  iconColor: Colors.blueGrey,
+                  title: 'Privacy Policy',
+                  onTap: () async {
+                    const url = 'https://www.privacypolicies.com/live/placeholder'; // Placeholder
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url));
+                    } else {
+                       if (context.mounted) {
+                         ScaffoldMessenger.of(context).showSnackBar(
+                           const SnackBar(content: Text('Could not open Privacy Policy')),
+                         );
+                       }
+                    }
+                  },
                 ),
-                if (Platform.isAndroid)
-                  SettingsTile(
-                    icon: Icons.access_time_filled,
-                    iconColor: _exactAlarmsEnabled ? Colors.blue : Colors.orange,
-                    title: 'Exact Alarms',
-                    subtitle: _exactAlarmsEnabled ? 'For precise timing' : 'Required for accuracy',
-                    trailing: _exactAlarmsEnabled 
-                      ? const Icon(Icons.check_circle, color: Colors.green, size: 24)
-                      : OutlinedButton(
-                          onPressed: _requestPermissions,
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          child: const Text('Enable'),
-                        ),
-                    onTap: _exactAlarmsEnabled ? null : _requestPermissions, 
-                    showChevron: !_exactAlarmsEnabled,
-                  ),
-              ],
-            ),
-
-            // 4. Preferences (Sound, Haptics) - Personalization
-            Consumer<SettingsService>(
-              builder: (context, settings, _) {
-                return SettingsSection(
-                  title: 'PREFERENCES',
-                  children: [
-                    SettingsTile(
-                      icon: Icons.vibration, 
-                      iconColor: Colors.teal,
-                      title: 'Haptic Feedback',
-                      trailing: Switch(
-                        value: settings.hapticFeedbackEnabled,
-                        onChanged: (value) async {
-                           await settings.setHapticFeedback(value);
-                           if (value) {
-                             await HapticHelper.success();
-                             await SoundHelper.playClick();
-                           }
-                        },
-                      ),
-                      onTap: () async {
-                         final newVal = !settings.hapticFeedbackEnabled;
-                         await settings.setHapticFeedback(newVal);
-                         if (newVal) await HapticHelper.success();
-                      },
-                    ),
-                    SettingsTile(
-                      icon: Icons.volume_up,
-                      iconColor: Colors.indigo,
-                      title: 'Sound Effects',
-                      trailing: Switch(
-                         value: settings.soundEnabled,
-                         onChanged: (value) async {
-                           await settings.setSoundEnabled(value);
-                           if (value) await SoundHelper.playClick();
-                         },
-                      ),
-                      onTap: () async {
-                         final newVal = !settings.soundEnabled;
-                         await settings.setSoundEnabled(newVal);
-                         if (newVal) await SoundHelper.playClick();
-                      },
-                    ),
-                     SettingsTile(
-                       icon: Icons.palette,
-                       iconColor: Colors.pink,
-                       title: 'App Theme',
-                       showChevron: false,
-                       trailing: SegmentedButton<ThemeMode>(
-                          showSelectedIcon: false,
-                          style: SegmentedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                          ),
-                          segments: const [
-                            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 18)),
-                            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 18)),
-                            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto, size: 18)),
-                          ],
-                          selected: {settings.themeMode},
-                          onSelectionChanged: (Set<ThemeMode> newSelection) async {
-                            await HapticHelper.selection();
-                            await SoundHelper.playClick();
-                            await settings.setThemeMode(newSelection.first);
-                          },
-                       ),
-                     ),
-                    SettingsTile(
-                      icon: Icons.inventory_2,
-                      iconColor: Colors.brown,
-                      title: 'Low Stock Alert',
-                      subtitle: 'Threshold: ${settings.lowStockThreshold} doses',
-                      onTap: () => _showLowStockDialog(context, settings),
-                    ),
-                  ],
-                );
-              },
-            ),
-
-
-
-            // 6. Data Management - Low Importance
-            SettingsSection(
-              title: 'DATA MANAGEMENT',
-              children: [
                 SettingsTile(
                   icon: Icons.upload_file,
                   iconColor: Colors.deepPurple,
@@ -337,14 +372,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 SettingsTile(
-                  icon: Icons.delete_forever,
-                  iconColor: Colors.red,
-                  title: 'Reset All Data',
-                  subtitle: 'Irreversible action',
-                  isDestructive: true,
-                  // Hide separator for last item handled by section logic?
-                  // Yes, section handles it.
+                  icon: Icons.delete_sweep, // Less scary than delete_forever for local reset
+                  iconColor: Colors.orange,
+                  title: 'Reset Local Data',
+                  subtitle: 'Use if app is buggy',
                   onTap: () => _showResetDialog(context),
+                ),
+                Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    if (!auth.isSignedIn) return const SizedBox.shrink();
+                    return SettingsTile(
+                      icon: Icons.delete_forever,
+                      iconColor: Colors.red,
+                      title: 'Delete Account',
+                      subtitle: 'Permanently remove all cloud data',
+                      isDestructive: true,
+                      onTap: () => _showDeleteAccountDialog(context, auth),
+                    );
+                  },
                 ),
               ],
             ),
@@ -358,8 +403,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      ),
-    );
+        ), // SingleChildScrollView
+      ), // Container
+    ); // Scaffold
   }
 
   // Helper Methods
@@ -573,6 +619,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         );
       },
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AuthProvider auth) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+        content: const Text(
+          'This will permanently delete your account and all synced data from the cloud. This action CANNOT be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog first
+              
+              // Show loading overlay
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+
+              final success = await auth.deleteAccount();
+              
+              if (context.mounted) {
+                Navigator.pop(context); // Pop loading
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Account deleted successfully')),
+                  );
+                  Navigator.pop(context); // Go back to Home/Auth
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(auth.error ?? 'Failed to delete account'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }

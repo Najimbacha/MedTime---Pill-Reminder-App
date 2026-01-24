@@ -6,6 +6,7 @@ import 'cabinet_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 import '../utils/haptic_helper.dart';
+import '../core/theme/app_colors.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -41,18 +42,36 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    // Set system UI overlay style usually handled by main/theme, 
-    // but good to reinforce here since we draw behind nav
+    // Set system UI overlay style
     SystemChrome.setSystemUIOverlayStyle(
       isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
     );
 
     return Scaffold(
-      extendBody: true, // Key: Allows body to draw behind the Bottom Nav
-      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      extendBody: true,
+      body: Container(
+        color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.02),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey<int>(_currentIndex),
+            child: _screens[_currentIndex],
+          ),
+        ),
       ),
       bottomNavigationBar: GlassBottomNavBar(
         currentIndex: _currentIndex,

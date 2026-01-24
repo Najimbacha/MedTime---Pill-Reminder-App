@@ -387,25 +387,45 @@ class NotificationService {
     );
   }
 
-  /// Snooze notification (reschedule for 10 minutes later)
-  Future<void> snoozeNotification({
-    required int notificationId,
+  /// Snooze notification (reschedule for [minutes] later)
+  Future<void> scheduleSnooze({
     required int medicineId,
     required String medicineName,
     required String dosage,
+    required int minutes,
   }) async {
-    // Cancel current notification
-    await cancelNotification(notificationId);
+    // Reschedule for X minutes from now
+    // We use a unique ID for snoozes (e.g. medicineId + 50000 + minutes) 
+    // to allow multiple snoozes but avoid collisions with main schedule
+    final snoozeTime = DateTime.now().add(Duration(minutes: minutes));
+    final notificationId = medicineId + 50000 + minutes;
 
-    // Reschedule for 10 minutes from now
-    final snoozeTime = DateTime.now().add(const Duration(minutes: 10));
-    
     await scheduleMedicineReminder(
       notificationId: notificationId,
       medicineId: medicineId,
       medicineName: medicineName,
       dosage: dosage,
       scheduledTime: snoozeTime,
+    );
+  }
+
+  /// Snooze notification (internal helper, default 10m)
+  Future<void> snoozeNotification({
+    required int notificationId,
+    required int medicineId,
+    required String medicineName,
+    required String dosage,
+  }) async {
+    // Cancel current notification is implicit usually, but we can explicit cancel 
+    // if this came from a foreground action rather than notification action button
+    // which automatically dismisses.
+    
+    await cancelNotification(notificationId);
+    await scheduleSnooze(
+      medicineId: medicineId, 
+      medicineName: medicineName, 
+      dosage: dosage, 
+      minutes: 10
     );
   }
 

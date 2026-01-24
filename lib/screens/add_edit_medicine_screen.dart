@@ -170,6 +170,136 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     super.dispose();
   }
 
+  Widget _buildImagePicker(bool isDark) {
+    return GestureDetector(
+      onTap: () => _pickImage(ImageSource.gallery),
+      child: Stack(
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: _imagePath != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.file(
+                      File(_imagePath!),
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Icon(
+                    Icons.add_a_photo_rounded,
+                    size: 32,
+                    color: isDark ? Colors.white24 : Colors.black26,
+                  ),
+          ),
+          if (_imagePath != null)
+            Positioned(
+              top: -8,
+              right: -8,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _imagePath = null);
+                  HapticHelper.light();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    IconData? icon,
+    String? label,
+    required bool isDark,
+    bool readOnly = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    void Function(String)? onChanged,
+    FocusNode? focusNode,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surface1Dark : AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+      ),
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        readOnly: readOnly,
+        keyboardType: keyboardType,
+        style: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: isDark ? Colors.white30 : Colors.black26,
+            fontWeight: FontWeight.normal,
+          ),
+          prefixIcon: icon != null 
+              ? Icon(icon, color: isDark ? Colors.white38 : Colors.black38) 
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+          isDense: true,
+        ),
+        validator: validator,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildTypeAndColorSelector(bool isDark) {
+    return Column(
+      children: [
+        _buildMedicineTypeSelector(isDark),
+        const SizedBox(height: 16),
+        _buildColorSelector(isDark),
+      ],
+    );
+  }
+
   Future<void> _checkForInteractions() async {
     final String name = _nameController.text;
     if (name.length < 3) {
@@ -194,9 +324,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   bool _isFormValid() {
     if (_nameController.text.trim().isEmpty) return false;
-    if (_dosageAmountController.text.trim().isEmpty) return false;
-    final amount = double.tryParse(_dosageAmountController.text);
-    if (amount == null || amount <= 0) return false;
+    // Dosage is now optional
+    if (_dosageAmountController.text.trim().isNotEmpty) {
+      final amount = double.tryParse(_dosageAmountController.text);
+      if (amount == null || amount <= 0) return false;
+    }
 
     if (_frequencyType == FrequencyType.specificDays && _selectedDays.isEmpty) {
       return false;
@@ -214,24 +346,84 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     return true;
   }
 
+  Widget _buildIntervalInput(bool isDark) {
+    return Row(
+      children: [
+        Text(
+          'Every',
+          style: TextStyle(
+            fontSize: 15,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          width: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: TextFormField(
+            initialValue: _intervalDays.toString(),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              fillColor: Colors.transparent,
+            ),
+            onChanged: (value) {
+              final parsed = int.tryParse(value);
+              if (parsed != null && parsed >= 2 && parsed <= 30) {
+                setState(() => _intervalDays = parsed);
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'days',
+          style: TextStyle(
+            fontSize: 15,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.medicine != null;
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final background = theme.scaffoldBackgroundColor;
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: background,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: isDark ? Colors.white : Colors.black,
+        backgroundColor: Colors.transparent,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircleAvatar(
+             backgroundColor: isDark ? Colors.black26 : Colors.white54,
+             child: IconButton(
+              icon: Icon(Icons.arrow_back_rounded, size: 20, color: isDark ? Colors.white : Colors.black),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEditing ? 'Edit Medicine' : 'Add Medicine',
@@ -239,269 +431,302 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: isDark ? Colors.white : Colors.black,
-            letterSpacing: -0.3,
           ),
         ),
+        centerTitle: true,
       ),
-      body: Stack(
+      body: Column(
         children: [
-          SafeArea(
-            child: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_warnings.isNotEmpty) ...[
-                      _buildInteractionWarnings(isDark),
-                      const SizedBox(height: 16),
-                    ],
+          // Scrollable Content
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: isDark ? AppColors.surfaceGradientDark : AppColors.surfaceGradientLight,
+              ),
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Interaction Warnings
+                      if (_warnings.isNotEmpty) ...[
+                        _buildInteractionWarnings(isDark),
+                        const SizedBox(height: 24),
+                      ],
 
-                    // Medicine Section
-                    _SectionLabel(label: 'MEDICINE', isDark: isDark),
-                    const SizedBox(height: 8),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Autocomplete<String>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text == '') {
-                              return const Iterable<String>.empty();
-                            }
-                            return CommonMedicines.names.where((String option) {
-                              return option.toLowerCase().contains(
-                                    textEditingValue.text.toLowerCase(),
-                                  );
-                            });
-                          },
-                          onSelected: (String selection) {
-                            _nameController.text = selection;
-                            final defaultMed = CommonMedicines.find(selection);
-                            if (defaultMed != null) {
-                              setState(() {
-                                _selectedIcon = defaultMed.typeIcon;
-                                _selectedColor = defaultMed.color;
-                                // Also try to guess type string
-                                _selectedMedicineType = _iconToMedicineType[_selectedIcon] ?? 'tablet';
-                              });
-                              HapticHelper.medium();
-                            }
-                          },
-                          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                            // Sync internal controller with our form controller
-                            if (controller.text != _nameController.text) {
-                               controller.text = _nameController.text;
-                            }
-                            // Listen to changes to update our controller (for form validation)
-                            // Actually, better to just use the one controller.
-                            // But Autocomplete wants its own. 
-                            // Let's attach our listener to the passed controller to sync back.
-                            return _MinimalTextField(
-                              label: '',
-                              hint: 'e.g., Aspirin',
-                              controller: controller, // Use Autocomplete's controller
-                              focusNode: focusNode,
-                              isDark: isDark,
-                              onChanged: (val) {
-                                  _nameController.text = val;
-                                  _checkForInteractions(); // Trigger interaction check
-                              },
-                            );
-                          },
-                          optionsViewBuilder: (context, onSelected, options) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 8,
-                                borderRadius: BorderRadius.circular(16),
-                                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                                child: Container(
-                                  width: constraints.maxWidth,
-                                  constraints: const BoxConstraints(maxHeight: 200),
-                                  decoration: BoxDecoration(
-                                     borderRadius: BorderRadius.circular(16),
-                                     color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                                  ),
-                                  child: ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    shrinkWrap: true,
-                                    itemCount: options.length,
-                                    itemBuilder: (BuildContext context, int index) {
-                                      final String option = options.elementAt(index);
-                                      return ListTile(
-                                        title: Text(
-                                            option,
-                                            style: TextStyle(color: isDark ? Colors.white : Colors.black)
+                      // ═══════════════════════════════════════════════════════════
+                      // CARD 1: Medicine Info
+                      // ═══════════════════════════════════════════════════════════
+                      // Medicine Info Card
+                      _AppleCard(
+                        isDark: isDark,
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Name Section
+                            Consumer<MedicineProvider>(
+                              builder: (context, provider, child) {
+                                return Autocomplete<String>(
+                                  optionsBuilder: (TextEditingValue textEditingValue) {
+                                    if (textEditingValue.text == '') {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    return CommonMedicines.names.where((String option) {
+                                      return option.toLowerCase().contains(
+                                            textEditingValue.text.toLowerCase(),
+                                          );
+                                    });
+                                  },
+                                  onSelected: (String selection) {
+                                    _nameController.text = selection;
+                                    final defaultMed = CommonMedicines.find(selection);
+                                    if (defaultMed != null) {
+                                      setState(() {
+                                        _selectedIcon = defaultMed.typeIcon;
+                                        _selectedColor = defaultMed.color;
+                                        _selectedMedicineType = _iconToMedicineType[_selectedIcon] ?? 'tablet';
+                                      });
+                                      HapticHelper.medium();
+                                    }
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                                    if (controller.text != _nameController.text) {
+                                       controller.text = _nameController.text;
+                                    }
+                                    return _AppleTextField(
+                                      hint: 'Medicine name',
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      isDark: isDark,
+                                      icon: Icons.medication_rounded,
+                                      textInputAction: TextInputAction.next,
+                                      onChanged: (val) {
+                                          _nameController.text = val;
+                                          _checkForInteractions();
+                                      },
+                                    );
+                                  },
+                                  optionsViewBuilder: (context, onSelected, options) {
+                                    return Align(
+                                      alignment: Alignment.topLeft,
+                                      child: Material(
+                                        elevation: 8,
+                                        borderRadius: BorderRadius.circular(16),
+                                        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                                        child: Container(
+                                          width: MediaQuery.of(context).size.width - 72,
+                                          constraints: const BoxConstraints(maxHeight: 200),
+                                          child: ListView.builder(
+                                            padding: EdgeInsets.zero,
+                                            shrinkWrap: true,
+                                            itemCount: options.length,
+                                            itemBuilder: (BuildContext context, int index) {
+                                              final String option = options.elementAt(index);
+                                              return ListTile(
+                                                title: Text(
+                                                    option,
+                                                    style: TextStyle(color: isDark ? Colors.white : Colors.black)
+                                                ),
+                                                onTap: () => onSelected(option),
+                                              );
+                                            },
+                                          ),
                                         ),
-                                        onTap: () => onSelected(option),
-                                      );
-                                    },
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Strength Row
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _AppleTextField(
+                                    hint: 'e.g. 500 (Optional)',
+                                    controller: _dosageAmountController,
+                                    isDark: isDark,
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.done,
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        );
-                      }
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Dosage Section (structured)
-                    _SectionLabel(label: 'DOSAGE', isDark: isDark),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _MinimalTextField(
-                            label: '',
-                            hint: '500',
-                            controller: _dosageAmountController,
-                            isDark: isDark,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: _buildDosageUnitDropdown(isDark),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Example: 500 mg',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Schedule Section
-                    _SectionLabel(label: 'SCHEDULE', isDark: isDark),
-                    const SizedBox(height: 12),
-
-                    if (_frequencyType != FrequencyType.asNeeded) ...[
-                      // Time chips (existing reminder times)
-                      if (_reminderTimes.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _reminderTimes.map((time) {
-                            return _TimeChip(
-                              time: time,
-                              isDark: isDark,
-                              onRemove: _reminderTimes.length > 1
-                                  ? () {
-                                      setState(() {
-                                        _reminderTimes.remove(time);
-                                      });
-                                      HapticHelper.light();
-                                    }
-                                  : null,
-                              onTap: () => _editTime(time),
-                            );
-                          }).toList(),
-                        ),
-                      const SizedBox(height: 12),
-                      if (_reminderTimes.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            'Quickly tap one of the chips below or add a time to set a reminder.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white60 : Colors.black54,
-                            ),
-                          ),
-                        ),
-
-                      // Quick time chips
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _QuickTimeChip(
-                              label: 'Morning',
-                              time: const TimeOfDay(hour: 8, minute: 0),
-                              isDark: isDark,
-                              onTap: (time) => _addQuickTime(time),
-                            ),
-                            const SizedBox(width: 8),
-                            _QuickTimeChip(
-                              label: 'Noon',
-                              time: const TimeOfDay(hour: 12, minute: 0),
-                              isDark: isDark,
-                              onTap: (time) => _addQuickTime(time),
-                            ),
-                            const SizedBox(width: 8),
-                            _QuickTimeChip(
-                              label: 'Evening',
-                              time: const TimeOfDay(hour: 18, minute: 0),
-                              isDark: isDark,
-                              onTap: (time) => _addQuickTime(time),
-                            ),
-                            const SizedBox(width: 8),
-                            _QuickTimeChip(
-                              label: 'Night',
-                              time: const TimeOfDay(hour: 22, minute: 0),
-                              isDark: isDark,
-                              onTap: (time) => _addQuickTime(time),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 1,
+                                  child: _buildAppleUnitPicker(isDark),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      
+                      const SizedBox(height: 24),
 
-                      // Add another time button
-                      TextButton.icon(
-                        onPressed: _addCustomTime,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add another time'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
+                      // ═══════════════════════════════════════════════════════════
+                      // CARD 2: Schedule
+                      // ═══════════════════════════════════════════════════════════
+                      _AppleCard(
+                        isDark: isDark,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'When do you take it?',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            // Frequency Segmented Control
+                            _buildAppleSegmentedControl(isDark),
+                            
+                            // Frequency Details (days selection or interval)
+                            _buildFrequencyDetails(isDark),
+                            
+                            // Reminder Times
+                            if (_frequencyType != FrequencyType.asNeeded) ...[
+                              const SizedBox(height: 20),
+                              
+                              // Quick Add Row
+                              Text(
+                                'Quick add',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              
+                              // Preset Chips (quick add/remove)
+                              _buildSimplePresetChips(isDark),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Selected Times Label
+                              if (_reminderTimes.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Text(
+                                    'Selected times',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white38 : Colors.black38,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              
+                              // All Selected Times as Editable Pills
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  ..._reminderTimes.map((time) => _AppleTimePill(
+                                    time: time,
+                                    isDark: isDark,
+                                    onTap: () => _editTime(time),
+                                    onRemove: () {
+                                      setState(() => _reminderTimes.remove(time));
+                                      HapticHelper.light();
+                                    },
+                                  )),
+                                  
+                                  // Add Custom Time Button (inline)
+                                  GestureDetector(
+                                    onTap: _addCustomTime,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: isDark 
+                                              ? Colors.white.withOpacity(0.12) 
+                                              : Colors.black.withOpacity(0.08),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.add_rounded,
+                                            size: 16,
+                                            color: isDark ? Colors.white54 : Colors.black45,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Custom',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: isDark ? Colors.white54 : Colors.black45,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Reminder Preview
+                      _buildReminderPreview(isDark),
+
+                      const SizedBox(height: 24),
+
+                      // ═══════════════════════════════════════════════════════════
+                      // More Options (Collapsible)
+                      // ═══════════════════════════════════════════════════════════
+                      _buildAdditionalInfo(isDark),
                     ],
-
-                    // Frequency Section
-                    _SectionLabel(label: 'FREQUENCY', isDark: isDark),
-                    const SizedBox(height: 12),
-                    _buildFrequencySegmentedControl(isDark),
-                    const SizedBox(height: 16),
-
-                    // Progressive disclosure based on frequency
-                    _buildFrequencyDetails(isDark),
-
-                    const SizedBox(height: 24),
-
-                    // Reminder Preview
-                    _buildReminderPreview(isDark),
-
-                    const SizedBox(height: 24),
-
-                    // Additional Information (collapsed)
-                    _buildAdditionalInfo(isDark),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-
-          // Sticky Bottom Bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildStickyBottomBar(isEditing, isDark),
+          
+          // Keyboard-aware Bottom Bar
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: MediaQuery.of(context).viewInsets.bottom > 0 
+                  ? 12 
+                  : MediaQuery.of(context).padding.bottom + 12,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.9),
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05),
+                ),
+              ),
+            ),
+            child: _buildSaveButton(isEditing, isDark),
           ),
         ],
       ),
@@ -510,37 +735,28 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildDosageUnitDropdown(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      height: 56, // Match text field height
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        color: isDark ? AppColors.surface1Dark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.black.withOpacity(0.08),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
+      alignment: Alignment.centerLeft,
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _dosageUnit,
           isExpanded: true,
-          dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          icon: Icon(Icons.expand_more_rounded, color: isDark ? Colors.white70 : Colors.black54),
+          dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
           borderRadius: BorderRadius.circular(16),
           style: TextStyle(
+            fontFamily: 'Roboto',
             fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: isDark ? Colors.white70 : Colors.black54,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white : Colors.black87,
           ),
           items: _dosageUnits.map((unit) {
             return DropdownMenuItem(value: unit, child: Text(unit));
@@ -556,21 +772,69 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
   }
 
-  Widget _buildFrequencySegmentedControl(bool isDark) {
+  /// Apple-style unit picker dropdown
+  Widget _buildAppleUnitPicker(bool isDark) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withOpacity(0.08) 
+            : Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withOpacity(0.1) 
+              : Colors.black.withOpacity(0.06),
+          width: 1,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _dosageUnit,
+          isExpanded: true,
+          icon: Icon(
+            Icons.expand_more_rounded, 
+            color: isDark ? Colors.white54 : Colors.black45,
+            size: 20,
+          ),
+          dropdownColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+          items: _dosageUnits.map((unit) {
+            return DropdownMenuItem(value: unit, child: Text(unit));
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _dosageUnit = value);
+              HapticHelper.light();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Apple-style segmented control for frequency selection
+  Widget _buildAppleSegmentedControl(bool isDark) {
     final options = [
       {'type': FrequencyType.daily, 'label': 'Daily'},
       {'type': FrequencyType.specificDays, 'label': 'Days'},
       {'type': FrequencyType.interval, 'label': 'Interval'},
-      {'type': FrequencyType.asNeeded, 'label': 'PRN'},
+      {'type': FrequencyType.asNeeded, 'label': 'As needed'},
     ];
 
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        color: isDark 
+            ? Colors.white.withOpacity(0.06) 
+            : Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: options.map((option) {
@@ -590,17 +854,163 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? Colors.white.withOpacity(0.15) : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  option['label'] as String,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white38 : Colors.black38),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// Simple preset chips - just toggle add/remove
+  Widget _buildSimplePresetChips(bool isDark) {
+    final presets = [
+      {'label': 'Morning', 'icon': Icons.wb_twilight_rounded, 'hour': 8},
+      {'label': 'Noon', 'icon': Icons.wb_sunny_rounded, 'hour': 12},
+      {'label': 'Evening', 'icon': Icons.nights_stay_rounded, 'hour': 20},
+      {'label': 'Bedtime', 'icon': Icons.bedtime_rounded, 'hour': 22},
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: presets.map((preset) {
+        final presetTime = TimeOfDay(hour: preset['hour'] as int, minute: 0);
+        final isSelected = _reminderTimes.any((t) => 
+          t.hour == presetTime.hour && t.minute == 0
+        );
+        
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _reminderTimes.removeWhere((t) => 
+                  t.hour == presetTime.hour && t.minute == 0
+                );
+              } else {
+                _reminderTimes.add(presetTime);
+                _reminderTimes.sort((a, b) => 
+                  (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute)
+                );
+              }
+            });
+            HapticHelper.selection();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isDark ? Colors.white.withOpacity(0.15) : Theme.of(context).primaryColor.withOpacity(0.12))
+                  : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? (isDark ? Colors.white.withOpacity(0.25) : Theme.of(context).primaryColor.withOpacity(0.3))
+                    : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06)),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  preset['icon'] as IconData,
+                  size: 14,
+                  color: isSelected
+                      ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                      : (isDark ? Colors.white54 : Colors.black45),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  preset['label'] as String,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                        : (isDark ? Colors.white54 : Colors.black54),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFrequencySegmentedControl(bool isDark) {
+    final options = [
+      {'type': FrequencyType.daily, 'label': 'Daily'},
+      {'type': FrequencyType.specificDays, 'label': 'Days'},
+      {'type': FrequencyType.interval, 'label': 'Interval'},
+      {'type': FrequencyType.asNeeded, 'label': 'PRN'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black26 : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: options.map((option) {
+          final isSelected = _frequencyType == option['type'];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _frequencyType = option['type'] as FrequencyType;
+                  if (_frequencyType == FrequencyType.asNeeded) {
+                    _reminderTimes.clear();
+                  } else if (_reminderTimes.isEmpty) {
+                    _reminderTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                  }
+                });
+                HapticHelper.selection();
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark ? const Color(0xFF6366F1) : Colors.white)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
                             color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                            blurRadius: 8,
+                            blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ]
@@ -611,7 +1021,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: isSelected
                         ? (isDark ? Colors.white : Colors.black)
                         : (isDark ? Colors.white54 : Colors.black54),
@@ -641,16 +1051,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF1A1A1A).withOpacity(0.5)
-                : const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(12),
+                ? AppColors.surface1Dark
+                : AppColors.surface1Light,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight
+            )
           ),
           child: Row(
             children: [
               Icon(
-                Icons.info_outline,
-                size: 18,
-                color: isDark ? Colors.white60 : Colors.black54,
+                Icons.info_outline_rounded,
+                size: 20,
+                color: isDark ? Colors.white70 : Colors.black54,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -670,106 +1083,58 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildWeekdayChips(bool isDark) {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(7, (index) {
-        final dayNum = index + 1;
-        final isSelected = _selectedDays.contains(dayNum);
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _selectedDays.remove(dayNum);
-              } else {
-                _selectedDays.add(dayNum);
-              }
-            });
-            HapticHelper.selection();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (isDark ? Colors.white : Colors.black)
-                  : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? (isDark ? Colors.white : Colors.black)
-                    : (isDark
-                          ? const Color(0xFF2A2A2A)
-                          : const Color(0xFFE5E5E5)),
-              ),
-            ),
-            child: Text(
-              days[index],
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected
-                    ? (isDark ? Colors.black : Colors.white)
-                    : (isDark ? Colors.white60 : Colors.black54),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildIntervalInput(bool isDark) {
-    return Row(
-      children: [
-        Text(
-          'Every',
-          style: TextStyle(
-            fontSize: 15,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 70,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
-            ),
-          ),
-          child: TextFormField(
-            initialValue: _intervalDays.toString(),
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
-            ),
-            onChanged: (value) {
-              final parsed = int.tryParse(value);
-              if (parsed != null && parsed >= 2 && parsed <= 30) {
-                setState(() => _intervalDays = parsed);
-              }
+    return Center(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 12,
+        alignment: WrapAlignment.center,
+        children: List.generate(7, (index) {
+          final dayNum = index + 1;
+          final isSelected = _selectedDays.contains(dayNum);
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isSelected) {
+                  _selectedDays.remove(dayNum);
+                } else {
+                  _selectedDays.add(dayNum);
+                }
+              });
+              HapticHelper.selection();
             },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          'days',
-          style: TextStyle(
-            fontSize: 15,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-      ],
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary
+                    : (isDark ? AppColors.surface1Dark : Colors.white),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark
+                            ? AppColors.borderDark
+                            : AppColors.borderLight),
+                  width: 1.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                days[index][0], // First letter only for compact circle
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white60 : Colors.black54),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 
@@ -943,29 +1308,39 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   Widget _buildPhotoSection(bool isDark) {
     return Row(
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+        Hero(
+          tag: widget.medicine?.id != null ? 'cabinet_icon_${widget.medicine!.id}' : 'new_medicine_hero',
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              borderRadius: BorderRadius.circular(20), // Matches Main Card
+              border: Border.all(
+                color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+              ),
+              image: _imagePath != null
+                  ? DecorationImage(
+                      image: FileImage(File(_imagePath!)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
             ),
-            image: _imagePath != null
-                ? DecorationImage(
-                    image: FileImage(File(_imagePath!)),
-                    fit: BoxFit.cover,
+            child: _imagePath == null
+                ? Icon(
+                    Icons.medication_outlined,
+                    size: 32,
+                    color: isDark ? Colors.white24 : Colors.black26,
                   )
                 : null,
           ),
-          child: _imagePath == null
-              ? Icon(
-                  Icons.medication_outlined,
-                  size: 32,
-                  color: isDark ? Colors.white24 : Colors.black26,
-                )
-              : null,
         ),
         const SizedBox(width: 12),
         Column(
@@ -1179,6 +1554,78 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
   }
 
+  /// Just the save button without container decorations (for keyboard-aware layout)
+  Widget _buildSaveButton(bool isEditing, bool isDark) {
+    final isValid = _isFormValid();
+    
+    return GestureDetector(
+      onTap: (_isSaving || !isValid) ? null : _saveMedicine,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: isValid
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark 
+                      ? [Colors.white, const Color(0xFFE8E8E8)]
+                      : [const Color(0xFF2A2A2A), Colors.black],
+                )
+              : null,
+          color: isValid ? null : (isDark ? Colors.white12 : Colors.black12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isValid
+              ? [
+                  BoxShadow(
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: _isSaving
+            ? Center(
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isDark ? Colors.black : Colors.white,
+                    ),
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isEditing ? Icons.check_rounded : Icons.add_rounded,
+                    size: 20,
+                    color: isValid
+                        ? (isDark ? Colors.black : Colors.white)
+                        : (isDark ? Colors.white38 : Colors.black38),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isEditing ? 'Save Changes' : 'Add Medicine',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isValid
+                          ? (isDark ? Colors.black : Colors.white)
+                          : (isDark ? Colors.white38 : Colors.black38),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
   Widget _buildStickyBottomBar(bool isEditing, bool isDark) {
     final isValid = _isFormValid();
 
@@ -1342,7 +1789,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
     setState(() => _isSaving = true);
 
-    final dosageText = '${_dosageAmountController.text} $_dosageUnit';
+    String dosageText = '';
+    if (_dosageAmountController.text.trim().isNotEmpty) {
+       dosageText = '${_dosageAmountController.text} $_dosageUnit';
+    }
 
     final medicine = Medicine(
       id: widget.medicine?.id,
@@ -1373,28 +1823,35 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
 
     if (savedMedicine != null && savedMedicine.id != null) {
-      if (_frequencyType != FrequencyType.asNeeded &&
-          _reminderTimes.isNotEmpty) {
-        final primaryTime = _reminderTimes.first;
+      // 1. Delete ALL existing schedules for this medicine (Cleaner than update)
+      // This also ensures we don't have duplicate alarms or ghost notifications
+      if (widget.medicine != null) {
+        final existingSchedules = scheduleProvider.getSchedulesForMedicine(savedMedicine.id!);
+        for (final s in existingSchedules) {
+          if (s.id != null) await scheduleProvider.deleteSchedule(s.id!);
+        }
+      }
+
+      // 2. Add New Schedules
+      if (_frequencyType != FrequencyType.asNeeded && _reminderTimes.isNotEmpty) {
         final frequencyDays = _frequencyType == FrequencyType.specificDays
             ? (_selectedDays.toList()..sort())
             : null;
 
-        final schedule = Schedule(
-          medicineId: savedMedicine.id!,
-          timeOfDay:
-              '${primaryTime.hour.toString().padLeft(2, '0')}:${primaryTime.minute.toString().padLeft(2, '0')}',
-          frequencyType: _frequencyType,
-          frequencyDays: frequencyDays?.join(','),
-          intervalDays: _frequencyType == FrequencyType.interval
-              ? _intervalDays
-              : null,
-          startDate: _frequencyType == FrequencyType.interval
-              ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
-              : null,
-        );
-
-        await scheduleProvider.addSchedule(schedule, savedMedicine);
+        // Support multiple times per day (create a schedule for each time)
+        for (final time in _reminderTimes) {
+             final schedule = Schedule(
+              medicineId: savedMedicine.id!,
+              timeOfDay: '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+              frequencyType: _frequencyType,
+              frequencyDays: frequencyDays?.join(','),
+              intervalDays: _frequencyType == FrequencyType.interval ? _intervalDays : null,
+              startDate: _frequencyType == FrequencyType.interval
+                  ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
+                  : null,
+            );
+            await scheduleProvider.addSchedule(schedule, savedMedicine);
+        }
       }
 
       if (mounted) {
@@ -1749,6 +2206,212 @@ class _ImageButton extends StatelessWidget {
                 color: isDark ? Colors.white : Colors.black,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPLE-STYLE WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Frosted-glass style card container with subtle shadows
+class _AppleCard extends StatelessWidget {
+  final Widget child;
+  final bool isDark;
+  final EdgeInsets? padding;
+
+  const _AppleCard({
+    required this.child,
+    required this.isDark,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withOpacity(0.06) 
+            : Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withOpacity(0.08) 
+              : Colors.black.withOpacity(0.04),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Apple-style pill-shaped text field with subtle inner shadow
+class _AppleTextField extends StatelessWidget {
+  final String hint;
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final bool isDark;
+  final IconData? icon;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final Function(String)? onChanged;
+
+  const _AppleTextField({
+    required this.hint,
+    this.controller,
+    this.focusNode,
+    required this.isDark,
+    this.icon,
+    this.keyboardType,
+    this.textInputAction,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withOpacity(0.08) 
+            : Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withOpacity(0.1) 
+              : Colors.black.withOpacity(0.06),
+          width: 1,
+        ),
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction ?? TextInputAction.next,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: isDark ? Colors.white38 : Colors.black38,
+            fontWeight: FontWeight.w400,
+          ),
+          prefixIcon: icon != null 
+              ? Icon(
+                  icon,
+                  size: 20,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: icon != null ? 0 : 16,
+            vertical: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Apple-style time pill with tap and optional remove functionality
+class _AppleTimePill extends StatelessWidget {
+  final TimeOfDay time;
+  final bool isDark;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+
+  const _AppleTimePill({
+    required this.time,
+    required this.isDark,
+    required this.onTap,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark 
+                ? [const Color(0xFF2C2C2E), const Color(0xFF1C1C1E)]
+                : [Colors.white, const Color(0xFFF8F8F8)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark 
+                ? Colors.white.withOpacity(0.12) 
+                : Colors.black.withOpacity(0.08),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.access_time_rounded,
+              size: 16,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              time.format(context),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+                letterSpacing: -0.3,
+              ),
+            ),
+            if (onRemove != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: isDark 
+                        ? Colors.white.withOpacity(0.15) 
+                        : Colors.black.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 12,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

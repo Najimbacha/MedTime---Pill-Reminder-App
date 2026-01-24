@@ -22,7 +22,7 @@ class Medicine {
   Medicine({
     this.id,
     required this.name,
-    required this.dosage,
+    this.dosage = '',
     this.typeIcon = 1,
     this.currentStock = 0,
     this.lowStockThreshold = 5,

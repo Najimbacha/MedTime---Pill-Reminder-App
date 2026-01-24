@@ -6,8 +6,14 @@ import '../services/notification_service.dart';
 
 /// Provider for managing medicine schedules
 class ScheduleProvider with ChangeNotifier {
-  final DatabaseHelper _db = DatabaseHelper.instance;
-  final NotificationService _notifications = NotificationService.instance;
+  final DatabaseHelper _db;
+  final NotificationService _notifications;
+
+  ScheduleProvider({
+    DatabaseHelper? db,
+    NotificationService? notifications,
+  })  : _db = db ?? DatabaseHelper.instance,
+        _notifications = notifications ?? NotificationService.instance;
 
   List<Schedule> _schedules = [];
   bool _isLoading = false;

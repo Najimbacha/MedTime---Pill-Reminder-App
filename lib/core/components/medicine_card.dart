@@ -41,76 +41,77 @@ class MedicineCard extends StatelessWidget {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isCompleted = status == MedicineStatus.completed;
     final bool isPending = status == MedicineStatus.pending;
-    final Color baseColor = isDark
-        ? AppColors.surfaceDark
-        : AppColors.surfaceLight;
-    final Color completedColor = isDark
-        ? AppColors.surface1Dark
-        : AppColors.surface1Light;
-    final EdgeInsets padding = EdgeInsets.all(
-      isCompleted ? AppSpacing.md : AppSpacing.lg,
-    );
-    final double opacity = isCompleted ? 0.65 : 1;
+    
+    // Modern Gradient for Card Background
+    final LinearGradient? backgroundGradient = isCompleted
+      ? null
+      : LinearGradient(
+          colors: isDark 
+            ? [AppColors.surface1Dark, AppColors.surface1Dark.withOpacity(0.8)]
+            : [Colors.white, Color(0xFFF8FAFC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+    final EdgeInsets padding = EdgeInsets.all(isCompleted ? 16 : 20);
+    final double opacity = isCompleted ? 0.7 : 1.0;
+    
+    // Soft Shadows
     final List<BoxShadow> boxShadows = customElevation != null
         ? [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.35 : 0.15),
+              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
               offset: const Offset(0, 8),
               blurRadius: customElevation!,
             ),
           ]
-        : (showGlassEffect
+        : (isPending
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                    offset: const Offset(0, 12),
-                    blurRadius: 30,
-                  ),
+                    color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
+                    offset: const Offset(0, 10),
+                    blurRadius: 20,
+                    spreadRadius: -5,
+                  )
                 ]
-              : isPending
-              ? AppShadows.level3
-              : AppShadows.level0);
-
-    final BoxDecoration decoration = BoxDecoration(
-      color: customGradient == null
-          ? (showGlassEffect
-                ? (isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.white.withOpacity(0.65))
-                : (isCompleted ? completedColor : baseColor))
-          : null,
-      gradient: customGradient,
-      borderRadius: AppRadius.largeRadius,
-      border:
-          customBorder ??
-          Border.all(
-            color: isCompleted
-                ? (isDark ? AppColors.borderDark : AppColors.borderLight)
-                : (isDark ? AppColors.borderDark : AppColors.borderLight),
-          ),
-      boxShadow: boxShadows,
-    );
+              : []);
 
     return Opacity(
       opacity: opacity,
       child: Container(
         padding: padding,
-        decoration: decoration,
+        decoration: BoxDecoration(
+          color: customGradient != null || backgroundGradient != null 
+             ? null 
+             : (isDark ? AppColors.surfaceDark : AppColors.surfaceLight),
+          gradient: customGradient ?? backgroundGradient,
+          borderRadius: BorderRadius.circular(24), // Softer corners
+          border: Border.all(
+            color: isDark 
+               ? Colors.white.withOpacity(0.05) 
+               : AppColors.borderLight.withOpacity(0.6),
+            width: 1,
+          ),
+          boxShadow: boxShadows,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                // Icon Container
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: AppRadius.mediumRadius,
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                  child: Icon(icon, color: color, size: 26),
                 ),
-                SizedBox(width: AppSpacing.md),
+                const SizedBox(width: 16),
+                
+                // Text Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,6 +119,8 @@ class MedicineCard extends StatelessWidget {
                       Text(
                         name,
                         style: AppTextStyles.titleMedium.copyWith(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
                           color: isDark
                               ? AppColors.textPrimaryDark
                               : AppColors.textPrimaryLight,
@@ -125,14 +128,15 @@ class MedicineCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (dosage != null) ...[
-                        SizedBox(height: AppSpacing.xs),
+                       if (dosage != null) ...[
+                        const SizedBox(height: 4),
                         Text(
                           dosage!,
                           style: AppTextStyles.bodySmall.copyWith(
                             color: isDark
                                 ? AppColors.textSecondaryDark
                                 : AppColors.textSecondaryLight,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -142,85 +146,93 @@ class MedicineCard extends StatelessWidget {
                 _buildStatusIndicator(isDark),
               ],
             ),
-            if (isCompleted)
-              Padding(
-                padding: EdgeInsets.only(top: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppColors.taken,
-                      size: 16,
-                    ),
-                    SizedBox(width: AppSpacing.xs),
-                    Text(
-                      'Taken',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: isDark
-                            ? AppColors.textSecondaryDark
-                            : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (status == MedicineStatus.pending) ...[
-              SizedBox(height: AppSpacing.md),
+            
+             // Action Buttons for Pending Status
+            if (isPending) ...[
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 40,
+                      height: 44,
                       child: ElevatedButton(
                         onPressed: onTake,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.primary,
+                          elevation: 4,
+                          shadowColor: AppColors.primary.withOpacity(0.4),
                           shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.mediumRadius,
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.check, size: 18),
-                            SizedBox(width: AppSpacing.xs),
-                            Text('Take', style: AppTextStyles.labelMedium),
+                            const Icon(Icons.check_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Take', 
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: Colors.white, 
+                                fontWeight: FontWeight.bold
+                              )
+                            ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: OutlinedButton(
-                        onPressed: onSkip,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: isDark
-                                ? AppColors.borderDark
-                                : AppColors.borderLight,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.mediumRadius,
-                          ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 44,
+                    width: 44,
+                    child: OutlinedButton(
+                      onPressed: onSkip,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: BorderSide(
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
+                          width: 1.5,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.close, size: 18),
-                            SizedBox(width: AppSpacing.xs),
-                            Text('Skip', style: AppTextStyles.labelMedium),
-                          ],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
+                      ),
+                      child: Icon(
+                         Icons.close_rounded, 
+                         color: isDark ? Colors.grey[400] : Colors.grey[600],
+                         size: 22,
                       ),
                     ),
                   ),
                 ],
               ),
             ],
+            
+            // Taken Status
+            if (isCompleted)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Taken',
+                      style: AppTextStyles.labelMedium.copyWith(
+                         color: AppColors.success,
+                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -228,44 +240,35 @@ class MedicineCard extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator(bool isDark) {
+    if (status == MedicineStatus.pending) return const SizedBox.shrink();
+    
+    Color color;
+    IconData icon;
+    
     switch (status) {
       case MedicineStatus.completed:
-        return Container(
-          padding: EdgeInsets.all(AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: AppColors.taken.withOpacity(0.1),
-            borderRadius: AppRadius.smallRadius,
-          ),
-          child: const Icon(
-            Icons.check_circle,
-            color: AppColors.taken,
-            size: 20,
-          ),
-        );
+        color = AppColors.success;
+        icon = Icons.check_circle_rounded;
+        break;
       case MedicineStatus.overdue:
-        return Container(
-          padding: EdgeInsets.all(AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: AppColors.overdue.withOpacity(0.1),
-            borderRadius: AppRadius.smallRadius,
-          ),
-          child: const Icon(Icons.warning, color: AppColors.overdue, size: 20),
-        );
+        color = AppColors.error;
+        icon = Icons.warning_rounded;
+        break;
       case MedicineStatus.skipped:
-        return Container(
-          padding: EdgeInsets.all(AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: AppColors.skipped.withOpacity(0.1),
-            borderRadius: AppRadius.smallRadius,
-          ),
-          child: const Icon(
-            Icons.remove_circle,
-            color: AppColors.skipped,
-            size: 20,
-          ),
-        );
+        color = AppColors.textDisabledLight;
+        icon = Icons.remove_circle_outline_rounded;
+        break;
       default:
         return const SizedBox.shrink();
     }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
   }
 }

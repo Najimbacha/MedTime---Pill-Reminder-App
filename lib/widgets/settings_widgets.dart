@@ -12,37 +12,43 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (title != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 32, 12, 8),
+            padding: const EdgeInsets.fromLTRB(16, 32, 16, 12),
             child: Text(
               title!,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-                letterSpacing: 0.5,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+                letterSpacing: 1.2,
               ),
             ),
           ),
         Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4), // Slight indent for card look
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
+            color: isDark 
+               ? Theme.of(context).cardColor.withOpacity(0.6) 
+               : Colors.white.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04), // Subtle shadow
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
-            // Use outline variant for border for better dark mode visibility
             border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
-              width: 0.5,
+              color: isDark 
+                  ? Colors.white.withOpacity(0.06) 
+                  : Colors.white.withOpacity(0.6),
+              width: 1,
             ),
           ),
           clipBehavior: Clip.hardEdge,
@@ -52,11 +58,11 @@ class SettingsSection extends StatelessWidget {
                 children[i],
                 if (i < children.length - 1)
                   Padding(
-                    padding: const EdgeInsets.only(left: 60), // Indent divider
+                    padding: const EdgeInsets.only(left: 64),
                     child: Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Theme.of(context).dividerColor.withOpacity(0.5),
+                      color: Theme.of(context).dividerColor.withOpacity(0.2),
                     ),
                   ),
               ],
@@ -251,15 +257,27 @@ class PremiumAppHeader extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            name ?? 'Friend',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                              height: 1.1,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  name ?? 'Friend',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.headlineLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.edit_rounded,
+                                size: 18,
+                                color: theme.colorScheme.primary.withOpacity(0.5),
+                              ),
+                            ],
                           ),
                         ],
                       ),

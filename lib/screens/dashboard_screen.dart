@@ -35,6 +35,7 @@ import '../services/history_service.dart';
 import 'package:confetti/confetti.dart';
 import '../widgets/empty_state_widget.dart';
 import 'achievements_screen.dart';
+import '../widgets/medicine_action_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -144,235 +145,278 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFFAFAFA),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _refresh,
-            color: isDark ? Colors.white : Colors.black,
-            child: SafeArea(
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  _buildAppBar(isDark),
-                  Consumer3<MedicineProvider, ScheduleProvider, LogProvider>(
-                    builder:
-                        (
-                          context,
-                          medicineProvider,
-                          scheduleProvider,
-                          logProvider,
-                          _,
-                        ) {
-                          if (medicineProvider.isLoading ||
-                              scheduleProvider.isLoading ||
-                              logProvider.isLoading) {
-                            return SliverFillRemaining(
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            );
-                          }
-                          final entries = _buildScheduleEntries(
-                            scheduleProvider.todaySchedules,
-                            logProvider.todayLogs,
-                            medicineProvider,
-                          );
-                          final validEntries = entries
-                              .where(
-                                (entry) => _isValidMedicine(entry.medicine),
-                              )
-                              .toList();
-                          final pendingEntries = validEntries
-                              .where(
-                                (entry) {
-                                  if (entry.timelineStatus == TimelineStatus.completed) return false;
-                                  final key = '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
-                                  return !_dismissedItems.containsKey(key);
-                                }
-                              )
-                              .toList();
-
-                          final completedEntries = validEntries
-                              .where(
-                                (entry) =>
-                                    entry.timelineStatus ==
-                                    TimelineStatus.completed,
-                              )
-                              .toList();
-                              
-                          // Calculate Optimistic Stats
-                          // Prevent double counting: Only count optimistic if NOT yet in completedEntries (DB update pending)
-                          final alreadyCompletedKeys = completedEntries
-                              .map((e) => '${e.medicine.id}_${e.scheduledDateTime.toIso8601String()}')
-                              .toSet();
-                              
-                          final optimisticTakenCount = _dismissedItems.entries
-                              .where((e) => e.value == true && !alreadyCompletedKeys.contains(e.key))
-                              .length;
-                              
-                          final totalCount = validEntries.length; 
-                          final completedCount = completedEntries.length + optimisticTakenCount;
-                          if (validEntries.isEmpty) {
-                            return SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                0,
-                                20,
-                                100,
-                              ),
-                              sliver: SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 60,
-                                    ),
-                                    child: _buildEmptyState(),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          return SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                const SizedBox(height: 8),
-                                _StatsCard(
-                                  completed: completedCount,
-                                  total: totalCount,
-                                  isDark: isDark,
-                                  nextSchedule: pendingEntries.isNotEmpty
-                                      ? pendingEntries.first.scheduledDateTime
-                                      : null,
-                                  animation: _progressAnimation,
-                                  streak: _streak,
-                                  onExportReport: _exportReport,
-                                ),
-                                const SizedBox(height: 32),
-                                if (pendingEntries.isNotEmpty) ...[
-                                  _SectionTitle(
-                                    title: 'Upcoming',
-                                    count: pendingEntries.length,
-                                    isDark: isDark,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  SimpleStaggeredList(
-                                    children: pendingEntries.map(
-                                      (entry) => _AnimatedEntryCard(
-                                        key: ValueKey(
-                                          '${entry.medicine.id}_${entry.scheduledDateTime}',
-                                        ),
-                                        entry: entry,
-                                        isDark: isDark,
-                                        onTake: () => _handleTake(
-                                          entry,
-                                          medicineProvider,
-                                          logProvider,
-                                        ),
-                                        onSkip: () =>
-                                            _handleSkip(entry, logProvider),
-                                      ),
-                                    ).toList(),
-                                  ),
-                                ],
-                                if (pendingEntries.isEmpty &&
-                                    completedEntries.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  _NothingElseToday(isDark: isDark),
-                                  const SizedBox(height: 24),
-                                ],
-                                if (completedEntries.isNotEmpty) ...[
-                                  const SizedBox(height: 24),
-                                  _SectionTitle(
-                                    title: 'Completed',
-                                    count: completedEntries.length,
-                                    isDark: isDark,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ...completedEntries.map(
-                                    (entry) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: _MinimalMedicineCard(
-                                        entry: entry,
-                                        isDark: isDark,
-                                        onTake: () => _handleTake(
-                                          entry,
-                                          medicineProvider,
-                                          logProvider,
-                                        ),
-                                        onSkip: () =>
-                                            _handleSkip(entry, logProvider),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ]),
-                            ),
-                          );
-                        },
+      // Gradient Background
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark 
+              ? AppColors.surfaceGradientDark 
+              : AppColors.surfaceGradientLight,
+        ),
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _refresh,
+              color: AppColors.primary,
+              backgroundColor: isDark ? AppColors.surface1Dark : Colors.white,
+              child: SafeArea(
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(), // Smoother scroll
                   ),
-                ],
+                  slivers: [
+                    _buildAppBar(isDark),
+                    Consumer3<MedicineProvider, ScheduleProvider, LogProvider>(
+                      builder:
+                          (
+                            context,
+                            medicineProvider,
+                            scheduleProvider,
+                            logProvider,
+                            _,
+                          ) {
+                            if (medicineProvider.isLoading ||
+                                scheduleProvider.isLoading ||
+                                logProvider.isLoading) {
+                              return SliverFillRemaining(
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              );
+                            }
+                            final entries = _buildScheduleEntries(
+                              scheduleProvider.todaySchedules,
+                              logProvider.todayLogs,
+                              medicineProvider,
+                            );
+                            final validEntries = entries
+                                .where(
+                                  (entry) => _isValidMedicine(entry.medicine),
+                                )
+                                .toList();
+                            final pendingEntries = validEntries
+                                .where(
+                                  (entry) {
+                                    if (entry.timelineStatus == TimelineStatus.completed) return false;
+                                    final key = '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
+                                    return !_dismissedItems.containsKey(key);
+                                  }
+                                )
+                                .toList();
+
+                            final completedEntries = validEntries
+                                .where(
+                                  (entry) =>
+                                      entry.timelineStatus ==
+                                      TimelineStatus.completed,
+                                )
+                                .toList();
+                                
+                            // Calculate Optimistic Stats
+                            final alreadyCompletedKeys = completedEntries
+                                .map((e) => '${e.medicine.id}_${e.scheduledDateTime.toIso8601String()}')
+                                .toSet();
+                                
+                            final optimisticTakenCount = _dismissedItems.entries
+                                .where((e) => e.value == true && !alreadyCompletedKeys.contains(e.key))
+                                .length;
+                                
+                            final totalCount = validEntries.length; 
+                            final completedCount = completedEntries.length + optimisticTakenCount;
+
+                            // Group by Time of Day
+                            final morning = pendingEntries.where((e) => e.scheduledDateTime.hour < 12).toList();
+                            final afternoon = pendingEntries.where((e) => e.scheduledDateTime.hour >= 12 && e.scheduledDateTime.hour < 18).toList();
+                            final evening = pendingEntries.where((e) => e.scheduledDateTime.hour >= 18).toList();
+                            
+                            if (validEntries.isEmpty) {
+                              return SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                                sliver: SliverFillRemaining(
+                                  hasScrollBody: false,
+                                  child: Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 60),
+                                      child: _buildEmptyState(),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                              sliver: SliverList(
+                                delegate: SliverChildListDelegate([
+                                  _StatsCard(
+                                    completed: completedCount,
+                                    total: totalCount,
+                                    isDark: isDark,
+                                    nextSchedule: pendingEntries.isNotEmpty
+                                        ? pendingEntries.first.scheduledDateTime
+                                        : null,
+                                    animation: _progressAnimation,
+                                    streak: _streak,
+                                    onExportReport: _exportReport,
+                                  ),
+                                  const SizedBox(height: 32),
+                                  
+                                    if (morning.isNotEmpty) ...[
+                                      _SectionTitle(title: 'Morning 🌅', count: morning.length, isDark: isDark),
+                                      const SizedBox(height: 16),
+                                      SimpleStaggeredList(
+                                        children: morning.map((entry) => _AnimatedEntryCard(
+                                          key: ValueKey('${entry.medicine.id}_${entry.scheduledDateTime}'),
+                                          entry: entry,
+                                          isDark: isDark,
+                                          onTake: () => _handleTake(entry, medicineProvider, logProvider),
+                                          onSkip: () => _handleSkip(entry, logProvider),
+                                        )).toList(),
+                                      ),
+                                      const SizedBox(height: 24),
+                                    ],
+
+                                    if (afternoon.isNotEmpty) ...[
+                                      _SectionTitle(title: 'Afternoon ☀️', count: afternoon.length, isDark: isDark),
+                                      const SizedBox(height: 16),
+                                      SimpleStaggeredList(
+                                        children: afternoon.map((entry) => _AnimatedEntryCard(
+                                          key: ValueKey('${entry.medicine.id}_${entry.scheduledDateTime}'),
+                                          entry: entry,
+                                          isDark: isDark,
+                                          onTake: () => _handleTake(entry, medicineProvider, logProvider),
+                                          onSkip: () => _handleSkip(entry, logProvider),
+                                        )).toList(),
+                                      ),
+                                      const SizedBox(height: 24),
+                                    ],
+
+                                    if (evening.isNotEmpty) ...[
+                                      _SectionTitle(title: 'Evening 🌙', count: evening.length, isDark: isDark),
+                                      const SizedBox(height: 16),
+                                      SimpleStaggeredList(
+                                        children: evening.map((entry) => _AnimatedEntryCard(
+                                          key: ValueKey('${entry.medicine.id}_${entry.scheduledDateTime}'),
+                                          entry: entry,
+                                          isDark: isDark,
+                                          onTake: () => _handleTake(entry, medicineProvider, logProvider),
+                                          onSkip: () => _handleSkip(entry, logProvider),
+                                        )).toList(),
+                                      ),
+                                      const SizedBox(height: 24),
+                                    ],
+                                  
+                                  if (pendingEntries.isEmpty && completedEntries.isNotEmpty) ...[
+                                    const SizedBox(height: 16),
+                                    _NothingElseToday(isDark: isDark),
+                                    const SizedBox(height: 24),
+                                  ],
+                                  
+                                  if (completedEntries.isNotEmpty) ...[
+                                    const SizedBox(height: 24),
+                                    _SectionTitle(
+                                      title: 'Completed',
+                                      count: completedEntries.length,
+                                      isDark: isDark,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ...completedEntries.map(
+                                      (entry) => Padding(
+                                        padding: const EdgeInsets.only(bottom: 12),
+                                        child: _MinimalMedicineCard(
+                                          entry: entry,
+                                          isDark: isDark,
+                                          onTake: () => _handleTake(
+                                            entry,
+                                            medicineProvider,
+                                            logProvider,
+                                          ),
+                                          onSkip: () =>
+                                              _handleSkip(entry, logProvider),
+                                          onOptions: () {}, // No-op for completed items
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ]),
+                              ),
+                            );
+                          },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_showSuccessAnimation)
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(
-                  color: Colors.black.withOpacity(0.4),
-                  child: Center(
-                    child: Lottie.network(
-                      'https://assets9.lottiefiles.com/packages/lf20_kq5r8acy.json',
-                      width: 260,
-                      height: 260,
-                      repeat: false,
-                      frameRate: FrameRate.max,
-                      errorBuilder: (_, error, __) => Container(
-                        width: 160,
-                        height: 160,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white24, width: 3),
-                        ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: Colors.white,
-                          size: 84,
+            
+            // Success Overlay
+            if (_showSuccessAnimation)
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.4),
+                    child: Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.elasticOut,
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: child,
+                          );
+                        },
+                        child: Lottie.network(
+                          'https://assets9.lottiefiles.com/packages/lf20_kq5r8acy.json',
+                          width: 260,
+                          height: 260,
+                          repeat: false,
+                          frameRate: FrameRate.max,
+                          errorBuilder: (_, error, __) => Container(
+                            width: 160,
+                            height: 160,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white24, width: 3),
+                            ),
+                            child: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 84,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
+              
+            // Confetti Layer
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [
+                  Color(0xFF6366F1), // Indigo
+                  Color(0xFFEF4444), // Red
+                  Color(0xFF10B981), // Emerald
+                  Color(0xFFF59E0B), // Amber
+                  Color(0xFF8B5CF6), // Violet
+                ],
+                gravity: 0.2,
+                numberOfParticles: 20,
+              ),
             ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.green,
-                Colors.blue,
-                Colors.pink,
-                Colors.orange,
-                Colors.purple,
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -484,28 +528,56 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       actions: [
-        // Settings Button Container
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            margin: const EdgeInsets.symmetric(vertical: 22), // Center vertically in 90h toolbar
-            child: IconButton(
-              icon: Icon(
-                Icons.settings_rounded, // Rounded icon
-                color: isDark ? Colors.white70 : Colors.black87,
-                size: 24,
-              ),
-              onPressed: () => Navigator.push(
+        // Streak Badge in AppBar
+        if (_streak > 0)
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: GestureDetector(
+              onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                MaterialPageRoute(builder: (context) => const AchievementsScreen()),
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.symmetric(vertical: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.orange.shade400,
+                      Colors.deepOrange.shade400,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.local_fire_department_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_streak',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -966,7 +1038,38 @@ class _AnimatedEntryCardState extends State<_AnimatedEntryCard>
     super.dispose();
   }
 
-  void _handleTap() async {
+  void _handleOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => MedicineActionSheet(
+        medicine: widget.entry.medicine,
+        onTake: () async {
+          await _controller.forward();
+          await _controller.reverse();
+          widget.onTake();
+        },
+        onSkip: widget.onSkip,
+        onSnooze: (minutes) async {
+             // Schedule snooze
+             await NotificationService.instance.scheduleSnooze(
+               medicineId: widget.entry.medicine.id!, 
+               medicineName: widget.entry.medicine.name, 
+               dosage: widget.entry.medicine.dosage, 
+               minutes: minutes
+             );
+             if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(content: Text('Snoozed for $minutes minutes 💤')),
+               );
+             }
+        },
+      ),
+    );
+  }
+
+  void _handleTake() async {
+    await SoundHelper.playSuccess(); // Play satisfying sound
     await _controller.forward();
     await _controller.reverse();
     widget.onTake();
@@ -974,73 +1077,75 @@ class _AnimatedEntryCardState extends State<_AnimatedEntryCard>
 
   @override
   Widget build(BuildContext context) => ScaleTransition(
-    scale: _scaleAnimation,
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Dismissible(
-        key: ValueKey('${widget.entry.medicine.id}_${widget.entry.scheduledDateTime.toIso8601String()}'),
-        direction: DismissDirection.horizontal,
-        onDismissed: (direction) {
-          if (direction == DismissDirection.startToEnd) {
-            widget.onTake(); // Direct call, no scale animation
-          } else {
-            widget.onSkip(); // Skip
-          }
-        },
-        background: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF10B981), // Green
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          alignment: Alignment.centerLeft,
-          child: const Row(
-            children: [
-              Icon(Icons.check_rounded, color: Colors.white, size: 32),
-              SizedBox(width: 8),
-              Text(
-                "Take",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+        scale: _scaleAnimation,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Dismissible(
+            key: ValueKey(
+                '${widget.entry.medicine.id}_${widget.entry.scheduledDateTime.toIso8601String()}'),
+            direction: DismissDirection.horizontal,
+            onDismissed: (direction) {
+              if (direction == DismissDirection.startToEnd) {
+                widget.onTake();
+              } else {
+                widget.onSkip();
+              }
+            },
+            background: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981), // Green
+                borderRadius: BorderRadius.circular(20),
               ),
-            ],
-          ),
-        ),
-        secondaryBackground: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey, // Grey
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          alignment: Alignment.centerRight,
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                "Skip",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              alignment: Alignment.centerLeft,
+              child: const Row(
+                children: [
+                  Icon(Icons.check_rounded, color: Colors.white, size: 32),
+                  SizedBox(width: 8),
+                  Text(
+                    "Take",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 8),
-              Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
-            ],
+            ),
+            secondaryBackground: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey, // Grey
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              alignment: Alignment.centerRight,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    "Skip",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
+                ],
+              ),
+            ),
+            child: _MinimalMedicineCard(
+              entry: widget.entry,
+              isDark: widget.isDark,
+              onTake: _handleTake,
+              onSkip: widget.onSkip,
+              onOptions: _handleOptions,
+            ),
           ),
         ),
-        child: _MinimalMedicineCard(
-          entry: widget.entry,
-          isDark: widget.isDark,
-          onTake: _handleTap,
-          onSkip: widget.onSkip,
-        ),
-      ),
-    ),
-  );
+      );
 }
 
 class _StatsCard extends StatelessWidget {
@@ -1065,10 +1170,10 @@ class _StatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Premium Design Colors
-    final progressGradient = const LinearGradient(
-      colors: [Color(0xFF4F46E5), Color(0xFF6366F1)], // Indigo to Violet
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
+    final progressGradient = const SweepGradient(
+      colors: [Color(0xFF4F46E5), Color(0xFF818CF8)], // Indigo to lighter Indigo
+      startAngle: 0.0,
+      endAngle: 3.14 * 2,
     );
     
     // Calculate progress
@@ -1078,40 +1183,40 @@ class _StatsCard extends StatelessWidget {
     }
     double clampedRatio = percentage.clamp(0.0, 1.0);
     int percentageInt = (percentage * 100).toInt();
-
-    // Lottie animation logic is handled by parent or replaced by simple ring here
-    // We'll use the gradient ring design
+    
+    // Determine if it's a "rest day" (no doses scheduled)
+    final isRestDay = total == 0;
+    final isComplete = completed == total && total > 0;
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 140),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(28), // Softer corners
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(isDark ? 0.15 : 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-            spreadRadius: -4,
+            color: const Color(0xFF6366F1).withOpacity(isDark ? 0.12 : 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -2,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          // 1. Gradient Progress Ring
+          // 1. Compact Progress Ring
           Stack(
             alignment: Alignment.center,
             children: [
               // Background Ring
               SizedBox(
-                width: 80,
-                height: 80,
+                width: 68,
+                height: 68,
                 child: CircularProgressIndicator(
                   value: 1,
                   strokeWidth: 8,
@@ -1119,198 +1224,221 @@ class _StatsCard extends StatelessWidget {
                   strokeCap: StrokeCap.round,
                 ),
               ),
-              // Foreground Gradient Ring
-              SizedBox(
-                width: 80,
-                height: 80,
-                // ShaderMask for Gradient
-                child: ShaderMask(
-                  shaderCallback: (rect) {
-                    return progressGradient.createShader(rect);
-                  },
-                  child: AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) => CircularProgressIndicator(
-                      value: clampedRatio * animation.value,
-                      strokeWidth: 8,
-                      strokeCap: StrokeCap.round,
-                      valueColor: const AlwaysStoppedAnimation(Colors.white), // Color ignored by ShaderMask but needed
+              // Shadow for depth
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.2),
+                      blurRadius: 12,
+                      spreadRadius: -4,
+                    ),
+                  ],
+                ),
+              ),
+              // Foreground Gradient Ring (Rotated to start at top)
+              Transform.rotate(
+                angle: -1.5708, // -90 degrees (start at top)
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (rect) {
+                      // Inflate significantly to ensure gradient covers completely
+                      return progressGradient.createShader(rect.inflate(20)); 
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(2), // Ensure stroke doesn't touch bounds
+                      child: AnimatedBuilder(
+                        animation: animation,
+                        builder: (context, child) => CircularProgressIndicator(
+                          value: isRestDay ? 0.001 : (clampedRatio * animation.value),
+                          strokeWidth: 8,
+                          strokeCap: StrokeCap.round,
+                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-              // Percentage Text
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$percentageInt',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : const Color(0xFF1F2937),
-                      height: 1,
+              // Center content
+              if (isRestDay)
+                Icon(
+                  Icons.wb_sunny_rounded,
+                  size: 26,
+                  color: isDark ? Colors.amber.shade300 : Colors.amber.shade600,
+                )
+              else if (isComplete)
+                const Icon(
+                  Icons.check_rounded,
+                  size: 28,
+                  color: Color(0xFF10B981),
+                )
+              else
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$percentageInt',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                        color: isDark ? Colors.white : const Color(0xFF1F2937),
+                      ),
                     ),
-                  ),
-                  Text(
-                    '%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white54 : Colors.grey[400],
+                    Text(
+                      '%',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        height: 1.0,
+                        color: isDark ? Colors.white54 : Colors.grey[400],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
           
-          const SizedBox(width: 24),
+          const SizedBox(width: 16),
           
-          // 2. Stats Info & Actions
+          // 2. Stats Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Title Row
+                // Title + Action buttons
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Daily Progress',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white70 : Colors.grey[600],
-                        letterSpacing: 0.2,
+                    Expanded(
+                      child: Text(
+                        isRestDay 
+                            ? 'Rest Day' 
+                            : isComplete 
+                                ? 'All Done! 🎉'
+                                : 'Daily Progress',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.grey[600],
+                        ),
                       ),
                     ),
-                    // Action Buttons Row
+                    // Action buttons
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // PDF Button - Soft Blue
+                        // PDF Export Button with label
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: onExportReport,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.blue.withOpacity(0.2) : const Color(0xFFE3F2FD), // Soft Blue
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.download_rounded,
-                                size: 16,
-                                color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Tooltip(
+                              message: 'Export PDF Report',
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.blue.withOpacity(0.15) : const Color(0xFFE3F2FD),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.picture_as_pdf_rounded,
+                                      size: 14,
+                                      color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        if (streak > 0) ...[
-                          const SizedBox(width: 8),
-                          // Streak Button - Soft Orange
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AchievementsScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.orange.withOpacity(0.2) : const Color(0xFFFFCCBC), // Soft Orange
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.local_fire_department_rounded,
-                                    size: 14,
-                                    color: isDark ? Colors.orange.shade300 : Colors.deepOrange,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '$streak',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark ? Colors.orange.shade300 : Colors.deepOrange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ],
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 
-                // Doses Count
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      '$completed',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF1F2937),
-                        letterSpacing: -1,
-                      ),
+                // Doses Count or Rest Day message
+                if (isRestDay)
+                  Text(
+                    'No medications scheduled',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white38 : Colors.grey[500],
                     ),
-                    Text(
-                      '/$total',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white38 : Colors.grey[400],
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'doses',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white38 : Colors.grey[400],
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Next Schedule
-                if (nextSchedule != null) ...[
-                  const SizedBox(height: 6),
+                  )
+                else ...[
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: isDark ? Colors.white38 : Colors.grey[500],
-                      ),
-                      const SizedBox(width: 6),
                       Text(
-                        'Next at ${DateFormat('h:mm a').format(nextSchedule!)}',
+                        '$completed',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white38 : Colors.grey[500],
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF1F2937),
+                          letterSpacing: -0.5,
                         ),
                       ),
+                      Text(
+                        '/$total',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white38 : Colors.grey[400],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'doses',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white38 : Colors.grey[400],
+                        ),
+                      ),
+                      // Next schedule inline
+                      if (nextSchedule != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 11,
+                                color: isDark ? Colors.white38 : Colors.grey[500],
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                DateFormat.jm().format(nextSchedule!),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: isDark ? Colors.white38 : Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -1380,11 +1508,13 @@ class _MinimalMedicineCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTake;
   final VoidCallback onSkip;
+  final VoidCallback onOptions;
   const _MinimalMedicineCard({
     required this.entry,
     required this.isDark,
     required this.onTake,
     required this.onSkip,
+    required this.onOptions,
   });
   bool get isCompleted => entry.medicineStatus == MedicineStatus.completed;
   bool get isOverdue => entry.medicineStatus == MedicineStatus.overdue;
@@ -1392,226 +1522,182 @@ class _MinimalMedicineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final medicineColor = entry.medicine.colorValue;
-    final cardGradient = isDark
-        ? [const Color(0xFF1E1E2E), const Color(0xFF181825)]
-        : [Colors.white, const Color(0xFFFAFAFA)];
+    final accentColor = isOverdue ? Colors.red : medicineColor;
     
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isCompleted 
-              ? (isDark 
-                  ? [const Color(0xFF1A2E1A), const Color(0xFF162516)]
-                  : [const Color(0xFFF0FDF4), const Color(0xFFE8F5E9)])
-              : cardGradient,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
+    return GestureDetector(
+      onTap: onOptions, // Long-press or tap opens action sheet
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
           color: isCompleted
-              ? const Color(0xFF10B981).withOpacity(0.3)
-              : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04)),
-          width: 1.5,
-        ),
-        boxShadow: !isCompleted
-            ? [
-                BoxShadow(
-                  color: medicineColor.withOpacity(isDark ? 0.15 : 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                  spreadRadius: 0,
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              // Accent bar for pending items
-              if (!isCompleted)
-                Container(
-                  width: 4,
-                  height: 52,
-                  margin: const EdgeInsets.only(right: 14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: isOverdue
-                          ? [Colors.red.shade400, Colors.red.shade600]
-                          : [medicineColor.withOpacity(0.8), medicineColor],
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isOverdue ? Colors.red : medicineColor).withOpacity(0.4),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+              ? (isDark ? const Color(0xFF1A2E1A) : const Color(0xFFF0FDF4))
+              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isCompleted
+                ? const Color(0xFF10B981).withOpacity(0.3)
+                : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04)),
+            width: 1,
+          ),
+          boxShadow: !isCompleted
+              ? [
+                  BoxShadow(
+                    color: accentColor.withOpacity(isDark ? 0.08 : 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-              // Medicine icon - larger, no background
-              SizedBox(
-                width: 56,
-                height: 56,
-                child: Hero(
-                  tag: 'medicine_icon_${entry.medicine.id}',
-                  child: isCompleted
-                      ? Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.check_circle_rounded,
-                            color: Color(0xFF10B981),
-                            size: 32,
-                          ),
-                        )
-                      : Image.asset(
-                          entry.medicine.iconAssetPath,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.contain,
-                        ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Medicine info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.medicine.name,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black87,
-                        decoration: isCompleted
-                            ? TextDecoration.lineThrough
-                            : null,
-                        decorationColor: isDark
-                            ? Colors.white38
-                            : Colors.black38,
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isOverdue
-                                ? Colors.red.withOpacity(0.12)
-                                : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.schedule_rounded,
-                                size: 12,
-                                color: isOverdue
-                                    ? Colors.red
-                                    : (isDark ? Colors.white54 : Colors.black45),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                DateFormat.jm().format(entry.scheduledDateTime),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isOverdue
-                                      ? Colors.red
-                                      : isDark
-                                          ? Colors.white60
-                                          : Colors.black54,
-                                  fontWeight: isOverdue
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (entry.medicine.dosage.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              entry.medicine.dosage,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            // Color accent dot
+            if (!isCompleted)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.4),
+                      blurRadius: 4,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          if (!isCompleted) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _PremiumActionButton(
-                    label: 'Take',
-                    icon: Icons.check_rounded,
-                    onPressed: onTake,
-                    isPrimary: true,
-                    isDark: isDark,
-                    accentColor: const Color(0xFF6366F1),
+            // Medicine icon - compact
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: Hero(
+                tag: 'medicine_icon_${entry.medicine.id}',
+                child: isCompleted
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF10B981),
+                          size: 24,
+                        ),
+                      )
+                    : Image.asset(
+                        entry.medicine.iconAssetPath,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.contain,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Medicine info - expanded
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Name + Time row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.medicine.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            decorationColor: isDark ? Colors.white38 : Colors.black38,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Inline time
+                      Text(
+                        DateFormat.jm().format(entry.scheduledDateTime),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isOverdue ? FontWeight.w600 : FontWeight.w500,
+                          color: isOverdue
+                              ? Colors.red
+                              : (isDark ? Colors.white54 : Colors.black45),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: onSkip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Skip',
+                  // Dosage row (if present)
+                  if (entry.medicine.dosage.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.medicine.dosage,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
+                        color: isDark ? Colors.white38 : Colors.black38,
                         fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white54 : Colors.black45,
                       ),
                     ),
+                  ],
+                ],
+              ),
+            ),
+            // Take button - compact circular
+            if (!isCompleted) ...[
+              const SizedBox(width: 10),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTake,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Take',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

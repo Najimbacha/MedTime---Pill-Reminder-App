@@ -2,59 +2,79 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Primary Brand
-  static const Color primary = Color(0xFF2196F3);
-  static const Color primaryDark = Color(0xFF1976D2);
-  static const Color primaryLight = Color(0xFF64B5F6);
+  // Primary Brand - Modern Indigo/Violet
+  static const Color primary = Color(0xFF6366F1); // Indigo 500
+  static const Color primaryDark = Color(0xFF4F46E5); // Indigo 600
+  static const Color primaryLight = Color(0xFF818CF8); // Indigo 400
   
   // Action Colors
-  static const Color success = Color(0xFF4CAF50);
-  static const Color warning = Color(0xFFFFA726);
-  static const Color error = Color(0xFFEF5350);
-  static const Color info = Color(0xFF29B6F6);
+  static const Color success = Color(0xFF10B981); // Emerald 500
+  static const Color warning = Color(0xFFF59E0B); // Amber 500
+  static const Color error = Color(0xFFEF4444); // Red 500
+  static const Color info = Color(0xFF3B82F6); // Blue 500
   
-  // Medicine Status
-  static const Color taken = Color(0xFF66BB6A);
-  static const Color pending = Color(0xFF42A5F5);
-  static const Color overdue = Color(0xFFEF5350);
-  static const Color skipped = Color(0xFF9E9E9E);
+  // Medicine Status - Softer pastel tones for UI
+  static const Color taken = Color(0xFF34D399); // Emerald 400
+  static const Color pending = Color(0xFF60A5FA); // Blue 400
+  static const Color overdue = Color(0xFFF87171); // Red 400
+  static const Color skipped = Color(0xFF9CA3AF); // Gray 400
   
   // Surface Colors (Light Mode)
   static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color surface1Light = Color(0xFFF5F5F5);
-  static const Color surface2Light = Color(0xFFEEEEEE);
-  static const Color surface3Light = Color(0xFFE0E0E0);
-  static const Color backgroundLight = Color(0xFFFAFAFA);
+  static const Color surface1Light = Color(0xFFF8FAFC); // Slate 50
+  static const Color surface2Light = Color(0xFFF1F5F9); // Slate 100
+  static const Color surface3Light = Color(0xFFE2E8F0); // Slate 200
+  static const Color backgroundLight = Color(0xFFF8FAFC); // Slate 50
   
   // Surface Colors (Dark Mode)
-  static const Color surfaceDark = Color(0xFF1E1E1E);
-  static const Color surface1Dark = Color(0xFF2C2C2C);
-  static const Color surface2Dark = Color(0xFF3A3A3A);
-  static const Color surface3Dark = Color(0xFF484848);
-  static const Color backgroundDark = Color(0xFF121212);
+  static const Color surfaceDark = Color(0xFF0F172A); // Slate 900
+  static const Color surface1Dark = Color(0xFF1E293B); // Slate 800
+  static const Color surface2Dark = Color(0xFF334155); // Slate 700
+  static const Color surface3Dark = Color(0xFF475569); // Slate 600
+  static const Color backgroundDark = Color(0xFF020617); // Slate 950
   
   // Text Colors (Light Mode)
-  static const Color textPrimaryLight = Color(0xFF212121);
-  static const Color textSecondaryLight = Color(0xFF757575);
-  static const Color textDisabledLight = Color(0xFFBDBDBD);
+  static const Color textPrimaryLight = Color(0xFF0F172A); // Slate 900
+  static const Color textSecondaryLight = Color(0xFF64748B); // Slate 500
+  static const Color textDisabledLight = Color(0xFF94A3B8); // Slate 400
   
   // Text Colors (Dark Mode)
-  static const Color textPrimaryDark = Color(0xFFFFFFFF);
-  static const Color textSecondaryDark = Color(0xFFB0B0B0);
-  static const Color textDisabledDark = Color(0xFF6E6E6E);
+  static const Color textPrimaryDark = Color(0xFFF8FAFC); // Slate 50
+  static const Color textSecondaryDark = Color(0xFF94A3B8); // Slate 400
+  static const Color textDisabledDark = Color(0xFF64748B); // Slate 500
   
   // Border Colors
-  static const Color borderLight = Color(0xFFE0E0E0);
-  static const Color borderDark = Color(0xFF3A3A3A);
+  static const Color borderLight = Color(0xFFE2E8F0); // Slate 200
+  static const Color borderDark = Color(0xFF1E293B); // Slate 800
+  
+  // Gradients
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient surfaceGradientLight = LinearGradient(
+    colors: [Colors.white, Color(0xFFF8FAFC)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient surfaceGradientDark = LinearGradient(
+    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
   
   // Medicine Colors (for color picker)
   static const List<Color> medicineColors = [
-    Color(0xFF2196F3), // Blue
-    Color(0xFFEF5350), // Red
-    Color(0xFF66BB6A), // Green
-    Color(0xFFFFA726), // Orange
-    Color(0xFFAB47BC), // Purple
-    Color(0xFF26C6DA), // Cyan
-    Color(0xFFFFEE58), // Yellow
-    Color(0xFFEC407A), // Pink
+    Color(0xFF6366F1), // Indigo
+    Color(0xFFEF4444), // Red
+    Color(0xFF10B981), // Emerald
+    Color(0xFFF59E0B), // Amber
+    Color(0xFF8B5CF6), // Violet
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFFEC4899), // Pink
+    Color(0xFFF43F5E), // Rose
   ];
 }

@@ -213,6 +213,37 @@ class AuthProvider extends ChangeNotifier {
     return await _authService.getLinkedPatients();
   }
 
+  /// Delete account permanently
+  Future<bool> deleteAccount() async {
+    if (_firebaseUser == null) return false;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Delete from AuthService (Firebase Auth + Firestore)
+      await _authService.deleteAccount();
+      
+      // 2. Clear local state
+      _firebaseUser = null;
+      _userProfile = null;
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on AuthException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false; 
+    } catch (e) {
+      _error = 'Failed to delete account. Please log in again and try.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Clear error
   void clearError() {
     _error = null;
