@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 
 class GlassBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -44,29 +45,29 @@ class GlassBottomNavBar extends StatelessWidget {
                   _buildNavItem(
                     context, 
                     0, 
-                    Icons.home_rounded, 
-                    Icons.home_outlined, 
+                    IconlyBold.home, 
+                    IconlyLight.home, 
                     'Home'
                   ),
                   _buildNavItem(
                     context, 
                     1, 
-                    Icons.medication_rounded, 
-                    Icons.medication_outlined, 
+                    IconlyBold.discovery, 
+                    IconlyLight.discovery, 
                     'Meds'
                   ),
                   _buildNavItem(
                     context, 
                     2, 
-                    Icons.calendar_month_rounded, 
-                    Icons.calendar_month_outlined, 
+                    IconlyBold.calendar, 
+                    IconlyLight.calendar, 
                     'History'
                   ),
                   _buildNavItem(
                     context, 
                     3, 
-                    Icons.settings_rounded, 
-                    Icons.settings_outlined, 
+                    IconlyBold.setting, 
+                    IconlyLight.setting, 
                     'Settings'
                   ),
                 ],
@@ -106,7 +107,7 @@ class GlassBottomNavBar extends StatelessWidget {
                 color: isSelected 
                     ? primaryColor 
                     : (isDark ? Colors.white38 : Colors.grey[500]),
-                size: 26,
+                size: 24,
               ),
             ),
             const SizedBox(height: 4),
@@ -127,3 +128,4 @@ class GlassBottomNavBar extends StatelessWidget {
     );
   }
 }
+

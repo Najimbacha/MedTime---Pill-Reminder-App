@@ -471,26 +471,21 @@ class _DashboardScreenState extends State<DashboardScreen>
         padding: const EdgeInsets.symmetric(vertical: 0),
         child: Row(
           children: [
-             // Premium Avatar with Glow
+             // User Avatar
             Container(
-              width: 44,
-              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                     blurRadius: 12,
-                    spreadRadius: 2,
+                    spreadRadius: 1,
                   ),
                 ],
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                  width: 2,
-                ),
               ),
-              child: Center(
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                 child: CircleAvatar(
                   radius: 18,
                   backgroundColor: Theme.of(context).colorScheme.primary,
@@ -499,8 +494,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ? Text(
                           name.isNotEmpty ? name[0].toUpperCase() : '?',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                             color: Theme.of(context).colorScheme.onPrimary,
                           ),
                         )
@@ -1200,268 +1195,329 @@ class _StatsCard extends StatelessWidget {
     double clampedRatio = percentage.clamp(0.0, 1.0);
     int percentageInt = (percentage * 100).toInt();
     
-    // Determine if it's a "rest day" (no doses scheduled)
+    // Determine states
     final isRestDay = total == 0;
     final isComplete = completed == total && total > 0;
+    final isJustStarting = completed == 0 && total > 0;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(isDark ? 0.12 : 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // 1. Compact Progress Ring
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              // Background Ring
-              SizedBox(
-                width: 68,
-                height: 68,
-                child: CircularProgressIndicator(
-                  value: 1,
-                  strokeWidth: 8,
-                  color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
-                  strokeCap: StrokeCap.round,
-                ),
+    // Motivational title based on state
+    String title;
+    String? subtitle;
+    if (isRestDay) {
+      title = 'Rest Day 🌿';
+      subtitle = 'No medications scheduled';
+    } else if (isComplete) {
+      title = 'All Done! 🎉';
+      subtitle = 'Great job staying on track!';
+    } else if (isJustStarting) {
+      title = "Let's get started! 💪";
+      subtitle = 'You have $total dose${total > 1 ? 's' : ''} today';
+    } else {
+      title = 'Keep it up! 🌟';
+      subtitle = '$completed of $total completed';
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Main Card
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(isDark ? 0.15 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
               ),
-              // Shadow for depth
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.2),
-                      blurRadius: 12,
-                      spreadRadius: -4,
-                    ),
-                  ],
-                ),
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              // Foreground Gradient Ring (Rotated to start at top)
-              Transform.rotate(
-                angle: -1.5708, // -90 degrees (start at top)
-                child: SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (rect) {
-                      // Inflate significantly to ensure gradient covers completely
-                      return progressGradient.createShader(rect.inflate(20)); 
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(2), // Ensure stroke doesn't touch bounds
-                      child: AnimatedBuilder(
-                        animation: animation,
-                        builder: (context, child) => CircularProgressIndicator(
-                          value: isRestDay ? 0.001 : (clampedRatio * animation.value),
-                          strokeWidth: 8,
-                          strokeCap: StrokeCap.round,
-                          valueColor: const AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Center content
-              if (isRestDay)
-                Icon(
-                  Icons.wb_sunny_rounded,
-                  size: 26,
-                  color: isDark ? Colors.amber.shade300 : Colors.amber.shade600,
-                )
-              else if (isComplete)
-                const Icon(
-                  Icons.check_rounded,
-                  size: 28,
-                  color: Color(0xFF10B981),
-                )
-              else
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '$percentageInt',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0,
-                        color: isDark ? Colors.white : const Color(0xFF1F2937),
-                      ),
-                    ),
-                    Text(
-                      '%',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        height: 1.0,
-                        color: isDark ? Colors.white54 : Colors.grey[400],
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
-          
-          const SizedBox(width: 16),
-          
-          // 2. Stats Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Title + Action buttons
-                Row(
+          child: Column(
+            children: [
+              // Top gradient accent bar
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  gradient: isComplete
+                      ? const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF34D399)])
+                      : isRestDay
+                          ? LinearGradient(colors: [Colors.amber.shade400, Colors.orange.shade300])
+                          : const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF818CF8)]),
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        isRestDay 
-                            ? 'Rest Day' 
-                            : isComplete 
-                                ? 'All Done! 🎉'
-                                : 'Daily Progress',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                    // Action buttons
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    // 1. Compact Progress Ring
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
-                        // PDF Export Button with label
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: onExportReport,
-                            borderRadius: BorderRadius.circular(8),
-                            child: Tooltip(
-                              message: 'Export PDF Report',
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.blue.withOpacity(0.15) : const Color(0xFFE3F2FD),
-                                  borderRadius: BorderRadius.circular(8),
+                        // Background Ring
+                        SizedBox(
+                          width: 64,
+                          height: 64,
+                          child: CircularProgressIndicator(
+                            value: 1,
+                            strokeWidth: 7,
+                            color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        // Subtle glow
+                        if (!isRestDay && clampedRatio > 0)
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF6366F1).withOpacity(0.25),
+                                  blurRadius: 16,
+                                  spreadRadius: -6,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.picture_as_pdf_rounded,
-                                      size: 14,
-                                      color: isDark ? Colors.blue.shade200 : Colors.blue.shade700,
-                                    ),
-                                  ],
+                              ],
+                            ),
+                          ),
+                        // Foreground Gradient Ring
+                        Transform.rotate(
+                          angle: -1.5708,
+                          child: SizedBox(
+                            width: 68,
+                            height: 68,
+                            child: ShaderMask(
+                              blendMode: BlendMode.srcIn,
+                              shaderCallback: (rect) {
+                                return progressGradient.createShader(rect.inflate(20)); 
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: AnimatedBuilder(
+                                  animation: animation,
+                                  builder: (context, child) => CircularProgressIndicator(
+                                    value: isRestDay ? 0.001 : (clampedRatio * animation.value),
+                                    strokeWidth: 7,
+                                    strokeCap: StrokeCap.round,
+                                    valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 6),
-                
-                // Doses Count or Rest Day message
-                if (isRestDay)
-                  Text(
-                    'No medications scheduled',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.white38 : Colors.grey[500],
-                    ),
-                  )
-                else ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$completed',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF1F2937),
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text(
-                        '/$total',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white38 : Colors.grey[400],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'doses',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white38 : Colors.grey[400],
-                        ),
-                      ),
-                      // Next schedule inline
-                      if (nextSchedule != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        // Center content
+                        if (isRestDay)
+                          Icon(
+                            Icons.wb_sunny_rounded,
+                            size: 24,
+                            color: isDark ? Colors.amber.shade300 : Colors.amber.shade600,
+                          )
+                        else if (isComplete)
+                          const Icon(
+                            Icons.check_rounded,
+                            size: 26,
+                            color: Color(0xFF10B981),
+                          )
+                        else
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.schedule_rounded,
-                                size: 11,
-                                color: isDark ? Colors.white38 : Colors.grey[500],
-                              ),
-                              const SizedBox(width: 3),
                               Text(
-                                DateFormat.jm().format(nextSchedule!),
+                                '$percentageInt',
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white38 : Colors.grey[500],
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                  color: isDark ? Colors.white : const Color(0xFF1F2937),
+                                ),
+                              ),
+                              Text(
+                                '%',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.0,
+                                  color: isDark ? Colors.white54 : Colors.grey[400],
                                 ),
                               ),
                             ],
                           ),
-                        ),
                       ],
-                    ],
-                  ),
-                ],
-              ],
-            ),
+                    ),
+                    
+                    const SizedBox(width: 16),
+                    
+                    // 2. Stats Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Title
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : const Color(0xFF1F2937),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 4),
+                          
+                          // Subtitle/stats
+                          if (subtitle != null)
+                            Text(
+                              subtitle!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white54 : Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          
+                          // Next schedule badge (if applicable)
+                          if (!isRestDay && !isComplete && nextSchedule != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 12,
+                                    color: isDark ? Colors.white38 : Colors.grey[500],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Next: ${DateFormat.jm().format(nextSchedule!)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark ? Colors.white54 : Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+        
+        // 3D Tablet Icon (positioned absolutely, doesn't affect layout)
+        const Positioned(
+          top: 10,
+          right: 8,
+          child: _PulsingTabletIcon(),
+        ),
+      ],
+    );
+  }
+}
+
+// Animated medicine icon that cycles through different 3D icons
+class _PulsingTabletIcon extends StatefulWidget {
+  const _PulsingTabletIcon();
+  
+  @override
+  State<_PulsingTabletIcon> createState() => _PulsingTabletIconState();
+}
+
+class _PulsingTabletIconState extends State<_PulsingTabletIcon> 
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  
+  // All available 3D medicine icons
+  static const List<String> _icons = [
+    'assets/icons/medicine/3d/tablet.png',
+    'assets/icons/medicine/3d/drop.png',
+    'assets/icons/medicine/3d/injection.png',
+    'assets/icons/medicine/3d/liquid.png',
+  ];
+  
+  int _currentIndex = 0;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    
+    // Play animation on load
+    _controller.forward();
+    
+    // Change icon every 10 seconds
+    _startIconRotation();
+  }
+  
+  void _startIconRotation() {
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted) {
+        setState(() {
+          _currentIndex = (_currentIndex + 1) % _icons.length;
+        });
+        _controller.forward(from: 0); // Play bounce animation
+        _startIconRotation(); // Schedule next
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) => Transform.scale(
+        scale: _scaleAnimation.value,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Image.asset(
+            _icons[_currentIndex],
+            key: ValueKey(_currentIndex),
+            width: 100,
+            height: 100,
+            errorBuilder: (context, error, stackTrace) {
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
       ),
     );
   }

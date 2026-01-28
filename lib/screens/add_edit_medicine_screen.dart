@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' show cos, sin;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -351,7 +353,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       return false;
     }
 
-    if (_frequencyType != FrequencyType.asNeeded && _reminderTimes.isEmpty) {
+    if (_reminderTimes.isEmpty) {
       return false;
     }
 
@@ -426,13 +428,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
+        toolbarHeight: 50,
         backgroundColor: Colors.transparent,
         leading: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(6.0),
           child: CircleAvatar(
+             radius: 18,
              backgroundColor: isDark ? Colors.black26 : Colors.white54,
              child: IconButton(
-              icon: Icon(Icons.arrow_back_rounded, size: 20, color: isDark ? Colors.white : Colors.black),
+              padding: EdgeInsets.zero,
+              icon: Icon(Icons.arrow_back_rounded, size: 18, color: isDark ? Colors.white : Colors.black),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -440,7 +445,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         title: Text(
           isEditing ? 'Edit Medicine' : 'Add Medicine',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.w700,
             color: isDark ? Colors.white : Colors.black,
           ),
@@ -469,12 +474,12 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       ],
 
                       // ═══════════════════════════════════════════════════════════
-                      // CARD 1: Medicine Info
+                      // CARD 1: Medicine Info (Glassmorphism)
                       // ═══════════════════════════════════════════════════════════
-                      // Medicine Info Card
-                      _AppleCard(
+                      _GlassCard(
                         isDark: isDark,
                         padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                        accentColor: Color(_selectedColor),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -557,25 +562,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                             const SizedBox(height: 16),
                             
                             // Strength Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _AppleTextField(
-                                    hint: 'e.g. 500 (Optional)',
-                                    controller: _dosageAmountController,
-                                    isDark: isDark,
-                                    keyboardType: TextInputType.number,
-                                    textInputAction: TextInputAction.done,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 1,
-                                  child: _buildAppleUnitPicker(isDark),
-                                ),
-                              ],
+                            const SizedBox(height: 16),
+                            
+                            // Form & Color Selector (Moved from Additional Info)
+                            Text(
+                              'Form & Type',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
                             ),
+                            const SizedBox(height: 8),
+                            _buildMedicineTypeSelector(isDark),
                           ],
                         ),
                       ),
@@ -583,10 +582,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       const SizedBox(height: 24),
 
                       // ═══════════════════════════════════════════════════════════
-                      // CARD 2: Schedule
+                      // CARD 2: Schedule (Glassmorphism)
                       // ═══════════════════════════════════════════════════════════
-                      _AppleCard(
+                      _GlassCard(
                         isDark: isDark,
+                        accentColor: const Color(0xFF6366F1),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -607,9 +607,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                             // Frequency Details (days selection or interval)
                             _buildFrequencyDetails(isDark),
                             
-                            // Reminder Times
-                            if (_frequencyType != FrequencyType.asNeeded) ...[
-                              const SizedBox(height: 20),
+                            // Reminder Times (always shown now)
+                            const SizedBox(height: 20),
                               
                               // Quick Add Row
                               Text(
@@ -696,12 +695,20 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                                   ),
                                 ],
                               ),
-                            ],
                           ],
                         ),
                       ),
                       
                       const SizedBox(height: 24),
+                      
+                      // Visual Time Arc (when times selected)
+                      if (_reminderTimes.isNotEmpty) ...[
+                        _TimeArcWidget(
+                          times: _reminderTimes,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       
                       // Reminder Preview
                       _buildReminderPreview(isDark),
@@ -905,17 +912,18 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   /// Simple preset chips - just toggle add/remove
   Widget _buildSimplePresetChips(bool isDark) {
     final presets = [
-      {'label': 'Morning', 'icon': Icons.wb_twilight_rounded, 'hour': 8},
-      {'label': 'Noon', 'icon': Icons.wb_sunny_rounded, 'hour': 12},
-      {'label': 'Evening', 'icon': Icons.nights_stay_rounded, 'hour': 20},
-      {'label': 'Bedtime', 'icon': Icons.bedtime_rounded, 'hour': 22},
+      {'label': 'Morning', 'icon': Icons.wb_twilight_rounded, 'hour': 8, 'color': const Color(0xFFF59E0B)},
+      {'label': 'Noon', 'icon': Icons.wb_sunny_rounded, 'hour': 12, 'color': const Color(0xFFEAB308)},
+      {'label': 'Evening', 'icon': Icons.nights_stay_rounded, 'hour': 20, 'color': const Color(0xFF6366F1)},
+      {'label': 'Bedtime', 'icon': Icons.bedtime_rounded, 'hour': 22, 'color': const Color(0xFF8B5CF6)},
     ];
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: presets.map((preset) {
         final presetTime = TimeOfDay(hour: preset['hour'] as int, minute: 0);
+        final chipColor = preset['color'] as Color;
         final isSelected = _reminderTimes.any((t) => 
           t.hour == presetTime.hour && t.minute == 0
         );
@@ -938,37 +946,56 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
+              gradient: isSelected
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        chipColor.withOpacity(0.2),
+                        chipColor.withOpacity(0.1),
+                      ],
+                    )
+                  : null,
               color: isSelected
-                  ? (isDark ? Colors.white.withOpacity(0.15) : Theme.of(context).primaryColor.withOpacity(0.12))
+                  ? null
                   : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03)),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected
-                    ? (isDark ? Colors.white.withOpacity(0.25) : Theme.of(context).primaryColor.withOpacity(0.3))
+                    ? chipColor.withOpacity(0.5)
                     : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06)),
-                width: 1,
+                width: isSelected ? 1.5 : 1,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: chipColor.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   preset['icon'] as IconData,
-                  size: 14,
+                  size: 16,
                   color: isSelected
-                      ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                      ? chipColor
                       : (isDark ? Colors.white54 : Colors.black45),
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 6),
                 Text(
                   preset['label'] as String,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: isSelected
-                        ? (isDark ? Colors.white : Theme.of(context).primaryColor)
+                        ? (isDark ? Colors.white : chipColor.withOpacity(0.9))
                         : (isDark ? Colors.white54 : Colors.black54),
                   ),
                 ),
@@ -982,10 +1009,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildFrequencySegmentedControl(bool isDark) {
     final options = [
-      {'type': FrequencyType.daily, 'label': 'Daily'},
-      {'type': FrequencyType.specificDays, 'label': 'Days'},
-      {'type': FrequencyType.interval, 'label': 'Interval'},
-      {'type': FrequencyType.asNeeded, 'label': 'PRN'},
+      {'type': FrequencyType.daily, 'label': 'Daily', 'icon': Icons.today_rounded},
+      {'type': FrequencyType.specificDays, 'label': 'Days', 'icon': Icons.date_range_rounded},
+      {'type': FrequencyType.interval, 'label': 'Interval', 'icon': Icons.loop_rounded},
     ];
 
     return Container(
@@ -1002,9 +1028,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               onTap: () {
                 setState(() {
                   _frequencyType = option['type'] as FrequencyType;
-                  if (_frequencyType == FrequencyType.asNeeded) {
-                    _reminderTimes.clear();
-                  } else if (_reminderTimes.isEmpty) {
+                  if (_reminderTimes.isEmpty) {
                     _reminderTimes.add(const TimeOfDay(hour: 9, minute: 0));
                   }
                 });
@@ -1012,7 +1036,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark ? const Color(0xFF6366F1) : Colors.white)
@@ -1021,23 +1045,35 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                            blurRadius: 4,
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                            blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ]
                       : null,
                 ),
-                child: Text(
-                  option['label'] as String,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected
-                        ? (isDark ? Colors.white : Colors.black)
-                        : (isDark ? Colors.white54 : Colors.black54),
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      option['icon'] as IconData,
+                      size: 16,
+                      color: isSelected
+                          ? (isDark ? Colors.white : Colors.black87)
+                          : (isDark ? Colors.white38 : Colors.black38),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      option['label'] as String,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected
+                            ? (isDark ? Colors.white : Colors.black)
+                            : (isDark ? Colors.white54 : Colors.black54),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1058,38 +1094,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       case FrequencyType.interval:
         return _buildIntervalInput(isDark);
 
-      case FrequencyType.asNeeded:
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.surface1Dark
-                : AppColors.surface1Light,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight
-            )
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 20,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'As needed (no scheduled reminders)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+      default:
+        return const SizedBox.shrink();
+
+
     }
   }
 
@@ -1152,32 +1160,74 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildReminderPreview(bool isDark) {
     final preview = _generateReminderPreview();
+    final hasNoTimes = _reminderTimes.isEmpty;
+    
+    // Amber warning colors
+    const warningColor = Color(0xFFF59E0B);
+    const successColor = Color(0xFF6366F1);
+    final displayColor = hasNoTimes ? warningColor : successColor;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            displayColor.withOpacity(hasNoTimes ? 0.15 : 0.1),
+            displayColor.withOpacity(hasNoTimes ? 0.08 : 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: displayColor.withOpacity(hasNoTimes ? 0.4 : 0.3), 
+          width: hasNoTimes ? 1.5 : 1,
+        ),
+        boxShadow: hasNoTimes
+            ? [
+                BoxShadow(
+                  color: warningColor.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            Icons.notifications_outlined,
-            size: 20,
-            color: AppColors.primary,
+            hasNoTimes ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
+            size: 22,
+            color: displayColor,
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              preview,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : Colors.black87,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasNoTimes)
+                  Text(
+                    'Add at least one reminder time',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: displayColor,
+                    ),
+                  )
+                else
+                  Text(
+                    preview,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : Colors.black87,
+                      height: 1.4,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -1308,7 +1358,26 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                         const SizedBox(height: 24),
                         _SectionLabel(label: 'Form & Color', isDark: isDark),
                         const SizedBox(height: 12),
-                        _buildMedicineTypeSelector(isDark),
+                        // Dosage (Moved here)
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _AppleTextField(
+                                hint: 'Dosage e.g. 500 (Optional)',
+                                controller: _dosageAmountController,
+                                isDark: isDark,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 1,
+                              child: _buildAppleUnitPicker(isDark),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         _buildColorSelector(isDark),
                         
@@ -1453,65 +1522,63 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               });
               HapticHelper.selection();
             },
-            child: Container(
-              margin: EdgeInsets.only(right: isLast ? 0 : 12),
-              height: 100, // Slightly taller for 3D icons
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1))
-                    : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
-                borderRadius: BorderRadius.circular(20), // More rounded for 3D feel
-                border: Border.all(
+            child: AnimatedScale(
+              scale: isSelected ? 1.03 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                margin: EdgeInsets.only(right: isLast ? 0 : 6),
+                height: 70,
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? primaryColor
-                      : (isDark ? Colors.white10 : Colors.grey.shade200),
-                  width: isSelected ? 2 : 1,
+                      ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.08))
+                      : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? primaryColor
+                        : (isDark ? Colors.white10 : Colors.grey.shade200),
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          )
+                        ]
+                      : null,
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.25),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        )
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 3D Icon - No tinting to preserve 3D look
-                  Image.asset(
-                    imagePath,
-                    width: 48, // Larger size for 3D details
-                    height: 48,
-                    errorBuilder: (context, error, stackTrace) {
-                      // Fallback if asset missing
-                      return Icon(
-                        Icons.medication_rounded,
-                        color: isSelected ? primaryColor : Colors.grey,
-                        size: 32,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    type['label'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? primaryColor : (isDark ? Colors.white70 : Colors.black87),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 3D Icon (bigger)
+                    Image.asset(
+                      imagePath,
+                      width: 50,
+                      height: 50,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.medication_rounded,
+                          color: isSelected ? primaryColor : Colors.grey,
+                          size: 36,
+                        );
+                      },
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    // Label (smaller)
+                    Text(
+                      type['label'] as String,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected 
+                            ? primaryColor 
+                            : (isDark ? Colors.white60 : Colors.black54),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1627,68 +1694,73 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     
     return GestureDetector(
       onTap: (_isSaving || !isValid) ? null : _saveMedicine,
-      child: Container(
-        width: double.infinity,
-        height: 52,
-        decoration: BoxDecoration(
-          gradient: isValid
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark 
-                      ? [Colors.white, const Color(0xFFE8E8E8)]
-                      : [const Color(0xFF2A2A2A), Colors.black],
+      child: AnimatedScale(
+        scale: _isSaving ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          width: double.infinity,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: isValid
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF7C3AED), // Vibrant purple
+                      Color(0xFF6366F1), // Indigo
+                    ],
+                  )
+                : null,
+            color: isValid ? null : (isDark ? Colors.white12 : Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isValid
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: _isSaving
+              ? Center(
+                  child: SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
+                    ),
+                  ),
                 )
-              : null,
-          color: isValid ? null : (isDark ? Colors.white12 : Colors.black12),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: isValid
-              ? [
-                  BoxShadow(
-                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: _isSaving
-            ? Center(
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isDark ? Colors.black : Colors.white,
-                    ),
-                  ),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    isEditing ? Icons.check_rounded : Icons.add_rounded,
-                    size: 20,
-                    color: isValid
-                        ? (isDark ? Colors.black : Colors.white)
-                        : (isDark ? Colors.white38 : Colors.black38),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isEditing ? 'Save Changes' : 'Add Medicine',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isEditing ? Icons.check_rounded : Icons.add_rounded,
+                      size: 22,
                       color: isValid
-                          ? (isDark ? Colors.black : Colors.white)
+                          ? Colors.white
                           : (isDark ? Colors.white38 : Colors.black38),
-                      letterSpacing: -0.3,
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 10),
+                    Text(
+                      isEditing ? 'Save Changes' : 'Add Medicine',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isValid
+                            ? Colors.white
+                            : (isDark ? Colors.white38 : Colors.black38),
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -2495,3 +2567,254 @@ class _AppleTimePill extends StatelessWidget {
     );
   }
 }
+
+/// Premium glassmorphism card with blur effect and gradient border
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  final bool isDark;
+  final EdgeInsetsGeometry padding;
+  final double borderRadius;
+  final Color? accentColor;
+
+  const _GlassCard({
+    required this.child,
+    required this.isDark,
+    this.padding = const EdgeInsets.all(20),
+    this.borderRadius = 24,
+    this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = accentColor ?? const Color(0xFF6366F1);
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  Colors.white.withOpacity(0.08),
+                  Colors.white.withOpacity(0.03),
+                ]
+              : [
+                  Colors.white.withOpacity(0.9),
+                  Colors.white.withOpacity(0.7),
+                ],
+        ),
+        border: Border.all(
+          width: 1.5,
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.white.withOpacity(0.8),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(isDark ? 0.15 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: isDark 
+              ? ImageFilter.blur(sigmaX: 12, sigmaY: 12)
+              : ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(borderRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [
+                        Colors.white.withOpacity(0.05),
+                        Colors.transparent,
+                      ]
+                    : [
+                        Colors.white.withOpacity(0.6),
+                        Colors.white.withOpacity(0.3),
+                      ],
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Visual time arc showing dose times throughout the day
+class _TimeArcWidget extends StatelessWidget {
+  final List<TimeOfDay> times;
+  final bool isDark;
+
+  const _TimeArcWidget({
+    required this.times,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 120,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  const Color(0xFF1E1B4B).withOpacity(0.5),
+                  const Color(0xFF0F172A).withOpacity(0.3),
+                ]
+              : [
+                  const Color(0xFFFEF3C7).withOpacity(0.5),
+                  const Color(0xFFE0E7FF).withOpacity(0.3),
+                ],
+        ),
+      ),
+      child: CustomPaint(
+        painter: _TimeArcPainter(
+          times: times,
+          isDark: isDark,
+        ),
+        child: Stack(
+          children: [
+            // Time zone labels
+            Positioned(
+              left: 16,
+              bottom: 12,
+              child: _timeLabel('6AM', isDark),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Center(child: _timeLabel('12PM', isDark)),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 12,
+              child: _timeLabel('6PM', isDark),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _timeLabel(String text, bool isDark) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.white38 : Colors.black38,
+      ),
+    );
+  }
+}
+
+class _TimeArcPainter extends CustomPainter {
+  final List<TimeOfDay> times;
+  final bool isDark;
+
+  _TimeArcPainter({required this.times, required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height + 20);
+    final radius = size.width * 0.42;
+    
+    // Draw arc background
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..strokeCap = StrokeCap.round;
+
+    // Morning gradient (6AM-12PM)
+    final morningGradient = SweepGradient(
+      startAngle: 3.14,
+      endAngle: 3.14 + 0.5,
+      colors: [
+        const Color(0xFFFBBF24).withOpacity(0.6),
+        const Color(0xFFF59E0B).withOpacity(0.6),
+      ],
+    );
+    
+    // Afternoon gradient (12PM-6PM)
+    final afternoonGradient = SweepGradient(
+      startAngle: 3.14 + 0.5,
+      endAngle: 3.14 + 1,
+      colors: [
+        const Color(0xFF6366F1).withOpacity(0.6),
+        const Color(0xFF8B5CF6).withOpacity(0.6),
+      ],
+    );
+
+    // Draw base arc
+    arcPaint.shader = LinearGradient(
+      colors: [
+        const Color(0xFFFBBF24).withOpacity(isDark ? 0.4 : 0.6),
+        const Color(0xFF6366F1).withOpacity(isDark ? 0.4 : 0.6),
+        const Color(0xFF8B5CF6).withOpacity(isDark ? 0.4 : 0.6),
+      ],
+    ).createShader(Rect.fromCircle(center: center, radius: radius));
+    
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      3.14, // Start from left (6AM)
+      3.14, // Draw half circle to right (6PM)
+      false,
+      arcPaint,
+    );
+
+    // Draw time markers
+    for (final time in times) {
+      final hour = time.hour + time.minute / 60.0;
+      // Map 6AM-6PM (6-18) to 0-PI
+      final normalizedHour = ((hour - 6) / 12).clamp(0.0, 1.0);
+      final angle = 3.14 + (normalizedHour * 3.14);
+      
+      final markerX = center.dx + radius * cos(angle);
+      final markerY = center.dy + radius * sin(angle);
+      
+      // Outer glow
+      final glowPaint = Paint()
+        ..color = const Color(0xFF6366F1).withOpacity(0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawCircle(Offset(markerX, markerY), 10, glowPaint);
+      
+      // Inner marker
+      final markerPaint = Paint()
+        ..color = const Color(0xFF6366F1)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(markerX, markerY), 6, markerPaint);
+      
+      // White center
+      final centerPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(markerX, markerY), 3, centerPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+
