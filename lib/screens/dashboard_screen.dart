@@ -36,6 +36,8 @@ import 'package:confetti/confetti.dart';
 import '../widgets/empty_state_widget.dart';
 import 'achievements_screen.dart';
 import '../widgets/medicine_action_sheet.dart';
+import '../providers/subscription_provider.dart';
+import 'paywall_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -118,7 +120,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  void _navigateToAddMedicine() {
+  void _navigateToAddMedicine() async {
+    final subscription = context.read<SubscriptionProvider>();
+    final medicineProvider = context.read<MedicineProvider>();
+    
+    // Free Tier Limit: 3 Medications
+    if (!subscription.isPremium && medicineProvider.medicines.length >= 3) {
+      debugPrint('🔒 Free Limit Reached');
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      // If they subscribed, let them pass
+      if (!subscription.isPremium) return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddEditMedicineScreen()),
@@ -450,15 +466,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA),
-      toolbarHeight: 90,
+      toolbarHeight: 70,
       title: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 0),
         child: Row(
           children: [
              // Premium Avatar with Glow
             Container(
-              width: 52,
-              height: 52,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
@@ -476,14 +492,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               child: Center(
                 child: CircleAvatar(
-                  radius: 22,
+                  radius: 18,
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
                   child: photoUrl == null
                       ? Text(
                           name.isNotEmpty ? name[0].toUpperCase() : '?',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onPrimary,
                           ),
@@ -492,7 +508,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             // Greeting & Name
             Expanded(
               child: Column(
@@ -502,19 +518,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Text(
                     '${_getGreeting()},',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: isDark ? Colors.white : const Color(0xFF1F2937),
                       letterSpacing: -0.5,
@@ -532,48 +547,49 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (_streak > 0)
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AchievementsScreen()),
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                margin: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.orange.shade400,
-                      Colors.deepOrange.shade400,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AchievementsScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.orange.shade400,
+                        Colors.deepOrange.shade400,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.orange.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.local_fire_department_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_streak',
-                      style: const TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department_rounded,
                         color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_streak',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -589,7 +605,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         EmptyStateWidget(
           title: 'No medications',
           message: 'Add your first medicine to get started with tracking.',
-          icon: Icons.medication_outlined,
+          imageAsset: 'assets/icons/medicine/check_badge.png',
           buttonText: 'Add Medicine',
           onButtonPressed: _navigateToAddMedicine,
         ),

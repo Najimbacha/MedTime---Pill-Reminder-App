@@ -13,10 +13,10 @@ class Medicine {
   final String? pharmacyName;
   final String? pharmacyPhone;
   static const Map<int, String> _typeIconAssets = {
-    1: 'assets/icons/medicine/pill_capsule.png',
-    2: 'assets/icons/medicine/bottle.png',
-    3: 'assets/icons/medicine/injection.png',
-    4: 'assets/icons/medicine/syrup.png',
+    1: 'assets/icons/medicine/3d/tablet.png',
+    2: 'assets/icons/medicine/3d/liquid.png',
+    3: 'assets/icons/medicine/3d/injection.png',
+    4: 'assets/icons/medicine/3d/drop.png',
   };
 
   Medicine({
@@ -30,7 +30,10 @@ class Medicine {
     this.imagePath,
     this.pharmacyName,
     this.pharmacyPhone,
+    this.rxcui,
   });
+
+  final String? rxcui; // RxNorm Concept Unique Identifier for interaction checks
 
   /// Check if stock is low
   bool get isLowStock => currentStock <= lowStockThreshold;
@@ -83,6 +86,7 @@ class Medicine {
       'image_path': imagePath,
       'pharmacy_name': pharmacyName,
       'pharmacy_phone': pharmacyPhone,
+      'rxcui': rxcui,
     };
   }
 
@@ -99,6 +103,7 @@ class Medicine {
       imagePath: map['image_path'] as String?,
       pharmacyName: map['pharmacy_name'] as String?,
       pharmacyPhone: map['pharmacy_phone'] as String?,
+      rxcui: map['rxcui'] as String?,
     );
   }
 
@@ -112,6 +117,7 @@ class Medicine {
     int? lowStockThreshold,
     int? color,
     String? imagePath,
+    String? rxcui,
   }) {
     return Medicine(
       id: id ?? this.id,
@@ -124,6 +130,7 @@ class Medicine {
       imagePath: imagePath ?? this.imagePath,
       pharmacyName: pharmacyName ?? this.pharmacyName,
       pharmacyPhone: pharmacyPhone ?? this.pharmacyPhone,
+      rxcui: rxcui ?? this.rxcui,
     );
   }
 

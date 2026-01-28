@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'database_helper.dart';
 import '../models/log.dart';
 
@@ -89,7 +90,7 @@ void notificationTapBackground(NotificationResponse notificationResponse) async 
                   await db.createLog(log);
                   print('✅ Log created in background for medicine $medicineId');
                 } catch (e) {
-                  print('🔴 Error creating log in background: $e');
+                  debugPrint('Error marking medicine as taken from notification: $e');
                 }
               } else {
                   print('⚠️ No scheduled time in payload, cannot create log.');
@@ -134,7 +135,7 @@ class NotificationService {
       final action = _pendingAction!['action'];
       final payload = _pendingAction!['payload'];
       
-      print('Executing pending notification action: $action for $id');
+      debugPrint('Executing pending notification action: $action for $id');
       callback(id, action, payload);
       _pendingAction = null;
     }
@@ -265,7 +266,7 @@ class NotificationService {
       _onNotificationAction!(medicineId, action, payload);
     } else {
       // Store pending action
-      print('Storing pending notification action: $action for $medicineId');
+      debugPrint('Storing pending notification action: $action for $medicineId');
       _pendingAction = {
         'id': medicineId,
         'action': action,
@@ -479,16 +480,17 @@ class NotificationService {
     );
   }
 
-  /// Schedule a refill reminder for a future date
-  Future<void> scheduleRefillReminder({
+  /// Schedule a low stock warning for a few days before running out
+  Future<void> scheduleLowStockWarning({
     required int medicineId,
     required String medicineName,
-    required DateTime refillDate,
+    required DateTime warningDate,
+    required int daysLeft,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'refill_reminders',
-      'Refill Reminders',
-      channelDescription: 'Reminders when it is time to refill medicine',
+      'refill_warning',
+      'Refill Warnings',
+      channelDescription: 'Early warning when medicine is running low',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       playSound: true,
@@ -505,12 +507,59 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    // Schedule for 10:00 AM on the refill date
+    // Schedule for 10:00 AM on the warning date
+    final scheduledTime = DateTime(
+      warningDate.year,
+      warningDate.month,
+      warningDate.day,
+      10,
+      0,
+    );
+
+    if (scheduledTime.isBefore(DateTime.now())) return;
+
+    await _notifications.zonedSchedule(
+      medicineId + 30000, // Offset for warnings
+      'Low Stock Warning: $medicineName',
+      'You will run out in about $daysLeft days. Time to order a refill.',
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  /// Schedule a refill reminder for a future date (Day Zero)
+  Future<void> scheduleRefillReminder({
+    required int medicineId,
+    required String medicineName,
+    required DateTime refillDate,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'refill_reminders',
+      'Refill Reminders',
+      channelDescription: 'Reminders when it is time to refill medicine',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // Schedule for 09:00 AM on the refill date
     final scheduledTime = DateTime(
       refillDate.year,
       refillDate.month,
       refillDate.day,
-      10,
+      9,
       0,
     );
 

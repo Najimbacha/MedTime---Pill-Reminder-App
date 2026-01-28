@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart'; // For TimeOfDay
 import 'package:flutter/foundation.dart';
 import 'package:privacy_meds/providers/schedule_provider.dart';
 import 'package:privacy_meds/models/schedule.dart';
@@ -163,7 +164,7 @@ void main() {
       // Add another medicine's schedule
       final med2Schedule = Schedule(
         medicineId: 99, 
-        timeOfDay: const TimeOfDay(hour: 10, minute: 0),
+        timeOfDay: '10:00',
         frequencyType: FrequencyType.daily
       );
       // We pass testMedicine but it doesn't matter for the DB insertion in mock

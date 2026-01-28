@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // Added import
 import 'app_colors.dart';
 import 'app_text_styles.dart';
 
@@ -17,42 +18,42 @@ class AppTheme {
       onSurface: AppColors.textPrimaryLight,
       background: AppColors.backgroundLight,
       onBackground: AppColors.textPrimaryLight,
-      surfaceTint: Colors.transparent, // Remove default tint
+      surfaceTint: Colors.transparent, 
     ),
     scaffoldBackgroundColor: AppColors.backgroundLight,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent, // Transparent for gradient backgrounds
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textPrimaryLight,
       elevation: 0,
       centerTitle: false,
       scrolledUnderElevation: 0,
-      titleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+      titleTextStyle: GoogleFonts.plusJakartaSans(
         fontSize: 20,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimaryLight,
         letterSpacing: -0.5,
       ),
     ),
-    textTheme: const TextTheme(
-      displayLarge: AppTextStyles.displayLarge,
-      displayMedium: AppTextStyles.displayMedium,
-      headlineLarge: AppTextStyles.headlineLarge,
-      headlineMedium: AppTextStyles.headlineMedium,
-      headlineSmall: AppTextStyles.headlineSmall,
-      titleLarge: AppTextStyles.titleLarge,
-      titleMedium: AppTextStyles.titleMedium,
-      titleSmall: AppTextStyles.titleSmall,
-      bodyLarge: AppTextStyles.bodyLarge,
-      bodyMedium: AppTextStyles.bodyMedium,
-      bodySmall: AppTextStyles.bodySmall,
-      labelLarge: AppTextStyles.labelLarge,
-      labelMedium: AppTextStyles.labelMedium,
-      labelSmall: AppTextStyles.labelSmall,
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(
+      const TextTheme(
+        displayLarge: AppTextStyles.displayLarge,
+        displayMedium: AppTextStyles.displayMedium,
+        headlineLarge: AppTextStyles.headlineLarge,
+        headlineMedium: AppTextStyles.headlineMedium,
+        headlineSmall: AppTextStyles.headlineSmall,
+        titleLarge: AppTextStyles.titleLarge,
+        titleMedium: AppTextStyles.titleMedium,
+        titleSmall: AppTextStyles.titleSmall,
+        bodyLarge: AppTextStyles.bodyLarge,
+        bodyMedium: AppTextStyles.bodyMedium,
+        bodySmall: AppTextStyles.bodySmall,
+        labelLarge: AppTextStyles.labelLarge,
+        labelMedium: AppTextStyles.labelMedium,
+        labelSmall: AppTextStyles.labelSmall,
+      ),
     ).apply(
       bodyColor: AppColors.textPrimaryLight,
       displayColor: AppColors.textPrimaryLight,
-      fontFamily: 'Roboto',
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -61,14 +62,18 @@ class AppTheme {
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: AppTextStyles.labelLarge.copyWith(fontSize: 16),
+        textStyle: GoogleFonts.plusJakartaSans(
+           fontSize: 16, fontWeight: FontWeight.w600
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: AppTextStyles.labelLarge.copyWith(fontSize: 16),
+        textStyle: GoogleFonts.plusJakartaSans(
+           fontSize: 16, fontWeight: FontWeight.w600
+        ),
         side: const BorderSide(color: AppColors.borderLight),
         foregroundColor: AppColors.textPrimaryLight,
       ),
@@ -93,13 +98,13 @@ class AppTheme {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.error),
       ),
-      labelStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondaryLight),
-      hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textDisabledLight),
+      labelStyle: TextStyle(color: AppColors.textSecondaryLight), 
+      hintStyle: TextStyle(color: AppColors.textDisabledLight),
       floatingLabelBehavior: FloatingLabelBehavior.always,
     ),
     cardTheme: CardThemeData(
       color: AppColors.surfaceLight,
-      elevation: 0, // We will use custom shadows
+      elevation: 0, 
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       margin: EdgeInsets.zero,
     ),
@@ -117,7 +122,7 @@ class AppTheme {
     useMaterial3: true,
     brightness: Brightness.dark,
     colorScheme: const ColorScheme.dark(
-      primary: AppColors.primary, // Use same primary for vibrancy
+      primary: AppColors.primary,
       onPrimary: Colors.white,
       secondary: AppColors.primaryLight,
       onSecondary: Colors.white,
@@ -130,39 +135,39 @@ class AppTheme {
       surfaceTint: Colors.transparent,
     ),
     scaffoldBackgroundColor: AppColors.backgroundDark,
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textPrimaryDark,
       elevation: 0,
       centerTitle: false,
       scrolledUnderElevation: 0,
-      titleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+      titleTextStyle: GoogleFonts.plusJakartaSans(
         fontSize: 20,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimaryDark,
         letterSpacing: -0.5,
       ),
     ),
-    textTheme: const TextTheme(
-      displayLarge: AppTextStyles.displayLarge,
-      displayMedium: AppTextStyles.displayMedium,
-      headlineLarge: AppTextStyles.headlineLarge,
-      headlineMedium: AppTextStyles.headlineMedium,
-      headlineSmall: AppTextStyles.headlineSmall,
-      titleLarge: AppTextStyles.titleLarge,
-      titleMedium: AppTextStyles.titleMedium,
-      titleSmall: AppTextStyles.titleSmall,
-      bodyLarge: AppTextStyles.bodyLarge,
-      bodyMedium: AppTextStyles.bodyMedium,
-      bodySmall: AppTextStyles.bodySmall,
-      labelLarge: AppTextStyles.labelLarge,
-      labelMedium: AppTextStyles.labelMedium,
-      labelSmall: AppTextStyles.labelSmall,
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(
+      const TextTheme(
+        displayLarge: AppTextStyles.displayLarge,
+        displayMedium: AppTextStyles.displayMedium,
+        headlineLarge: AppTextStyles.headlineLarge,
+        headlineMedium: AppTextStyles.headlineMedium,
+        headlineSmall: AppTextStyles.headlineSmall,
+        titleLarge: AppTextStyles.titleLarge,
+        titleMedium: AppTextStyles.titleMedium,
+        titleSmall: AppTextStyles.titleSmall,
+        bodyLarge: AppTextStyles.bodyLarge,
+        bodyMedium: AppTextStyles.bodyMedium,
+        bodySmall: AppTextStyles.bodySmall,
+        labelLarge: AppTextStyles.labelLarge,
+        labelMedium: AppTextStyles.labelMedium,
+        labelSmall: AppTextStyles.labelSmall,
+      ),
     ).apply(
       bodyColor: AppColors.textPrimaryDark,
       displayColor: AppColors.textPrimaryDark,
-      fontFamily: 'Roboto',
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -171,14 +176,18 @@ class AppTheme {
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: AppTextStyles.labelLarge.copyWith(fontSize: 16),
+        textStyle: GoogleFonts.plusJakartaSans(
+           fontSize: 16, fontWeight: FontWeight.w600
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: AppTextStyles.labelLarge.copyWith(fontSize: 16),
+        textStyle: GoogleFonts.plusJakartaSans(
+           fontSize: 16, fontWeight: FontWeight.w600
+        ),
         side: const BorderSide(color: AppColors.borderDark),
         foregroundColor: AppColors.textPrimaryDark,
       ),
@@ -203,8 +212,8 @@ class AppTheme {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.error),
       ),
-      labelStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondaryDark),
-      hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textDisabledDark),
+      labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+      hintStyle: TextStyle(color: AppColors.textDisabledDark),
       floatingLabelBehavior: FloatingLabelBehavior.always,
     ),
     cardTheme: CardThemeData(

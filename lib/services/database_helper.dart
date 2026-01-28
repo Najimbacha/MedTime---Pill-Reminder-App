@@ -27,7 +27,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -47,6 +47,9 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE medicines ADD COLUMN pharmacy_phone TEXT');
       await db.execute('ALTER TABLE schedules ADD COLUMN end_date TEXT');
     }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE medicines ADD COLUMN rxcui TEXT');
+    }
   }
 
   /// Create all database tables
@@ -63,7 +66,8 @@ class DatabaseHelper {
         color INTEGER DEFAULT 0xFF2196F3,
         image_path TEXT,
         pharmacy_name TEXT,
-        pharmacy_phone TEXT
+        pharmacy_phone TEXT,
+        rxcui TEXT
       )
     ''');
 

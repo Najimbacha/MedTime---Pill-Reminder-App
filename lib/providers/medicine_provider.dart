@@ -169,27 +169,45 @@ class MedicineProvider with ChangeNotifier {
     final schedules = await _db.getSchedulesForMedicine(medicine.id!);
     if (schedules.isEmpty) return;
 
-    // Calculate daily doses
-    int dailyDoses = 0;
+    // Calculate daily doses with precise logic
+    double dailyDoses = 0.0;
     for (final s in schedules) {
       if (s.frequencyType == FrequencyType.daily) {
-        dailyDoses += 1;
+        dailyDoses += 1.0;
       } else if (s.frequencyType == FrequencyType.specificDays) {
-        // Average doses per day
-        dailyDoses += 1; // Simplified: check if triggers today or just count as potential
+        // Average doses per day (e.g., 3 days a week = 3/7 per day)
+        if (s.frequencyDays != null) {
+          final daysCount = s.frequencyDays!.split(',').length;
+          dailyDoses += (daysCount / 7.0);
+        }
       } else if (s.frequencyType == FrequencyType.interval) {
-        // Approximate
-        dailyDoses += 1;
+         if (s.intervalDays != null && s.intervalDays! > 0) {
+           dailyDoses += (1.0 / s.intervalDays!);
+         }
       }
     }
 
     if (dailyDoses > 0) {
-      final refillDate = medicine.getEstimatedRefillDate(dailyDoses);
+      final daysRemaining = medicine.currentStock / dailyDoses;
+      final refillDate = DateTime.now().add(Duration(days: daysRemaining.floor()));
+      
+      // 1. Critical Alert (Day Zero)
       await _notifications.scheduleRefillReminder(
         medicineId: medicine.id!,
         medicineName: medicine.name,
         refillDate: refillDate,
       );
+
+      // 2. Warning Alert (3 Days Before)
+      if (daysRemaining > 4) {
+         final warningDate = refillDate.subtract(const Duration(days: 3));
+         await _notifications.scheduleLowStockWarning(
+            medicineId: medicine.id!,
+            medicineName: medicine.name,
+            warningDate: warningDate,
+            daysLeft: 3,
+         );
+      }
     }
   }
 }

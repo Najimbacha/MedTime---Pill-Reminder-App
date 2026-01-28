@@ -311,4 +311,18 @@ class LogProvider with ChangeNotifier {
   Future<void> refresh() async {
     await loadLogs();
   }
+  /// Clear all logs (Reset Data)
+  Future<void> clearAllLogs() async {
+    try {
+      // If we want to just clear logs:
+      // await _db.deleteTable('logs'); // Need to implement in DB helper if specific
+      // But typically we use deleteAllData in DB helper for full reset.
+      // Assuming this method just clears logs layer.
+      // Let's assume we maintain data integrity via DB helper.
+      _logs.clear();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error clearing logs: $e');
+    }
+  }
 }

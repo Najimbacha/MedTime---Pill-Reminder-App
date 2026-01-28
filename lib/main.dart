@@ -12,6 +12,8 @@ import 'providers/sync_provider.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/streak_service.dart';
+import 'providers/subscription_provider.dart';
+import 'providers/statistics_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/splash_screen.dart';
@@ -95,6 +97,8 @@ class PrivacyMedsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LogProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => SyncProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => StatisticsProvider()),
         ChangeNotifierProvider.value(value: SettingsService.instance),
       ],
       child: Consumer<SettingsService>(

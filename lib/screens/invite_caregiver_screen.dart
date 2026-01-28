@@ -7,6 +7,8 @@ import '../models/caregiver_invite.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/haptic_helper.dart';
+import '../core/theme/app_colors.dart';
+import '../widgets/scale_button.dart';
 
 /// Screen for patients to invite caregivers via invite code
 class InviteCaregiverScreen extends StatefulWidget {
@@ -115,17 +117,28 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
           'Invite Caregiver',
           style: theme.textTheme.headlineMedium,
         ),
+        backgroundColor: Colors.transparent,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorView()
-              : _buildInviteView(colorScheme),
+      body: Container(
+        decoration: BoxDecoration(
+           gradient: theme.brightness == Brightness.dark 
+              ? AppColors.surfaceGradientDark 
+              : AppColors.surfaceGradientLight,
+        ),
+        child: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? _buildErrorView()
+                  : _buildInviteView(colorScheme),
+        ),
+      ),
     );
   }
 
@@ -300,21 +313,36 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           const SizedBox(height: 40),
 
           // Share Button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _shareCode,
-              icon: const Icon(Icons.share_rounded),
-              label: const Text(
-                'Share Invite',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ScaleButton(
+            onPressed: _shareCode,
+            child: Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                 color: colorScheme.primary,
+                 borderRadius: BorderRadius.circular(16),
+                 boxShadow: [
+                   BoxShadow(
+                     color: colorScheme.primary.withOpacity(0.3),
+                     blurRadius: 12,
+                     offset: const Offset(0, 6),
+                   ),
+                 ],
               ),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 2,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.share_rounded, color: colorScheme.onPrimary),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Share Invite',
+                    style: TextStyle(
+                      fontSize: 16, 
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 class EmptyStateWidget extends StatelessWidget {
   final String title;
   final String message;
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
   final String? buttonText;
   final VoidCallback? onButtonPressed;
 
@@ -11,10 +12,11 @@ class EmptyStateWidget extends StatelessWidget {
     super.key,
     required this.title,
     required this.message,
-    required this.icon,
+    this.icon,
+    this.imageAsset,
     this.buttonText,
     this.onButtonPressed,
-  });
+  }) : assert(icon != null || imageAsset != null, 'Either icon or imageAsset must be provided');
 
   @override
   Widget build(BuildContext context) {
@@ -26,25 +28,44 @@ class EmptyStateWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+            if (imageAsset != null)
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
+                      blurRadius: 30,
+                      offset: const Offset(0, 15),
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  imageAsset!,
+                  width: 300, // Final size as requested
+                  fit: BoxFit.contain,
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  icon,
+                  size: 64,
+                  color: isDark ? Colors.blue.shade200 : Colors.blue.shade400,
+                ),
               ),
-              child: Icon(
-                icon,
-                size: 64,
-                color: isDark ? Colors.blue.shade200 : Colors.blue.shade400,
-              ),
-            ),
             const SizedBox(height: 32),
             Text(
               title,

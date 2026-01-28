@@ -154,6 +154,42 @@ class ScheduleProvider with ChangeNotifier {
     }
   }
 
+  /// Calculate average daily dose count for a medicine
+  double getDailyDoseCount(int medicineId) {
+    final medSchedules = getSchedulesForMedicine(medicineId);
+    if (medSchedules.isEmpty) return 0.0;
+
+    double dailyCount = 0.0;
+    for (final schedule in medSchedules) {
+      switch (schedule.frequencyType) {
+        case FrequencyType.daily:
+          dailyCount += 1.0;
+          break;
+        case FrequencyType.specificDays:
+          dailyCount += (schedule.daysList.length / 7.0);
+          break;
+        case FrequencyType.interval:
+          if (schedule.intervalDays != null && schedule.intervalDays! > 0) {
+            dailyCount += (1.0 / schedule.intervalDays!);
+          }
+          break;
+        case FrequencyType.asNeeded:
+          // Cannot predict
+          break;
+      }
+    }
+    return dailyCount;
+  }
+
+  /// Estimate refill date based on current stock and schedule
+  DateTime? getEstimatedRefillDate(int medicineId, int currentStock) {
+    final dailyDose = getDailyDoseCount(medicineId);
+    if (dailyDose <= 0) return null;
+
+    final daysRemaining = currentStock / dailyDose;
+    return DateTime.now().add(Duration(days: daysRemaining.floor()));
+  }
+
   /// Refresh schedules from database
   Future<void> refresh() async {
     await loadSchedules();

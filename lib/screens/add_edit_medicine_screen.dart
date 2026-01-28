@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -64,6 +66,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   List<InteractionWarning> _warnings = [];
   final InteractionService _interactionService = InteractionService();
   bool _isSaving = false;
+  Timer? _debounceTimer;
 
   static const Map<String, int> _medicineTypeIcons = {
     'tablet': 1,
@@ -160,6 +163,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _nameController.removeListener(_checkForInteractions);
     _nameController.dispose();
     _dosageAmountController.dispose();
@@ -301,6 +305,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Future<void> _checkForInteractions() async {
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+
     final String name = _nameController.text;
     if (name.length < 3) {
       if (_warnings.isNotEmpty) {
@@ -309,17 +316,22 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       return;
     }
 
-    final medicineProvider = context.read<MedicineProvider>();
-    final results = await _interactionService.checkInteractions(
-      name,
-      medicineProvider.medicines,
-    );
+    // Wait 800ms before calling API
+    _debounceTimer = Timer(const Duration(milliseconds: 800), () async {
+      if (!mounted) return;
+      
+      final medicineProvider = context.read<MedicineProvider>();
+      final results = await _interactionService.checkInteractions(
+        name,
+        medicineProvider.medicines,
+      );
 
-    if (results.isNotEmpty || _warnings.isNotEmpty) {
-      setState(() {
-        _warnings = results;
-      });
-    }
+      if (mounted && (results.isNotEmpty || _warnings.isNotEmpty)) {
+        setState(() {
+          _warnings = results;
+        });
+      }
+    });
   }
 
   bool _isFormValid() {
@@ -1220,88 +1232,137 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Widget _buildAdditionalInfo(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () =>
-              setState(() => _showAdditionalInfo = !_showAdditionalInfo),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Additional Information',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black87,
-                ),
-              ),
-              Row(
+    return _AppleCard(
+      isDark: isDark,
+      padding: EdgeInsets.zero, // Handle padding internally for collapse effect
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header / Toggle
+          InkWell(
+            onTap: () {
+              setState(() => _showAdditionalInfo = !_showAdditionalInfo);
+              HapticHelper.selection();
+            },
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(20),
+              bottom: Radius.circular(_showAdditionalInfo ? 0 : 20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _showAdditionalInfo ? 'Hide' : 'Show',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.tune_rounded,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Additional Details',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    _showAdditionalInfo ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.primary,
-                    size: 20,
+                  AnimatedRotation(
+                    turns: _showAdditionalInfo ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-        if (_showAdditionalInfo) ...[
-          const SizedBox(height: 16),
-          _buildPhotoSection(isDark),
-          const SizedBox(height: 16),
-          _buildMedicineTypeSelector(isDark),
-          const SizedBox(height: 16),
-          _buildColorSelector(isDark),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _MinimalTextField(
-                  label: 'Stock',
-                  controller: _stockController,
-                  isDark: isDark,
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MinimalTextField(
-                  label: 'Alert at',
-                  controller: _thresholdController,
-                  isDark: isDark,
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _MinimalTextField(
-            label: 'Pharmacy Name',
-            controller: _pharmacyNameController,
-            isDark: isDark,
-          ),
-          const SizedBox(height: 12),
-          _MinimalTextField(
-            label: 'Pharmacy Phone',
-            controller: _pharmacyPhoneController,
-            isDark: isDark,
-            keyboardType: TextInputType.phone,
+          
+          // Collapsible Content
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _showAdditionalInfo
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(height: 1),
+                        const SizedBox(height: 20),
+                        
+                        // Photo Section Header
+                        _SectionLabel(label: 'Appearance', isDark: isDark),
+                        const SizedBox(height: 12),
+                        _buildPhotoSection(isDark),
+                        
+                        const SizedBox(height: 24),
+                        _SectionLabel(label: 'Form & Color', isDark: isDark),
+                        const SizedBox(height: 12),
+                        _buildMedicineTypeSelector(isDark),
+                        const SizedBox(height: 16),
+                        _buildColorSelector(isDark),
+                        
+                        const SizedBox(height: 24),
+                        _SectionLabel(label: 'Inventory Management', isDark: isDark),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MinimalTextField(
+                                label: 'Current Stock',
+                                controller: _stockController,
+                                isDark: isDark,
+                                keyboardType: TextInputType.number,
+                                icon: Icons.inventory_2_outlined,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MinimalTextField(
+                                label: 'Low Stock Alert',
+                                controller: _thresholdController,
+                                isDark: isDark,
+                                keyboardType: TextInputType.number,
+                                icon: Icons.notifications_active_outlined,
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        _SectionLabel(label: 'Pharmacy Info', isDark: isDark),
+                        const SizedBox(height: 12),
+                        _MinimalTextField(
+                          label: 'Pharmacy Name',
+                          controller: _pharmacyNameController,
+                          isDark: isDark,
+                          icon: Icons.store_mall_directory_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _MinimalTextField(
+                          label: 'Pharmacy Phone',
+                          controller: _pharmacyPhoneController,
+                          isDark: isDark,
+                          keyboardType: TextInputType.phone,
+                          icon: Icons.phone_outlined,
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
-      ],
+      ),
     );
   }
 
@@ -1342,110 +1403,116 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 : null,
           ),
         ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ImageButton(
-              label: 'Camera',
-              icon: Icons.camera_alt,
-              onPressed: () => _pickImage(ImageSource.camera),
-              isDark: isDark,
-            ),
-            const SizedBox(height: 8),
-            _ImageButton(
-              label: 'Gallery',
-              icon: Icons.photo_library,
-              onPressed: () => _pickImage(ImageSource.gallery),
-              isDark: isDark,
-            ),
-          ],
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ImageButton(
+                label: 'Take Photo',
+                icon: Icons.camera_alt_rounded,
+                onPressed: () => _pickImage(ImageSource.camera),
+                isDark: isDark,
+              ),
+              const SizedBox(height: 10),
+              _ImageButton(
+                label: 'Choose from Gallery',
+                icon: Icons.photo_library_rounded,
+                onPressed: () => _pickImage(ImageSource.gallery),
+                isDark: isDark,
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
+
   Widget _buildMedicineTypeSelector(bool isDark) {
     final types = [
-      {'label': 'Tablet', 'value': 'tablet', 'iconPath': _medicineTypeIconPaths['tablet']},
-      {'label': 'Liquid', 'value': 'liquid', 'iconPath': _medicineTypeIconPaths['liquid']},
-      {'label': 'Injection', 'value': 'injection', 'iconPath': _medicineTypeIconPaths['injection']},
-      {'label': 'Drop', 'value': 'drop', 'iconPath': _medicineTypeIconPaths['drop']},
+      {'label': 'Tablet', 'value': 'tablet', 'image': 'assets/icons/medicine/3d/tablet.png'},
+      {'label': 'Liquid', 'value': 'liquid', 'image': 'assets/icons/medicine/3d/liquid.png'},
+      {'label': 'Injection', 'value': 'injection', 'image': 'assets/icons/medicine/3d/injection.png'},
+      {'label': 'Drop', 'value': 'drop', 'image': 'assets/icons/medicine/3d/drop.png'},
     ];
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    return Row(
       children: types.map((type) {
         final isSelected = _selectedMedicineType == type['value'];
         final primaryColor = Color(_selectedColor);
+        final bool isLast = type == types.last;
+        final imagePath = type['image'] as String;
         
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedMedicineType = type['value'] as String;
-              _selectedIcon = _iconFromType(type['value'] as String);
-            });
-            HapticHelper.selection();
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: (MediaQuery.of(context).size.width - 70) / 4,
-            height: 90,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1))
-                  : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedMedicineType = type['value'] as String;
+                _selectedIcon = _iconFromType(type['value'] as String);
+              });
+              HapticHelper.selection();
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: isLast ? 0 : 12),
+              height: 100, // Slightly taller for 3D icons
+              decoration: BoxDecoration(
                 color: isSelected
-                    ? primaryColor
-                    : (isDark ? Colors.white10 : Colors.grey.shade200),
-                width: isSelected ? 2 : 1.5,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: primaryColor.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      )
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (type['iconPath'] != null)
-                  Image.asset(
-                    type['iconPath'] as String,
-                    width: 36,
-                    height: 36,
-                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
-                  )
-                else
-                  Icon(
-                    Icons.medication_outlined,
-                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
-                    size: 32,
-                  ),
-                const SizedBox(height: 8),
-                Text(
-                  type['label'] as String,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? primaryColor : (isDark ? Colors.white60 : Colors.black54),
-                  ),
+                    ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1))
+                    : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+                borderRadius: BorderRadius.circular(20), // More rounded for 3D feel
+                border: Border.all(
+                  color: isSelected
+                      ? primaryColor
+                      : (isDark ? Colors.white10 : Colors.grey.shade200),
+                  width: isSelected ? 2 : 1,
                 ),
-              ],
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 3D Icon - No tinting to preserve 3D look
+                  Image.asset(
+                    imagePath,
+                    width: 48, // Larger size for 3D details
+                    height: 48,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback if asset missing
+                      return Icon(
+                        Icons.medication_rounded,
+                        color: isSelected ? primaryColor : Colors.grey,
+                        size: 32,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    type['label'] as String,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? primaryColor : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1954,6 +2021,7 @@ class _MinimalTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
+  final IconData? icon;
 
   const _MinimalTextField({
     required this.label,
@@ -1964,6 +2032,7 @@ class _MinimalTextField extends StatelessWidget {
     this.keyboardType,
     this.focusNode,
     this.onChanged,
+    this.icon,
   });
 
   @override
@@ -2011,21 +2080,28 @@ class _MinimalTextField extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.white : Colors.black87,
             ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: isDark ? Colors.white30 : Colors.black38,
-                fontWeight: FontWeight.w500,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white30 : Colors.black38,
+                  fontWeight: FontWeight.w500,
+                ),
+                prefixIcon: icon != null 
+                    ? Icon(
+                        icon, 
+                        size: 20, 
+                        color: isDark ? Colors.white38 : Colors.black38
+                      ) 
+                    : null,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
               ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
-            ),
           ),
         ),
       ],
@@ -2195,6 +2271,7 @@ class _ImageButton extends StatelessWidget {
           ),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 16, color: isDark ? Colors.white : Colors.black),
             const SizedBox(width: 6),

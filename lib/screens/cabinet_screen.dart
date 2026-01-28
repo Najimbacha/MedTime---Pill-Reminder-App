@@ -4,6 +4,9 @@ import '../providers/medicine_provider.dart';
 import '../models/medicine.dart';
 import '../widgets/empty_state_widget.dart';
 import 'add_edit_medicine_screen.dart';
+import '../providers/subscription_provider.dart';
+import '../providers/schedule_provider.dart'; // Add this imports
+import 'paywall_screen.dart';
 
 class CabinetScreen extends StatelessWidget {
   const CabinetScreen({super.key});
@@ -27,24 +30,7 @@ class CabinetScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        actions: [
-          GestureDetector(
-            onTap: () => _navigateToAddMedicine(context),
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.add_rounded,
-                color: Theme.of(context).primaryColor,
-                size: 24,
-              ),
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: Consumer<MedicineProvider>(
         builder: (context, provider, child) {
@@ -53,7 +39,7 @@ class CabinetScreen extends StatelessWidget {
           if (medicines.isEmpty) {
             return Center(
               child: EmptyStateWidget(
-                icon: Icons.medication_outlined,
+                imageAsset: 'assets/icons/medicine/check_badge.png',
                 title: 'Cabinet Empty',
                 message: 'Add your medicines to track inventory',
                 buttonText: 'Add First Medicine',
@@ -79,16 +65,62 @@ class CabinetScreen extends StatelessWidget {
           );
         },
       ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 70), // Lift above Glass Nav Bar
+        child: FloatingActionButton.extended(
+          onPressed: () => _navigateToAddMedicine(context),
+          backgroundColor: Theme.of(context).primaryColor,
+          elevation: 6,
+          highlightElevation: 10,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          label: const Text(
+            'Add Medicine',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          icon: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+        ),
+      ),
     );
   }
 
-  void _navigateToAddMedicine(BuildContext context, {Medicine? medicine}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddEditMedicineScreen(medicine: medicine),
-      ),
-    );
+
+  void _navigateToAddMedicine(BuildContext context, {Medicine? medicine}) async {
+    // If editing (medicine != null), allow access always
+    if (medicine != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddEditMedicineScreen(medicine: medicine),
+        ),
+      );
+      return;
+    }
+
+    // Adding new medicine: Check limits
+    final subscription = context.read<SubscriptionProvider>();
+    final medicineProvider = context.read<MedicineProvider>();
+    
+    if (!subscription.isPremium && medicineProvider.medicines.length >= 3) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      // If still not premium after paywall, stop
+      if (!subscription.isPremium) return;
+    }
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AddEditMedicineScreen(),
+        ),
+      );
+    }
   }
 }
 
@@ -106,12 +138,13 @@ class _AppleMedicineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(medicine.color);
+    final color = medicine.colorValue;
+    final isLow = medicine.isLowStock;
     
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12), // Reduced from 16
         decoration: BoxDecoration(
           color: isDark 
               ? Colors.white.withOpacity(0.06) 
@@ -125,8 +158,8 @@ class _AppleMedicineCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.06),
-              blurRadius: 16,
+              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -135,20 +168,24 @@ class _AppleMedicineCard extends StatelessWidget {
           children: [
             // Medicine Icon with colored background
             Container(
-              width: 52,
-              height: 52,
+              width: 56, // Increased from 48
+              height: 56,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    color.withOpacity(0.2),
+                    color.withOpacity(0.25),
                     color.withOpacity(0.1),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: color.withOpacity(0.2),
+                  width: 1.5,
+                ),
               ),
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(6), // Reduced from 8 to let image fill more
               child: Image.asset(
                 medicine.iconAssetPath,
                 fit: BoxFit.contain,
@@ -161,56 +198,124 @@ class _AppleMedicineCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
-                  Text(
-                    medicine.name,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          medicine.name,
+                          style: TextStyle(
+                            fontSize: 16, // Slightly smaller for density
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isLow)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'LOW STOCK',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   
-                  // Info Row: Dosage + Frequency
+                  // Info Row: Dosage + Stock info
                   Row(
                     children: [
                       // Dosage chip
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: isDark 
-                              ? Colors.white.withOpacity(0.1) 
-                              : Colors.grey.shade100,
+                          color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: color.withOpacity(0.1), width: 0.5),
                         ),
-                        child: Text(
-                          medicine.dosage,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getTypeIcon(medicine.typeIcon),
+                              size: 11,
+                              color: color,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              medicine.dosage,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
                       
-                      // Type indicator
-                      Icon(
-                        _getTypeIcon(medicine.typeIcon),
-                        size: 14,
-                        color: isDark ? Colors.white38 : Colors.grey.shade400,
+                      // Stock status & Prediction
+                      Builder(
+                        builder: (context) {
+                          // Get prediction
+                          final scheduleProvider = context.watch<ScheduleProvider>();
+                          final refillDate = scheduleProvider.getEstimatedRefillDate(
+                            medicine.id!, 
+                            medicine.currentStock
+                          );
+
+                          String stockText = '${medicine.currentStock} left';
+                          Color stockColor = isDark ? Colors.white38 : Colors.grey.shade500;
+                          
+                          if (refillDate != null) {
+                            final daysUntil = refillDate.difference(DateTime.now()).inDays;
+                            
+                            if (daysUntil <= 0) {
+                              stockText = 'Refill Needed Today';
+                              stockColor = Colors.red;
+                            } else if (daysUntil < 7) {
+                              stockText = 'Empty by ${_getWeekday(refillDate)}'; // "Empty by Tue"
+                              stockColor = Colors.orange.shade700;
+                            } else if (daysUntil < 30) {
+                              stockText = 'Lasts until ${_getMonthDay(refillDate)}'; // "Lasts until Feb 12"
+                              stockColor = isDark ? Colors.white60 : Colors.grey.shade700;
+                            }
+                          } else if (isLow) {
+                             stockText = '${medicine.currentStock} left (Low)';
+                             stockColor = Colors.red;
+                          }
+
+                          return Text(
+                            stockText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: (refillDate != null && refillDate.difference(DateTime.now()).inDays < 7) || isLow
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: stockColor,
+                            ),
+                          );
+                        }
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _getTypeName(medicine.typeIcon),
+                        '• ${_getTypeName(medicine.typeIcon)}',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                          fontSize: 11,
+                          color: isDark ? Colors.white24 : Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -223,20 +328,30 @@ class _AppleMedicineCard extends StatelessWidget {
             Icon(
               Icons.chevron_right_rounded,
               color: isDark ? Colors.white24 : Colors.grey.shade300,
-              size: 22,
+              size: 20,
             ),
           ],
         ),
       ),
     );
   }
+  
+  String _getWeekday(DateTime date) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[date.weekday - 1];
+  }
+  
+  String _getMonthDay(DateTime date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
+  }
 
   IconData _getTypeIcon(int typeIcon) {
     switch (typeIcon) {
       case 1: return Icons.medication_rounded;
-      case 2: return Icons.local_drink_rounded;
+      case 2: return Icons.liquor_rounded; // Syrup
       case 3: return Icons.vaccines_rounded;
-      case 4: return Icons.water_drop_rounded;
+      case 4: return Icons.water_drop_rounded; // Drops/Bottle
       default: return Icons.medication_rounded;
     }
   }
@@ -246,7 +361,7 @@ class _AppleMedicineCard extends StatelessWidget {
       case 1: return 'Pill';
       case 2: return 'Syrup';
       case 3: return 'Injection';
-      case 4: return 'Drops';
+      case 4: return 'Liquid';
       default: return 'Medicine';
     }
   }
