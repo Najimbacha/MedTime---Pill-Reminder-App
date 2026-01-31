@@ -80,7 +80,10 @@ class AuthService {
           shareEnabled: false,
         );
 
-        await _firestore.collection('users').doc(profile.id).set(profile.toMap());
+        await _firestore
+            .collection('users')
+            .doc(profile.id)
+            .set(profile.toMap());
         return profile;
       }
     } on FirebaseAuthException catch (e) {
@@ -108,14 +111,15 @@ class AuthService {
     try {
       // Trigger the Google Sign-In flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         // User cancelled the sign-in
         return null;
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -151,12 +155,14 @@ class AuthService {
     try {
       // 1. Delete user data from Firestore
       await _firestore.collection('users').doc(user.uid).delete();
-      
+
       // 2. Delete from Firebase Auth
       await user.delete();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
-         throw AuthException('For security, please sign out and sign in again to delete your account.');
+        throw AuthException(
+          'For security, please sign out and sign in again to delete your account.',
+        );
       }
       throw AuthException(_mapFirebaseAuthError(e.code));
     } catch (e) {
@@ -211,6 +217,21 @@ class AuthService {
 
     await _firestore.collection('users').doc(user.uid).update({
       'shareEnabled': enabled,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Update display name
+  Future<void> updateDisplayName(String name) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    // Update Firebase Auth profile
+    await user.updateDisplayName(name);
+
+    // Update Firestore profile
+    await _firestore.collection('users').doc(user.uid).update({
+      'displayName': name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -279,7 +300,10 @@ class AuthService {
   }
 
   /// Link a patient and caregiver bidirectionally
-  Future<void> _linkPatientAndCaregiver(String patientId, String caregiverId) async {
+  Future<void> _linkPatientAndCaregiver(
+    String patientId,
+    String caregiverId,
+  ) async {
     final batch = _firestore.batch();
 
     // Add caregiver to patient's list

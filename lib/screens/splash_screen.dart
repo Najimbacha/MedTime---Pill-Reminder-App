@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../services/settings_service.dart';
-import '../services/notification_service.dart';
+import '../services/notification_service.dart'; // Keep if used (though mainly used in ScheduleProvider)
+import '../providers/medicine_provider.dart';
+import '../providers/schedule_provider.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -13,7 +15,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _floatAnimation;
   late Animation<double> _scaleAnimation;
@@ -49,15 +52,55 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _navigateToNext() async {
-    // Simple basic timer - no fancy logic temporarily
-    await Future.delayed(const Duration(seconds: 3));
+    // Run initialization tasks in parallel with the minimum splash duration
+    final minSplashDuration = Future.delayed(const Duration(seconds: 3));
+
+    // Healing Logic: Ensure all alarms are scheduled correctly
+    final initializationTask = Future(() async {
+      try {
+        if (!mounted) return;
+        debugPrint('🔄 Starting Self-Healing process...');
+
+        final medicineProvider = Provider.of<MedicineProvider>(
+          context,
+          listen: false,
+        );
+        final scheduleProvider = Provider.of<ScheduleProvider>(
+          context,
+          listen: false,
+        );
+
+        // Ensure fresh data
+        await medicineProvider.loadMedicines();
+        await scheduleProvider.loadSchedules();
+
+        // Reschedule all notifications
+        if (medicineProvider.medicines.isNotEmpty) {
+          await scheduleProvider.rescheduleAllNotifications(
+            medicineProvider.medicines,
+          );
+          debugPrint('✅ Self-Healing complete: All notifications rescheduled');
+        } else {
+          debugPrint('ℹ️ No medicines to reschedule');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Self-Healing failed: $e');
+        // Non-critical failure, app can still start
+      }
+    });
+
+    // Wait for both timer and init (whichever is longer, but usually timer)
+    await Future.wait([minSplashDuration, initializationTask]);
+
     if (!mounted) return;
 
     final settings = Provider.of<SettingsService>(context, listen: false);
-    
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => settings.onboardingCompleted ? const MainScreen() : const OnboardingScreen(),
+        builder: (_) => settings.onboardingCompleted
+            ? const MainScreen()
+            : const OnboardingScreen(),
       ),
     );
   }
@@ -100,15 +143,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           Transform.translate(
                             offset: const Offset(0, 60), // Below the icon
                             child: Container(
-                              width: 100 + (_floatAnimation.value * 1.5), // Shrink when going up
+                              width:
+                                  100 +
+                                  (_floatAnimation.value *
+                                      1.5), // Shrink when going up
                               height: 20,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.1 + (_floatAnimation.value * 0.002)), // Fade when going up
+                                color: Colors.black.withOpacity(
+                                  0.1 + (_floatAnimation.value * 0.002),
+                                ), // Fade when going up
                                 borderRadius: BorderRadius.circular(100),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 20 - (_floatAnimation.value * 0.5), // Blur more when going up
+                                    blurRadius:
+                                        20 -
+                                        (_floatAnimation.value *
+                                            0.5), // Blur more when going up
                                     spreadRadius: 5,
                                   ),
                                 ],
@@ -184,12 +235,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   children: [
                     Text(
                       'MedTime',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        color: const Color(0xFF1976D2),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 36,
-                        letterSpacing: 1.2,
-                      ),
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
+                            color: const Color(0xFF1976D2),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 36,
+                            letterSpacing: 1.2,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(

@@ -2,28 +2,21 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:math' show cos, sin;
 import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'paywall_screen.dart';
 
-import '../core/components/app_button.dart';
-import '../core/components/app_text_field.dart';
-import '../core/components/medicine_type_selector.dart';
-import '../core/components/section_header.dart';
 import '../core/theme/app_colors.dart';
-import '../core/theme/app_radius.dart';
-import '../core/theme/app_spacing.dart';
-import '../core/theme/app_text_styles.dart';
 import '../models/medicine.dart';
 import '../models/schedule.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../services/interaction_service.dart';
-import '../utils/sound_helper.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/common_medicines.dart';
+import '../utils/time_picker_sheet.dart';
 
 /// Screen for adding or editing a medicine
 class AddEditMedicineScreen extends StatefulWidget {
@@ -65,7 +58,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   String? _imagePath;
   final ImagePicker _picker = ImagePicker();
 
-  List<InteractionWarning> _warnings = [];
+  List<InteractionResult> _warnings = [];
   final InteractionService _interactionService = InteractionService();
   bool _isSaving = false;
   Timer? _debounceTimer;
@@ -98,6 +91,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     _dosageAmountController = TextEditingController();
 
     // Initialize additional controllers first
+    _interactionService.loadData();
     _stockController = TextEditingController(
       text: widget.medicine?.currentStock.toString() ?? '10',
     );
@@ -188,7 +182,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0),
+                color: isDark
+                    ? const Color(0xFF333333)
+                    : const Color(0xFFE0E0E0),
                 width: 1,
               ),
               boxShadow: [
@@ -202,10 +198,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             child: _imagePath != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: Image.file(
-                      File(_imagePath!),
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(File(_imagePath!), fit: BoxFit.cover),
                   )
                 : Icon(
                     Icons.add_a_photo_rounded,
@@ -283,8 +276,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             color: isDark ? Colors.white30 : Colors.black26,
             fontWeight: FontWeight.normal,
           ),
-          prefixIcon: icon != null 
-              ? Icon(icon, color: isDark ? Colors.white38 : Colors.black38) 
+          prefixIcon: icon != null
+              ? Icon(icon, color: isDark ? Colors.white38 : Colors.black38)
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(16),
@@ -319,16 +312,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
 
     // Wait 800ms before calling API
-    _debounceTimer = Timer(const Duration(milliseconds: 800), () async {
+    _debounceTimer = Timer(const Duration(milliseconds: 800), () {
       if (!mounted) return;
-      
+
       final medicineProvider = context.read<MedicineProvider>();
-      final results = await _interactionService.checkInteractions(
+      final results = _interactionService.checkInteractions(
         name,
         medicineProvider.medicines,
       );
 
-      if (mounted && (results.isNotEmpty || _warnings.isNotEmpty)) {
+      if (mounted) {
         setState(() {
           _warnings = results;
         });
@@ -362,6 +355,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildIntervalInput(bool isDark) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           'Every',
@@ -433,11 +427,15 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         leading: Padding(
           padding: const EdgeInsets.all(6.0),
           child: CircleAvatar(
-             radius: 18,
-             backgroundColor: isDark ? Colors.black26 : Colors.white54,
-             child: IconButton(
+            radius: 18,
+            backgroundColor: isDark ? Colors.black26 : Colors.white54,
+            child: IconButton(
               padding: EdgeInsets.zero,
-              icon: Icon(Icons.arrow_back_rounded, size: 18, color: isDark ? Colors.white : Colors.black),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                size: 18,
+                color: isDark ? Colors.white : Colors.black,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -458,7 +456,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                gradient: isDark ? AppColors.surfaceGradientDark : AppColors.surfaceGradientLight,
+                gradient: isDark
+                    ? AppColors.surfaceGradientDark
+                    : AppColors.surfaceGradientLight,
               ),
               child: Form(
                 key: _formKey,
@@ -487,83 +487,121 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                             Consumer<MedicineProvider>(
                               builder: (context, provider, child) {
                                 return Autocomplete<String>(
-                                  optionsBuilder: (TextEditingValue textEditingValue) {
-                                    if (textEditingValue.text == '') {
-                                      return const Iterable<String>.empty();
-                                    }
-                                    return CommonMedicines.names.where((String option) {
-                                      return option.toLowerCase().contains(
+                                  optionsBuilder:
+                                      (TextEditingValue textEditingValue) {
+                                        if (textEditingValue.text == '') {
+                                          return const Iterable<String>.empty();
+                                        }
+                                        return CommonMedicines.names.where((
+                                          String option,
+                                        ) {
+                                          return option.toLowerCase().contains(
                                             textEditingValue.text.toLowerCase(),
                                           );
-                                    });
-                                  },
+                                        });
+                                      },
                                   onSelected: (String selection) {
                                     _nameController.text = selection;
-                                    final defaultMed = CommonMedicines.find(selection);
+                                    final defaultMed = CommonMedicines.find(
+                                      selection,
+                                    );
                                     if (defaultMed != null) {
                                       setState(() {
                                         _selectedIcon = defaultMed.typeIcon;
                                         _selectedColor = defaultMed.color;
-                                        _selectedMedicineType = _iconToMedicineType[_selectedIcon] ?? 'tablet';
+                                        _selectedMedicineType =
+                                            _iconToMedicineType[_selectedIcon] ??
+                                            'tablet';
                                       });
                                       HapticHelper.medium();
                                     }
                                   },
-                                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                                    if (controller.text != _nameController.text) {
-                                       controller.text = _nameController.text;
-                                    }
-                                    return _AppleTextField(
-                                      hint: 'Medicine name',
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      isDark: isDark,
-                                      icon: Icons.medication_rounded,
-                                      textInputAction: TextInputAction.next,
-                                      onChanged: (val) {
-                                          _nameController.text = val;
-                                          _checkForInteractions();
+                                  fieldViewBuilder:
+                                      (
+                                        context,
+                                        controller,
+                                        focusNode,
+                                        onFieldSubmitted,
+                                      ) {
+                                        if (controller.text !=
+                                            _nameController.text) {
+                                          controller.text =
+                                              _nameController.text;
+                                        }
+                                        return _AppleTextField(
+                                          hint: 'Medicine name',
+                                          controller: controller,
+                                          focusNode: focusNode,
+                                          isDark: isDark,
+                                          icon: Icons.medication_rounded,
+                                          textInputAction: TextInputAction.next,
+                                          onChanged: (val) {
+                                            _nameController.text = val;
+                                            _checkForInteractions();
+                                          },
+                                        );
                                       },
-                                    );
-                                  },
-                                  optionsViewBuilder: (context, onSelected, options) {
-                                    return Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Material(
-                                        elevation: 8,
-                                        borderRadius: BorderRadius.circular(16),
-                                        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                                        child: Container(
-                                          width: MediaQuery.of(context).size.width - 72,
-                                          constraints: const BoxConstraints(maxHeight: 200),
-                                          child: ListView.builder(
-                                            padding: EdgeInsets.zero,
-                                            shrinkWrap: true,
-                                            itemCount: options.length,
-                                            itemBuilder: (BuildContext context, int index) {
-                                              final String option = options.elementAt(index);
-                                              return ListTile(
-                                                title: Text(
-                                                    option,
-                                                    style: TextStyle(color: isDark ? Colors.white : Colors.black)
-                                                ),
-                                                onTap: () => onSelected(option),
-                                              );
-                                            },
+                                  optionsViewBuilder:
+                                      (context, onSelected, options) {
+                                        return Align(
+                                          alignment: Alignment.topLeft,
+                                          child: Material(
+                                            elevation: 8,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            color: isDark
+                                                ? const Color(0xFF1C1C1E)
+                                                : Colors.white,
+                                            child: Container(
+                                              width:
+                                                  MediaQuery.of(
+                                                    context,
+                                                  ).size.width -
+                                                  72,
+                                              constraints: const BoxConstraints(
+                                                maxHeight: 200,
+                                              ),
+                                              child: ListView.builder(
+                                                padding: EdgeInsets.zero,
+                                                shrinkWrap: true,
+                                                itemCount: options.length,
+                                                itemBuilder:
+                                                    (
+                                                      BuildContext context,
+                                                      int index,
+                                                    ) {
+                                                      final String option =
+                                                          options.elementAt(
+                                                            index,
+                                                          );
+                                                      return ListTile(
+                                                        title: Text(
+                                                          option,
+                                                          style: TextStyle(
+                                                            color: isDark
+                                                                ? Colors.white
+                                                                : Colors.black,
+                                                          ),
+                                                        ),
+                                                        onTap: () =>
+                                                            onSelected(option),
+                                                      );
+                                                    },
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                        );
+                                      },
                                 );
                               },
                             ),
-                            
+
                             const SizedBox(height: 16),
-                            
+
                             // Strength Row
                             const SizedBox(height: 16),
-                            
+
                             // Form & Color Selector (Moved from Additional Info)
                             Text(
                               'Form & Type',
@@ -578,7 +616,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
 
                       // ═══════════════════════════════════════════════════════════
@@ -600,116 +638,127 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             // Frequency Segmented Control
                             _buildAppleSegmentedControl(isDark),
-                            
+                            const SizedBox(height: 16),
+
                             // Frequency Details (days selection or interval)
                             _buildFrequencyDetails(isDark),
-                            
+
                             // Reminder Times (always shown now)
                             const SizedBox(height: 20),
-                              
-                              // Quick Add Row
-                              Text(
-                                'Quick add',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white38 : Colors.black38,
-                                  letterSpacing: 0.5,
-                                ),
+
+                            // Quick Add Row
+                            Text(
+                              'Quick add',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                                letterSpacing: 0.5,
                               ),
-                              const SizedBox(height: 10),
-                              
-                              // Preset Chips (quick add/remove)
-                              _buildSimplePresetChips(isDark),
-                              
-                              const SizedBox(height: 16),
-                              
-                              // Selected Times Label
-                              if (_reminderTimes.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Text(
-                                    'Selected times',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white38 : Colors.black38,
-                                      letterSpacing: 0.5,
-                                    ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Preset Chips (quick add/remove)
+                            _buildSimplePresetChips(isDark),
+
+                            const SizedBox(height: 16),
+
+                            // Selected Times Label
+                            if (_reminderTimes.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Text(
+                                  'Selected times',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? Colors.white38
+                                        : Colors.black38,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                              
-                              // All Selected Times as Editable Pills
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  ..._reminderTimes.map((time) => _AppleTimePill(
+                              ),
+
+                            // All Selected Times as Editable Pills
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                ..._reminderTimes.map(
+                                  (time) => _AppleTimePill(
                                     time: time,
                                     isDark: isDark,
                                     onTap: () => _editTime(time),
                                     onRemove: () {
-                                      setState(() => _reminderTimes.remove(time));
+                                      setState(
+                                        () => _reminderTimes.remove(time),
+                                      );
                                       HapticHelper.light();
                                     },
-                                  )),
-                                  
-                                  // Add Custom Time Button (inline)
-                                  GestureDetector(
-                                    onTap: _addCustomTime,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: isDark 
-                                              ? Colors.white.withOpacity(0.12) 
-                                              : Colors.black.withOpacity(0.08),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.add_rounded,
-                                            size: 16,
-                                            color: isDark ? Colors.white54 : Colors.black45,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Custom',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: isDark ? Colors.white54 : Colors.black45,
-                                            ),
-                                          ),
-                                        ],
+                                  ),
+                                ),
+
+                                // Add Custom Time Button (inline)
+                                GestureDetector(
+                                  onTap: _addCustomTime,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white.withOpacity(0.12)
+                                            : Colors.black.withOpacity(0.08),
+                                        width: 1,
                                       ),
                                     ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.add_rounded,
+                                          size: 16,
+                                          color: isDark
+                                              ? Colors.white54
+                                              : Colors.black45,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Custom',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: isDark
+                                                ? Colors.white54
+                                                : Colors.black45,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Visual Time Arc (when times selected)
                       if (_reminderTimes.isNotEmpty) ...[
-                        _TimeArcWidget(
-                          times: _reminderTimes,
-                          isDark: isDark,
-                        ),
+                        _TimeArcWidget(times: _reminderTimes, isDark: isDark),
                         const SizedBox(height: 16),
                       ],
-                      
+
                       // Reminder Preview
                       _buildReminderPreview(isDark),
 
@@ -725,7 +774,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               ),
             ),
           ),
-          
+
           // Keyboard-aware Bottom Bar
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -733,15 +782,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               left: 20,
               right: 20,
               top: 12,
-              bottom: MediaQuery.of(context).viewInsets.bottom > 0 
-                  ? 12 
+              bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                  ? 12
                   : MediaQuery.of(context).padding.bottom + 12,
             ),
             decoration: BoxDecoration(
-              color: isDark ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.9),
+              color: isDark
+                  ? Colors.black.withOpacity(0.6)
+                  : Colors.white.withOpacity(0.9),
               border: Border(
                 top: BorderSide(
-                  color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05),
+                  color: isDark
+                      ? Colors.white12
+                      : Colors.black.withOpacity(0.05),
                 ),
               ),
             ),
@@ -768,7 +821,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         child: DropdownButton<String>(
           value: _dosageUnit,
           isExpanded: true,
-          icon: Icon(Icons.expand_more_rounded, color: isDark ? Colors.white70 : Colors.black54),
+          icon: Icon(
+            Icons.expand_more_rounded,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
           dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
           borderRadius: BorderRadius.circular(16),
           style: TextStyle(
@@ -797,13 +853,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.08) 
+        color: isDark
+            ? Colors.white.withOpacity(0.08)
             : Colors.black.withOpacity(0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark 
-              ? Colors.white.withOpacity(0.1) 
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
               : Colors.black.withOpacity(0.06),
           width: 1,
         ),
@@ -813,7 +869,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           value: _dosageUnit,
           isExpanded: true,
           icon: Icon(
-            Icons.expand_more_rounded, 
+            Icons.expand_more_rounded,
             color: isDark ? Colors.white54 : Colors.black45,
             size: 20,
           ),
@@ -844,14 +900,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       {'type': FrequencyType.daily, 'label': 'Daily'},
       {'type': FrequencyType.specificDays, 'label': 'Days'},
       {'type': FrequencyType.interval, 'label': 'Interval'},
-      {'type': FrequencyType.asNeeded, 'label': 'As needed'},
     ];
 
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.06) 
+        color: isDark
+            ? Colors.white.withOpacity(0.06)
             : Colors.black.withOpacity(0.04),
         borderRadius: BorderRadius.circular(10),
       ),
@@ -883,7 +938,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+                            color: Colors.black.withOpacity(
+                              isDark ? 0.2 : 0.06,
+                            ),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -912,94 +969,122 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   /// Simple preset chips - just toggle add/remove
   Widget _buildSimplePresetChips(bool isDark) {
     final presets = [
-      {'label': 'Morning', 'icon': Icons.wb_twilight_rounded, 'hour': 8, 'color': const Color(0xFFF59E0B)},
-      {'label': 'Noon', 'icon': Icons.wb_sunny_rounded, 'hour': 12, 'color': const Color(0xFFEAB308)},
-      {'label': 'Evening', 'icon': Icons.nights_stay_rounded, 'hour': 20, 'color': const Color(0xFF6366F1)},
-      {'label': 'Bedtime', 'icon': Icons.bedtime_rounded, 'hour': 22, 'color': const Color(0xFF8B5CF6)},
+      {
+        'label': 'Morning',
+        'icon': Icons.wb_twilight_rounded,
+        'hour': 8,
+        'color': const Color(0xFFF59E0B),
+      },
+      {
+        'label': 'Noon',
+        'icon': Icons.wb_sunny_rounded,
+        'hour': 12,
+        'color': const Color(0xFFEAB308),
+      },
+      {
+        'label': 'Evening',
+        'icon': Icons.nights_stay_rounded,
+        'hour': 20,
+        'color': const Color(0xFF6366F1),
+      },
+      {
+        'label': 'Bedtime',
+        'icon': Icons.bedtime_rounded,
+        'hour': 22,
+        'color': const Color(0xFF8B5CF6),
+      },
     ];
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    return Row(
       children: presets.map((preset) {
+        final isLast = preset == presets.last;
         final presetTime = TimeOfDay(hour: preset['hour'] as int, minute: 0);
         final chipColor = preset['color'] as Color;
-        final isSelected = _reminderTimes.any((t) => 
-          t.hour == presetTime.hour && t.minute == 0
+        final isSelected = _reminderTimes.any(
+          (t) => t.hour == presetTime.hour && t.minute == 0,
         );
-        
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _reminderTimes.removeWhere((t) => 
-                  t.hour == presetTime.hour && t.minute == 0
-                );
-              } else {
-                _reminderTimes.add(presetTime);
-                _reminderTimes.sort((a, b) => 
-                  (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute)
-                );
-              }
-            });
-            HapticHelper.selection();
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: isSelected
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        chipColor.withOpacity(0.2),
-                        chipColor.withOpacity(0.1),
-                      ],
-                    )
-                  : null,
-              color: isSelected
-                  ? null
-                  : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03)),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? chipColor.withOpacity(0.5)
-                    : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06)),
-                width: isSelected ? 1.5 : 1,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: chipColor.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: isLast ? 0 : 8),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _reminderTimes.removeWhere(
+                      (t) => t.hour == presetTime.hour && t.minute == 0,
+                    );
+                  } else {
+                    _reminderTimes.add(presetTime);
+                    _reminderTimes.sort(
+                      (a, b) => (a.hour * 60 + a.minute).compareTo(
+                        b.hour * 60 + b.minute,
                       ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  preset['icon'] as IconData,
-                  size: 16,
+                    );
+                  }
+                });
+                HapticHelper.selection();
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
                   color: isSelected
                       ? chipColor
-                      : (isDark ? Colors.white54 : Colors.black45),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  preset['label'] as String,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
                     color: isSelected
-                        ? (isDark ? Colors.white : chipColor.withOpacity(0.9))
-                        : (isDark ? Colors.white54 : Colors.black54),
+                        ? chipColor
+                        : (isDark ? Colors.white10 : Colors.grey.shade200),
+                    width: 1.5,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: chipColor.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(
+                              isDark ? 0.2 : 0.05,
+                            ),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 ),
-              ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      preset['icon'] as IconData,
+                      size: 20,
+                      color: isSelected
+                          ? Colors.white
+                          : chipColor, // Colored icon when unselected
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      preset['label'] as String,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -1009,9 +1094,21 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildFrequencySegmentedControl(bool isDark) {
     final options = [
-      {'type': FrequencyType.daily, 'label': 'Daily', 'icon': Icons.today_rounded},
-      {'type': FrequencyType.specificDays, 'label': 'Days', 'icon': Icons.date_range_rounded},
-      {'type': FrequencyType.interval, 'label': 'Interval', 'icon': Icons.loop_rounded},
+      {
+        'type': FrequencyType.daily,
+        'label': 'Daily',
+        'icon': Icons.today_rounded,
+      },
+      {
+        'type': FrequencyType.specificDays,
+        'label': 'Days',
+        'icon': Icons.date_range_rounded,
+      },
+      {
+        'type': FrequencyType.interval,
+        'label': 'Interval',
+        'icon': Icons.loop_rounded,
+      },
     ];
 
     return Container(
@@ -1036,7 +1133,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 4,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark ? const Color(0xFF6366F1) : Colors.white)
@@ -1045,7 +1145,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                            color: Colors.black.withOpacity(
+                              isDark ? 0.3 : 0.08,
+                            ),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -1067,7 +1169,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       option['label'] as String,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: isSelected
                             ? (isDark ? Colors.white : Colors.black)
                             : (isDark ? Colors.white54 : Colors.black54),
@@ -1096,18 +1200,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
       default:
         return const SizedBox.shrink();
-
-
     }
   }
 
   Widget _buildWeekdayChips(bool isDark) {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return Center(
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 12,
-        alignment: WrapAlignment.center,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(7, (index) {
           final dayNum = index + 1;
           final isSelected = _selectedDays.contains(dayNum);
@@ -1124,8 +1226,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 44,
-              height: 44,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary
@@ -1134,17 +1236,24 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 border: Border.all(
                   color: isSelected
                       ? AppColors.primary
-                      : (isDark
-                            ? AppColors.borderDark
-                            : AppColors.borderLight),
+                      : (isDark ? AppColors.borderDark : AppColors.borderLight),
                   width: 1.5,
                 ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               alignment: Alignment.center,
               child: Text(
-                days[index][0], // First letter only for compact circle
+                days[index][0], // First letter only
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: isSelected
                       ? Colors.white
@@ -1161,7 +1270,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   Widget _buildReminderPreview(bool isDark) {
     final preview = _generateReminderPreview();
     final hasNoTimes = _reminderTimes.isEmpty;
-    
+
     // Amber warning colors
     const warningColor = Color(0xFFF59E0B);
     const successColor = Color(0xFF6366F1);
@@ -1182,7 +1291,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: displayColor.withOpacity(hasNoTimes ? 0.4 : 0.3), 
+          color: displayColor.withOpacity(hasNoTimes ? 0.4 : 0.3),
           width: hasNoTimes ? 1.5 : 1,
         ),
         boxShadow: hasNoTimes
@@ -1199,7 +1308,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            hasNoTimes ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
+            hasNoTimes
+                ? Icons.warning_amber_rounded
+                : Icons.notifications_active_rounded,
             size: 22,
             color: displayColor,
           ),
@@ -1335,7 +1446,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               ),
             ),
           ),
-          
+
           // Collapsible Content
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
@@ -1349,12 +1460,12 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       children: [
                         const Divider(height: 1),
                         const SizedBox(height: 20),
-                        
+
                         // Photo Section Header
                         _SectionLabel(label: 'Appearance', isDark: isDark),
                         const SizedBox(height: 12),
                         _buildPhotoSection(isDark),
-                        
+
                         const SizedBox(height: 24),
                         _SectionLabel(label: 'Form & Color', isDark: isDark),
                         const SizedBox(height: 12),
@@ -1380,9 +1491,12 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                         ),
                         const SizedBox(height: 16),
                         _buildColorSelector(isDark),
-                        
+
                         const SizedBox(height: 24),
-                        _SectionLabel(label: 'Inventory Management', isDark: isDark),
+                        _SectionLabel(
+                          label: 'Inventory Management',
+                          isDark: isDark,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -1407,7 +1521,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
                         _SectionLabel(label: 'Pharmacy Info', isDark: isDark),
                         const SizedBox(height: 12),
@@ -1439,7 +1553,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     return Row(
       children: [
         Hero(
-          tag: widget.medicine?.id != null ? 'cabinet_icon_${widget.medicine!.id}' : 'new_medicine_hero',
+          tag: widget.medicine?.id != null
+              ? 'cabinet_icon_${widget.medicine!.id}'
+              : 'new_medicine_hero',
           child: Container(
             width: 80,
             height: 80,
@@ -1447,7 +1563,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               borderRadius: BorderRadius.circular(20), // Matches Main Card
               border: Border.all(
-                color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5E5),
+                color: isDark
+                    ? const Color(0xFF2A2A2A)
+                    : const Color(0xFFE5E5E5),
               ),
               image: _imagePath != null
                   ? DecorationImage(
@@ -1460,7 +1578,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
-                )
+                ),
               ],
             ),
             child: _imagePath == null
@@ -1497,13 +1615,28 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
   }
 
-
   Widget _buildMedicineTypeSelector(bool isDark) {
     final types = [
-      {'label': 'Tablet', 'value': 'tablet', 'image': 'assets/icons/medicine/3d/tablet.png'},
-      {'label': 'Liquid', 'value': 'liquid', 'image': 'assets/icons/medicine/3d/liquid.png'},
-      {'label': 'Injection', 'value': 'injection', 'image': 'assets/icons/medicine/3d/injection.png'},
-      {'label': 'Drop', 'value': 'drop', 'image': 'assets/icons/medicine/3d/drop.png'},
+      {
+        'label': 'Tablet',
+        'value': 'tablet',
+        'image': 'assets/icons/medicine/3d/tablet.png',
+      },
+      {
+        'label': 'Liquid',
+        'value': 'liquid',
+        'image': 'assets/icons/medicine/3d/liquid.png',
+      },
+      {
+        'label': 'Injection',
+        'value': 'injection',
+        'image': 'assets/icons/medicine/3d/injection.png',
+      },
+      {
+        'label': 'Drop',
+        'value': 'drop',
+        'image': 'assets/icons/medicine/3d/drop.png',
+      },
     ];
 
     return Row(
@@ -1512,7 +1645,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         final primaryColor = Color(_selectedColor);
         final bool isLast = type == types.last;
         final imagePath = type['image'] as String;
-        
+
         return Expanded(
           child: GestureDetector(
             onTap: () {
@@ -1530,7 +1663,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 height: 70,
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.08))
+                      ? (isDark
+                            ? primaryColor.withOpacity(0.2)
+                            : primaryColor.withOpacity(0.08))
                       : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
@@ -1545,7 +1680,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                             color: primaryColor.withOpacity(0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
-                          )
+                          ),
                         ]
                       : null,
                 ),
@@ -1571,9 +1706,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       type['label'] as String,
                       style: TextStyle(
                         fontSize: 9,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected 
-                            ? primaryColor 
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: isSelected
+                            ? primaryColor
                             : (isDark ? Colors.white60 : Colors.black54),
                       ),
                     ),
@@ -1597,7 +1734,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         itemBuilder: (context, index) {
           final color = AppColors.medicineColors[index];
           final isSelected = _selectedColor == color.value;
-          
+
           return GestureDetector(
             onTap: () {
               setState(() => _selectedColor = color.value);
@@ -1624,7 +1761,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
               ),
               child: isSelected
                   ? const Center(
-                      child: Icon(Icons.check_rounded, color: Colors.white, size: 24),
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     )
                   : null,
             ),
@@ -1636,9 +1777,18 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
 
   Widget _buildInteractionWarnings(bool isDark) {
     return Column(
-      children: _warnings.map((warning) {
-        final isCritical = warning.severity == InteractionSeverity.CRITICAL;
+      children: _warnings.map((result) {
+        final isCritical = result.isCritical;
         final color = isCritical ? Colors.red : Colors.orange;
+
+        // Try to find the "other" drug name for display
+        String otherDrug = result.drugs
+            .where(
+              (d) =>
+                  !d.toLowerCase().contains(_nameController.text.toLowerCase()),
+            )
+            .join(' + ');
+        if (otherDrug.isEmpty) otherDrug = 'Another Drug';
 
         return Container(
           width: double.infinity,
@@ -1663,7 +1813,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Interacts with: ${warning.drugB}',
+                      'Interacts with: $otherDrug',
                       style: TextStyle(
                         color: color,
                         fontSize: 15,
@@ -1672,7 +1822,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      warning.message,
+                      result.warning,
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.white70 : Colors.black87,
@@ -1691,7 +1841,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   /// Just the save button without container decorations (for keyboard-aware layout)
   Widget _buildSaveButton(bool isEditing, bool isDark) {
     final isValid = _isFormValid();
-    
+
     return GestureDetector(
       onTap: (_isSaving || !isValid) ? null : _saveMedicine,
       child: AnimatedScale(
@@ -1711,7 +1861,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     ],
                   )
                 : null,
-            color: isValid ? null : (isDark ? Colors.white12 : Colors.grey.shade200),
+            color: isValid
+                ? null
+                : (isDark ? Colors.white12 : Colors.grey.shade200),
             borderRadius: BorderRadius.circular(16),
             boxShadow: isValid
                 ? [
@@ -1730,9 +1882,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     width: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
                 )
@@ -1774,8 +1924,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isDark 
-              ? [const Color(0xFF121212).withOpacity(0.95), const Color(0xFF121212)]
+          colors: isDark
+              ? [
+                  const Color(0xFF121212).withOpacity(0.95),
+                  const Color(0xFF121212),
+                ]
               : [Colors.white.withOpacity(0.95), Colors.white],
         ),
         boxShadow: [
@@ -1798,17 +1951,20 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   ? LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: isDark 
+                      colors: isDark
                           ? [Colors.white, const Color(0xFFE8E8E8)]
                           : [const Color(0xFF2A2A2A), Colors.black],
                     )
                   : null,
-              color: isValid ? null : (isDark ? Colors.white12 : Colors.black12),
+              color: isValid
+                  ? null
+                  : (isDark ? Colors.white12 : Colors.black12),
               borderRadius: BorderRadius.circular(16),
               boxShadow: isValid
                   ? [
                       BoxShadow(
-                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.25),
+                        color: (isDark ? Colors.white : Colors.black)
+                            .withOpacity(0.25),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -1864,7 +2020,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
   }
 
-
   String _typeFromIcon(int icon) => _iconToMedicineType[icon] ?? 'tablet';
   int _iconFromType(String type) => _medicineTypeIcons[type] ?? 1;
 
@@ -1878,10 +2033,122 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     if (image != null) setState(() => _imagePath = image.path);
   }
 
-  Future<void> _addCustomTime() async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<TimeOfDay?> _showModernTimePicker(
+    BuildContext context,
+    TimeOfDay initialTime,
+  ) async {
+    TimeOfDay? pickedTime;
+    final now = DateTime.now();
+    // Create a DateTime with the initial time
+    DateTime tempDate = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      initialTime.hour,
+      initialTime.minute,
+    );
+
+    // iOS style bottom sheet picker
+    await showModalBottomSheet(
       context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          height: 320,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // 1. Handle & Header
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: isDark ? Colors.white60 : Colors.black54,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Select Time',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        pickedTime = TimeOfDay.fromDateTime(tempDate);
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // 2. The Picker
+              Expanded(
+                child: CupertinoTheme(
+                  data: CupertinoThemeData(
+                    brightness: isDark ? Brightness.dark : Brightness.light,
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        fontSize: 22,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    initialDateTime: tempDate,
+                    use24hFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+                    onDateTimeChanged: (DateTime newDate) {
+                      tempDate = newDate;
+                      HapticHelper.selection();
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+
+    return pickedTime;
+  }
+
+  Future<void> _addCustomTime() async {
+    final TimeOfDay? picked = await _showModernTimePicker(
+      context,
+      const TimeOfDay(hour: 9, minute: 0),
     );
     if (picked != null && !_reminderTimes.contains(picked)) {
       setState(() {
@@ -1907,10 +2174,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Future<void> _editTime(TimeOfDay oldTime) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: oldTime,
-    );
+    final TimeOfDay? picked = await _showModernTimePicker(context, oldTime);
     if (picked != null && picked != oldTime) {
       setState(() {
         final index = _reminderTimes.indexOf(oldTime);
@@ -1923,14 +2187,135 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
   }
 
-  Future<void> _saveMedicine() async {
+  Future<void> _saveMedicine({bool ignoreInteractions = false}) async {
     if (!_formKey.currentState!.validate() || !_isFormValid()) return;
+
+    // 🛡️ SECURITY CHECK: Drug Interactions
+    if (!ignoreInteractions) {
+      final medicineProvider = context.read<MedicineProvider>();
+      final interactions = _interactionService.checkInteractions(
+        _nameController.text.trim(),
+        medicineProvider.medicines,
+      );
+
+      if (interactions.isNotEmpty) {
+        final hasCritical = interactions.any((i) => i.isCritical);
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: hasCritical ? Colors.red : Colors.orange,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      hasCritical ? 'Critical Warning' : 'Interaction Detected',
+                      style: TextStyle(
+                        color: hasCritical
+                            ? Colors.red
+                            : Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasCritical
+                        ? 'This medicine has a SERIOUS interaction with another drug you are using.'
+                        : 'This medicine may interact with your existing medications.',
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (hasCritical ? Colors.red : Colors.orange)
+                          .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (hasCritical ? Colors.red : Colors.orange)
+                            .withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: interactions
+                          .map(
+                            (i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: hasCritical
+                                          ? Colors.red
+                                          : Colors.orange.shade900,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      i.warning,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Are you sure you want to proceed?'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: hasCritical ? Colors.red : Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _saveMedicine(ignoreInteractions: true);
+                  },
+                  child: const Text('Add Anyway'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+    }
 
     setState(() => _isSaving = true);
 
     String dosageText = '';
     if (_dosageAmountController.text.trim().isNotEmpty) {
-       dosageText = '${_dosageAmountController.text} $_dosageUnit';
+      dosageText = '${_dosageAmountController.text} $_dosageUnit';
     }
 
     final medicine = Medicine(
@@ -1954,42 +2339,70 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     final scheduleProvider = context.read<ScheduleProvider>();
 
     Medicine? savedMedicine;
-    if (widget.medicine == null) {
-      savedMedicine = await medicineProvider.addMedicine(medicine);
-    } else {
-      await medicineProvider.updateMedicine(medicine);
-      savedMedicine = medicine;
+    try {
+      if (widget.medicine == null) {
+        savedMedicine = await medicineProvider.addMedicine(medicine);
+      } else {
+        await medicineProvider.updateMedicine(medicine);
+        savedMedicine = medicine;
+      }
+    } on PremiumLimitException catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        // Show Paywall
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        );
+        // On return, do nothing (user might have bought premium or cancelled)
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error saving medicine: $e');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+      }
+      return;
     }
 
     if (savedMedicine != null && savedMedicine.id != null) {
       // 1. Delete ALL existing schedules for this medicine (Cleaner than update)
       // This also ensures we don't have duplicate alarms or ghost notifications
       if (widget.medicine != null) {
-        final existingSchedules = scheduleProvider.getSchedulesForMedicine(savedMedicine.id!);
+        final existingSchedules = scheduleProvider.getSchedulesForMedicine(
+          savedMedicine.id!,
+        );
         for (final s in existingSchedules) {
           if (s.id != null) await scheduleProvider.deleteSchedule(s.id!);
         }
       }
 
       // 2. Add New Schedules
-      if (_frequencyType != FrequencyType.asNeeded && _reminderTimes.isNotEmpty) {
+      if (_frequencyType != FrequencyType.asNeeded &&
+          _reminderTimes.isNotEmpty) {
         final frequencyDays = _frequencyType == FrequencyType.specificDays
             ? (_selectedDays.toList()..sort())
             : null;
 
         // Support multiple times per day (create a schedule for each time)
         for (final time in _reminderTimes) {
-             final schedule = Schedule(
-              medicineId: savedMedicine.id!,
-              timeOfDay: '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-              frequencyType: _frequencyType,
-              frequencyDays: frequencyDays?.join(','),
-              intervalDays: _frequencyType == FrequencyType.interval ? _intervalDays : null,
-              startDate: _frequencyType == FrequencyType.interval
-                  ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
-                  : null,
-            );
-            await scheduleProvider.addSchedule(schedule, savedMedicine);
+          final schedule = Schedule(
+            medicineId: savedMedicine.id!,
+            timeOfDay:
+                '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+            frequencyType: _frequencyType,
+            frequencyDays: frequencyDays?.join(','),
+            intervalDays: _frequencyType == FrequencyType.interval
+                ? _intervalDays
+                : null,
+            startDate: _frequencyType == FrequencyType.interval
+                ? '${_startDate.year}-${_startDate.month.toString().padLeft(2, '0')}-${_startDate.day.toString().padLeft(2, '0')}'
+                : null,
+          );
+          await scheduleProvider.addSchedule(schedule, savedMedicine);
         }
       }
 
@@ -2027,7 +2440,9 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 ),
               ],
             ),
-            backgroundColor: isDark ? const Color(0xFF1E1E2E) : const Color(0xFF1A1A1A),
+            backgroundColor: isDark
+                ? const Color(0xFF1E1E2E)
+                : const Color(0xFF1A1A1A),
             behavior: SnackBarBehavior.floating,
             elevation: 8,
             margin: const EdgeInsets.all(16),
@@ -2081,8 +2496,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
-
 
 class _MinimalTextField extends StatelessWidget {
   final String label;
@@ -2152,28 +2565,28 @@ class _MinimalTextField extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.white : Colors.black87,
             ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(
-                  color: isDark ? Colors.white30 : Colors.black38,
-                  fontWeight: FontWeight.w500,
-                ),
-                prefixIcon: icon != null 
-                    ? Icon(
-                        icon, 
-                        size: 20, 
-                        color: isDark ? Colors.white38 : Colors.black38
-                      ) 
-                    : null,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white30 : Colors.black38,
+                fontWeight: FontWeight.w500,
               ),
+              prefixIcon: icon != null
+                  ? Icon(
+                      icon,
+                      size: 20,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    )
+                  : null,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+            ),
           ),
         ),
       ],
@@ -2204,7 +2617,7 @@ class _TimeChip extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDark 
+            colors: isDark
                 ? [Colors.white, const Color(0xFFE8E8E8)]
                 : [const Color(0xFF2A2A2A), Colors.black],
           ),
@@ -2242,7 +2655,9 @@ class _TimeChip extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: (isDark ? Colors.black : Colors.white).withOpacity(0.2),
+                    color: (isDark ? Colors.black : Colors.white).withOpacity(
+                      0.2,
+                    ),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -2283,14 +2698,14 @@ class _QuickTimeChip extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDark 
+            colors: isDark
                 ? [const Color(0xFF1E1E2E), const Color(0xFF181825)]
                 : [Colors.white, const Color(0xFFF5F5F5)],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isDark 
-                ? Colors.white.withOpacity(0.1) 
+            color: isDark
+                ? Colors.white.withOpacity(0.1)
                 : Colors.black.withOpacity(0.08),
             width: 1.5,
           ),
@@ -2372,11 +2787,7 @@ class _AppleCard extends StatelessWidget {
   final bool isDark;
   final EdgeInsets? padding;
 
-  const _AppleCard({
-    required this.child,
-    required this.isDark,
-    this.padding,
-  });
+  const _AppleCard({required this.child, required this.isDark, this.padding});
 
   @override
   Widget build(BuildContext context) {
@@ -2384,13 +2795,13 @@ class _AppleCard extends StatelessWidget {
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.06) 
+        color: isDark
+            ? Colors.white.withOpacity(0.06)
             : Colors.white.withOpacity(0.8),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark 
-              ? Colors.white.withOpacity(0.08) 
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
               : Colors.black.withOpacity(0.04),
           width: 1,
         ),
@@ -2434,13 +2845,13 @@ class _AppleTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.08) 
+        color: isDark
+            ? Colors.white.withOpacity(0.08)
             : Colors.black.withOpacity(0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark 
-              ? Colors.white.withOpacity(0.1) 
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
               : Colors.black.withOpacity(0.06),
           width: 1,
         ),
@@ -2462,7 +2873,7 @@ class _AppleTextField extends StatelessWidget {
             color: isDark ? Colors.white38 : Colors.black38,
             fontWeight: FontWeight.w400,
           ),
-          prefixIcon: icon != null 
+          prefixIcon: icon != null
               ? Icon(
                   icon,
                   size: 20,
@@ -2504,14 +2915,14 @@ class _AppleTimePill extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: isDark 
+            colors: isDark
                 ? [const Color(0xFF2C2C2E), const Color(0xFF1C1C1E)]
                 : [Colors.white, const Color(0xFFF8F8F8)],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark 
-                ? Colors.white.withOpacity(0.12) 
+            color: isDark
+                ? Colors.white.withOpacity(0.12)
                 : Colors.black.withOpacity(0.08),
             width: 1,
           ),
@@ -2548,8 +2959,8 @@ class _AppleTimePill extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: isDark 
-                        ? Colors.white.withOpacity(0.15) 
+                    color: isDark
+                        ? Colors.white.withOpacity(0.15)
                         : Colors.black.withOpacity(0.08),
                     shape: BoxShape.circle,
                   ),
@@ -2587,7 +2998,7 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = accentColor ?? const Color(0xFF6366F1);
-    
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
@@ -2595,14 +3006,8 @@ class _GlassCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [
-                  Colors.white.withOpacity(0.08),
-                  Colors.white.withOpacity(0.03),
-                ]
-              : [
-                  Colors.white.withOpacity(0.9),
-                  Colors.white.withOpacity(0.7),
-                ],
+              ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.03)]
+              : [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
         ),
         border: Border.all(
           width: 1.5,
@@ -2627,7 +3032,7 @@ class _GlassCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: BackdropFilter(
-          filter: isDark 
+          filter: isDark
               ? ImageFilter.blur(sigmaX: 12, sigmaY: 12)
               : ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
@@ -2638,10 +3043,7 @@ class _GlassCard extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: isDark
-                    ? [
-                        Colors.white.withOpacity(0.05),
-                        Colors.transparent,
-                      ]
+                    ? [Colors.white.withOpacity(0.05), Colors.transparent]
                     : [
                         Colors.white.withOpacity(0.6),
                         Colors.white.withOpacity(0.3),
@@ -2661,10 +3063,7 @@ class _TimeArcWidget extends StatelessWidget {
   final List<TimeOfDay> times;
   final bool isDark;
 
-  const _TimeArcWidget({
-    required this.times,
-    required this.isDark,
-  });
+  const _TimeArcWidget({required this.times, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
@@ -2688,29 +3087,18 @@ class _TimeArcWidget extends StatelessWidget {
         ),
       ),
       child: CustomPaint(
-        painter: _TimeArcPainter(
-          times: times,
-          isDark: isDark,
-        ),
+        painter: _TimeArcPainter(times: times, isDark: isDark),
         child: Stack(
           children: [
             // Time zone labels
-            Positioned(
-              left: 16,
-              bottom: 12,
-              child: _timeLabel('6AM', isDark),
-            ),
+            Positioned(left: 16, bottom: 12, child: _timeLabel('6AM', isDark)),
             Positioned(
               left: 0,
               right: 0,
               bottom: 12,
               child: Center(child: _timeLabel('12PM', isDark)),
             ),
-            Positioned(
-              right: 16,
-              bottom: 12,
-              child: _timeLabel('6PM', isDark),
-            ),
+            Positioned(right: 16, bottom: 12, child: _timeLabel('6PM', isDark)),
           ],
         ),
       ),
@@ -2739,7 +3127,7 @@ class _TimeArcPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height + 20);
     final radius = size.width * 0.42;
-    
+
     // Draw arc background
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -2755,7 +3143,7 @@ class _TimeArcPainter extends CustomPainter {
         const Color(0xFFF59E0B).withOpacity(0.6),
       ],
     );
-    
+
     // Afternoon gradient (12PM-6PM)
     final afternoonGradient = SweepGradient(
       startAngle: 3.14 + 0.5,
@@ -2774,7 +3162,7 @@ class _TimeArcPainter extends CustomPainter {
         const Color(0xFF8B5CF6).withOpacity(isDark ? 0.4 : 0.6),
       ],
     ).createShader(Rect.fromCircle(center: center, radius: radius));
-    
+
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       3.14, // Start from left (6AM)
@@ -2789,22 +3177,22 @@ class _TimeArcPainter extends CustomPainter {
       // Map 6AM-6PM (6-18) to 0-PI
       final normalizedHour = ((hour - 6) / 12).clamp(0.0, 1.0);
       final angle = 3.14 + (normalizedHour * 3.14);
-      
+
       final markerX = center.dx + radius * cos(angle);
       final markerY = center.dy + radius * sin(angle);
-      
+
       // Outer glow
       final glowPaint = Paint()
         ..color = const Color(0xFF6366F1).withOpacity(0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(Offset(markerX, markerY), 10, glowPaint);
-      
+
       // Inner marker
       final markerPaint = Paint()
         ..color = const Color(0xFF6366F1)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(markerX, markerY), 6, markerPaint);
-      
+
       // White center
       final centerPaint = Paint()
         ..color = Colors.white
@@ -2816,5 +3204,3 @@ class _TimeArcPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-
-

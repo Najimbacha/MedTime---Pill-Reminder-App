@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import '../models/medicine.dart';
 import '../models/schedule.dart';
 import '../models/log.dart';
+import '../models/snoozed_dose.dart';
 
 /// Singleton database helper for managing local SQLite database
 /// Handles all CRUD operations for medicines, schedules, and logs
@@ -27,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -39,7 +40,9 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE medicines ADD COLUMN image_path TEXT');
     }
     if (oldVersion < 3) {
-      await db.execute('ALTER TABLE schedules ADD COLUMN interval_days INTEGER');
+      await db.execute(
+        'ALTER TABLE schedules ADD COLUMN interval_days INTEGER',
+      );
       await db.execute('ALTER TABLE schedules ADD COLUMN start_date TEXT');
     }
     if (oldVersion < 4) {
@@ -49,6 +52,18 @@ class DatabaseHelper {
     }
     if (oldVersion < 5) {
       await db.execute('ALTER TABLE medicines ADD COLUMN rxcui TEXT');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS snoozed_doses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          medicine_id INTEGER NOT NULL,
+          original_scheduled_time TEXT NOT NULL,
+          snoozed_until TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        )
+      ''');
     }
   }
 
@@ -97,6 +112,18 @@ class DatabaseHelper {
         FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
       )
     ''');
+
+    // Snoozed doses table
+    await db.execute('''
+      CREATE TABLE snoozed_doses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        medicine_id INTEGER NOT NULL,
+        original_scheduled_time TEXT NOT NULL,
+        snoozed_until TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   // ==================== MEDICINE CRUD ====================
@@ -118,11 +145,7 @@ class DatabaseHelper {
   /// Get a single medicine by ID
   Future<Medicine?> getMedicine(int id) async {
     final db = await database;
-    final maps = await db.query(
-      'medicines',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query('medicines', where: 'id = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
       return Medicine.fromMap(maps.first);
     }
@@ -143,11 +166,7 @@ class DatabaseHelper {
   /// Delete a medicine
   Future<int> deleteMedicine(int id) async {
     final db = await database;
-    return db.delete(
-      'medicines',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('medicines', where: 'id = ?', whereArgs: [id]);
   }
 
   /// Decrement medicine stock by 1
@@ -171,6 +190,7 @@ class DatabaseHelper {
   /// Delete all stored data
   Future<void> deleteAllData() async {
     final db = await database;
+    await db.delete('snoozed_doses');
     await db.delete('logs');
     await db.delete('schedules');
     await db.delete('medicines');
@@ -218,11 +238,7 @@ class DatabaseHelper {
   /// Delete a schedule
   Future<int> deleteSchedule(int id) async {
     final db = await database;
-    return db.delete(
-      'schedules',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('schedules', where: 'id = ?', whereArgs: [id]);
   }
 
   /// Delete all schedules for a medicine
@@ -280,27 +296,20 @@ class DatabaseHelper {
   /// Update a log entry
   Future<int> updateLog(Log log) async {
     final db = await database;
-    return db.update(
-      'logs',
-      log.toMap(),
-      where: 'id = ?',
-      whereArgs: [log.id],
-    );
+    return db.update('logs', log.toMap(), where: 'id = ?', whereArgs: [log.id]);
   }
 
   /// Delete a log entry
   Future<int> deleteLog(int id) async {
     final db = await database;
-    return db.delete(
-      'logs',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return db.delete('logs', where: 'id = ?', whereArgs: [id]);
   }
 
   /// Get adherence statistics for a date range
   Future<Map<String, dynamic>> getAdherenceStats(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final logs = await getLogsByDateRange(start, end);
     final total = logs.length;
     final taken = logs.where((log) => log.status == LogStatus.take).length;
@@ -312,7 +321,9 @@ class DatabaseHelper {
       'taken': taken,
       'skipped': skipped,
       'missed': missed,
-      'adherence_rate': total > 0 ? (taken / total * 100).toStringAsFixed(1) : '0.0',
+      'adherence_rate': total > 0
+          ? (taken / total * 100).toStringAsFixed(1)
+          : '0.0',
     };
   }
 
@@ -327,6 +338,7 @@ class DatabaseHelper {
   /// Reset all data (for settings)
   Future<void> resetAllData() async {
     final db = await database;
+    await db.delete('snoozed_doses');
     await db.delete('logs');
     await db.delete('schedules');
     await db.delete('medicines');
@@ -342,5 +354,86 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.query('logs', orderBy: 'scheduled_time DESC');
     return result.map((json) => Log.fromMap(json)).toList();
+  }
+
+  // ==================== SNOOZED DOSES CRUD ====================
+
+  /// Create a new snoozed dose
+  Future<SnoozedDose> createSnoozedDose(SnoozedDose dose) async {
+    final db = await database;
+    // First, delete any existing snooze for the same medicine and scheduled time
+    await db.delete(
+      'snoozed_doses',
+      where: 'medicine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [
+        dose.medicineId,
+        dose.originalScheduledTime.toIso8601String(),
+      ],
+    );
+    final id = await db.insert('snoozed_doses', dose.toMap());
+    return dose.copyWith(id: id);
+  }
+
+  /// Get snoozed dose for specific medicine and scheduled time
+  Future<SnoozedDose?> getSnoozedDose(
+    int medicineId,
+    DateTime scheduledTime,
+  ) async {
+    final db = await database;
+    final result = await db.query(
+      'snoozed_doses',
+      where: 'medicine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+    );
+    if (result.isNotEmpty) {
+      return SnoozedDose.fromMap(result.first);
+    }
+    return null;
+  }
+
+  /// Get all active snoozed doses (not expired)
+  Future<List<SnoozedDose>> getActiveSnoozedDoses() async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    final result = await db.query(
+      'snoozed_doses',
+      where: 'snoozed_until > ?',
+      whereArgs: [now],
+    );
+    return result.map((map) => SnoozedDose.fromMap(map)).toList();
+  }
+
+  /// Get all snoozed doses for today
+  Future<List<SnoozedDose>> getSnoozedDosesForDate(DateTime date) async {
+    final db = await database;
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    final result = await db.query(
+      'snoozed_doses',
+      where: 'original_scheduled_time >= ? AND original_scheduled_time < ?',
+      whereArgs: [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    return result.map((map) => SnoozedDose.fromMap(map)).toList();
+  }
+
+  /// Delete a snoozed dose
+  Future<int> deleteSnoozedDose(int medicineId, DateTime scheduledTime) async {
+    final db = await database;
+    return db.delete(
+      'snoozed_doses',
+      where: 'medicine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+    );
+  }
+
+  /// Clear expired snoozed doses
+  Future<int> clearExpiredSnoozedDoses() async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return db.delete(
+      'snoozed_doses',
+      where: 'snoozed_until < ?',
+      whereArgs: [now],
+    );
   }
 }
