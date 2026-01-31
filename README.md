@@ -98,4 +98,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Developed with ❤️ by the MedTime Team.
+Developed with ❤️ by Najim bacha
