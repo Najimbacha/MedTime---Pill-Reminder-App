@@ -7,109 +7,128 @@ import 'database_helper.dart';
 import '../models/log.dart';
 
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse notificationResponse) async {
+void notificationTapBackground(
+  NotificationResponse notificationResponse,
+) async {
   // handle action
   final actionId = notificationResponse.actionId;
   final payload = notificationResponse.payload;
 
   if (payload != null && actionId != null) {
-      final parts = payload.split('|');
-      final medicineId = int.tryParse(parts[0]);
-      
-      if (medicineId != null) {
-          if (actionId == 'snooze') {
-             // Re-schedule for 10 min later
-             final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-             
-             // Initialize the plugin in background isolate
-             const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-             const iosSettings = DarwinInitializationSettings();
-             const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
-             await flutterLocalNotificationsPlugin.initialize(initSettings);
-             
-             final now = DateTime.now();
-             final scheduledTime = now.add(const Duration(minutes: 10)); // 10 minutes snooze
+    final parts = payload.split('|');
+    final medicineId = int.tryParse(parts[0]);
 
-             // Need timezone initialization here since it's a background isolate
-             tz.initializeTimeZones();
-             
-             String? name = parts.length > 1 ? parts[1] : 'Medicine';
-             String? dosage = parts.length > 2 ? parts[2] : '';
+    if (medicineId != null) {
+      if (actionId == 'snooze') {
+        // Re-schedule for 10 min later
+        final flutterLocalNotificationsPlugin =
+            FlutterLocalNotificationsPlugin();
 
-             // Re-schedule
-              const androidDetails = AndroidNotificationDetails(
-                'medicine_reminders',
-                'Medicine Reminders',
-                channelDescription: 'Notifications for medicine reminders',
-                importance: Importance.max,
-                priority: Priority.max,
-                playSound: true,
-                enableVibration: true,
-                fullScreenIntent: true,
-                category: AndroidNotificationCategory.alarm,
-                visibility: NotificationVisibility.public,
-                actions: [
-                    AndroidNotificationAction('take', 'Take', showsUserInterface: true),
-                    AndroidNotificationAction('snooze', 'Snooze 10min', showsUserInterface: false),
-                ],
-              );
-              
-              const iosDetails = DarwinNotificationDetails(
-                presentAlert: true, presentBadge: true, presentSound: true,
-              );
+        // Initialize the plugin in background isolate
+        const androidSettings = AndroidInitializationSettings(
+          '@mipmap/ic_launcher',
+        );
+        const iosSettings = DarwinInitializationSettings();
+        const initSettings = InitializationSettings(
+          android: androidSettings,
+          iOS: iosSettings,
+        );
+        await flutterLocalNotificationsPlugin.initialize(initSettings);
 
-              final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+        final now = DateTime.now();
+        final scheduledTime = now.add(
+          const Duration(minutes: 10),
+        ); // 10 minutes snooze
 
-              await flutterLocalNotificationsPlugin.zonedSchedule(
-                medicineId, // Reuse ID
-                'Time to take $name (Snoozed)',
-                'Dosage: $dosage',
-                tz.TZDateTime.from(scheduledTime, tz.local),
-                details,
-                androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                payload: payload, // Keep same payload
-              );
-              
-              print('✅ Snooze scheduled for $scheduledTime in background');
+        // Need timezone initialization here since it's a background isolate
+        tz.initializeTimeZones();
 
-          } else if (actionId == 'take') {
-              final db = DatabaseHelper.instance;
+        String? name = parts.length > 1 ? parts[1] : 'Medicine';
+        String? dosage = parts.length > 2 ? parts[2] : '';
 
-              // 1. Create Log Entry if scheduled time is available
-              if (parts.length > 3) {
-                final scheduledTimeStr = parts[3];
-                try {
-                  final scheduledTime = DateTime.parse(scheduledTimeStr);
-                  
-                  final log = Log(
-                    medicineId: medicineId,
-                    scheduledTime: scheduledTime,
-                    actualTime: DateTime.now(),
-                    status: LogStatus.take,
-                  );
-                  await db.createLog(log);
-                  print('✅ Log created in background for medicine $medicineId');
-                } catch (e) {
-                  debugPrint('Error marking medicine as taken from notification: $e');
-                }
-              } else {
-                  print('⚠️ No scheduled time in payload, cannot create log.');
-              }
+        // Re-schedule
+        const androidDetails = AndroidNotificationDetails(
+          'medicine_reminders',
+          'Medicine Reminders',
+          channelDescription: 'Notifications for medicine reminders',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          fullScreenIntent: true,
+          category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          actions: [
+            AndroidNotificationAction('take', 'Take', showsUserInterface: true),
+            AndroidNotificationAction(
+              'snooze',
+              'Snooze 10min',
+              showsUserInterface: false,
+            ),
+          ],
+        );
 
-              // 2. Decrement stock
-              final medicine = await db.getMedicine(medicineId);
-              if (medicine != null) {
-                 final newStock = medicine.currentStock - 1;
-                 await db.updateMedicine(medicine.copyWith(
-                    currentStock: newStock >= 0 ? newStock : 0
-                 ));
-                 
-                 // Cancel notification
-                 final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-                 await flutterLocalNotificationsPlugin.cancel(medicineId);
-              }
+        const iosDetails = DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
+
+        final details = NotificationDetails(
+          android: androidDetails,
+          iOS: iosDetails,
+        );
+
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          medicineId, // Reuse ID
+          'Time to take $name (Snoozed)',
+          'Dosage: $dosage',
+          tz.TZDateTime.from(scheduledTime, tz.local),
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: payload, // Keep same payload
+        );
+
+        print('✅ Snooze scheduled for $scheduledTime in background');
+      } else if (actionId == 'take') {
+        final db = DatabaseHelper.instance;
+
+        // 1. Create Log Entry if scheduled time is available
+        if (parts.length > 3) {
+          final scheduledTimeStr = parts[3];
+          try {
+            final scheduledTime = DateTime.parse(scheduledTimeStr);
+
+            final log = Log(
+              medicineId: medicineId,
+              scheduledTime: scheduledTime,
+              actualTime: DateTime.now(),
+              status: LogStatus.take,
+            );
+            await db.createLog(log);
+            print('✅ Log created in background for medicine $medicineId');
+          } catch (e) {
+            debugPrint('Error marking medicine as taken from notification: $e');
           }
+        } else {
+          print('⚠️ No scheduled time in payload, cannot create log.');
+        }
+
+        // 2. Decrement stock
+        final medicine = await db.getMedicine(medicineId);
+        if (medicine != null) {
+          final newStock = medicine.currentStock - 1;
+          await db.updateMedicine(
+            medicine.copyWith(currentStock: newStock >= 0 ? newStock : 0),
+          );
+
+          // Cancel notification
+          final flutterLocalNotificationsPlugin =
+              FlutterLocalNotificationsPlugin();
+          await flutterLocalNotificationsPlugin.cancel(medicineId);
+        }
       }
+    }
   }
 }
 
@@ -117,24 +136,27 @@ void notificationTapBackground(NotificationResponse notificationResponse) async 
 /// Handles scheduling, actionable notifications, and callbacks
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
-  
+
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
   // Callback for when notification is tapped
-  Function(int medicineId, String action, String? payload)? _onNotificationAction;
-  
+  Function(int medicineId, String action, String? payload)?
+  _onNotificationAction;
+
   // Storage for pending action if listener isn't ready
   Map<String, dynamic>? _pendingAction;
 
-  set onNotificationAction(Function(int medicineId, String action, String? payload)? callback) {
+  set onNotificationAction(
+    Function(int medicineId, String action, String? payload)? callback,
+  ) {
     _onNotificationAction = callback;
     if (callback != null && _pendingAction != null) {
       // Execute pending action
       final id = _pendingAction!['id'];
       final action = _pendingAction!['action'];
       final payload = _pendingAction!['payload'];
-      
+
       debugPrint('Executing pending notification action: $action for $id');
       callback(id, action, payload);
       _pendingAction = null;
@@ -150,7 +172,7 @@ class NotificationService {
   // Getters for permission status
   bool get notificationsPermissionGranted => _notificationsPermissionGranted;
   bool get exactAlarmsPermissionGranted => _exactAlarmsPermissionGranted;
-  bool get allPermissionsGranted => 
+  bool get allPermissionsGranted =>
       _notificationsPermissionGranted && _exactAlarmsPermissionGranted;
 
   /// Initialize notification service
@@ -159,7 +181,9 @@ class NotificationService {
     tz.initializeTimeZones();
 
     // Android initialization settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     // iOS initialization settings
     const iosSettings = DarwinInitializationSettings(
@@ -180,6 +204,29 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
+    // Create Critical Channel (Android)
+    if (Platform.isAndroid) {
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidPlugin != null) {
+        await androidPlugin.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'critical_medicine_channel', // id
+            'Critical Medicine Alerts', // title
+            description:
+                'High priority alerts for medication reminders with custom sound',
+            importance: Importance.max,
+            sound: RawResourceAndroidNotificationSound('alert'),
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
+      }
+    }
+
     // Permissions should be requested from UI, not during initialization
   }
 
@@ -197,9 +244,11 @@ class NotificationService {
       return true;
     }
 
-    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
     if (androidPlugin != null) {
       final granted = await androidPlugin.requestNotificationsPermission();
       return granted ?? false;
@@ -213,9 +262,11 @@ class NotificationService {
       return true;
     }
 
-    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
     if (androidPlugin != null) {
       final granted = await androidPlugin.requestExactAlarmsPermission();
       return granted ?? false;
@@ -226,8 +277,10 @@ class NotificationService {
   /// Check if notifications are enabled
   Future<bool> areNotificationsEnabled() async {
     if (Platform.isAndroid) {
-      final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         return await androidPlugin.areNotificationsEnabled() ?? false;
       }
@@ -238,8 +291,10 @@ class NotificationService {
   /// Check if exact alarms can be scheduled
   Future<bool> canScheduleExactAlarms() async {
     if (Platform.isAndroid) {
-      final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         return await androidPlugin.canScheduleExactNotifications() ?? false;
       }
@@ -249,7 +304,7 @@ class NotificationService {
 
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    final payload = response.payload; 
+    final payload = response.payload;
     if (payload == null) return;
 
     // Payload can be "id" or "id|name|dosage|scheduledTime"
@@ -258,20 +313,20 @@ class NotificationService {
     if (medicineId == null) return;
 
     // Determine action from button ID, or default to 'view' if body tapped
-    final action = response.actionId == 'take' ? 'take' 
-                 : response.actionId == 'snooze' ? 'snooze' 
-                 : 'view';
+    final action = response.actionId == 'take'
+        ? 'take'
+        : response.actionId == 'snooze'
+        ? 'snooze'
+        : 'view';
 
     if (_onNotificationAction != null) {
       _onNotificationAction!(medicineId, action, payload);
     } else {
       // Store pending action
-      debugPrint('Storing pending notification action: $action for $medicineId');
-      _pendingAction = {
-        'id': medicineId,
-        'action': action,
-        'payload': payload,
-      };
+      debugPrint(
+        'Storing pending notification action: $action for $medicineId',
+      );
+      _pendingAction = {'id': medicineId, 'action': action, 'payload': payload};
     }
   }
 
@@ -285,16 +340,19 @@ class NotificationService {
   }) async {
     // Create notification details with actions and custom sound
     final androidDetails = AndroidNotificationDetails(
-      'medicine_reminders',
-      'Medicine Reminders',
-      channelDescription: 'Notifications for medicine reminders',
+      'critical_medicine_channel', // Use the critical channel
+      'Critical Medicine Alerts',
+      channelDescription: 'High priority alerts for medication reminders',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('alert'),
       enableVibration: true,
-      fullScreenIntent: true,
+      fullScreenIntent: true, // Critical alert behavior
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
+      audioAttributesUsage:
+          AudioAttributesUsage.alarm, // Bypass some DND settings
       actions: [
         const AndroidNotificationAction(
           'take',
@@ -330,7 +388,8 @@ class NotificationService {
       tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: '$medicineId|$medicineName|$dosage|${scheduledTime.toIso8601String()}',
+      payload:
+          '$medicineId|$medicineName|$dosage|${scheduledTime.toIso8601String()}',
     );
   }
 
@@ -384,7 +443,8 @@ class NotificationService {
       'Time to take $medicineName',
       'Dosage: $dosage',
       notificationDetails,
-      payload: '$medicineId|$medicineName|$dosage|${DateTime.now().toIso8601String()}',
+      payload:
+          '$medicineId|$medicineName|$dosage|${DateTime.now().toIso8601String()}',
     );
   }
 
@@ -396,7 +456,7 @@ class NotificationService {
     required int minutes,
   }) async {
     // Reschedule for X minutes from now
-    // We use a unique ID for snoozes (e.g. medicineId + 50000 + minutes) 
+    // We use a unique ID for snoozes (e.g. medicineId + 50000 + minutes)
     // to allow multiple snoozes but avoid collisions with main schedule
     final snoozeTime = DateTime.now().add(Duration(minutes: minutes));
     final notificationId = medicineId + 50000 + minutes;
@@ -417,16 +477,16 @@ class NotificationService {
     required String medicineName,
     required String dosage,
   }) async {
-    // Cancel current notification is implicit usually, but we can explicit cancel 
+    // Cancel current notification is implicit usually, but we can explicit cancel
     // if this came from a foreground action rather than notification action button
     // which automatically dismisses.
-    
+
     await cancelNotification(notificationId);
     await scheduleSnooze(
-      medicineId: medicineId, 
-      medicineName: medicineName, 
-      dosage: dosage, 
-      minutes: 10
+      medicineId: medicineId,
+      medicineName: medicineName,
+      dosage: dosage,
+      minutes: 10,
     );
   }
 

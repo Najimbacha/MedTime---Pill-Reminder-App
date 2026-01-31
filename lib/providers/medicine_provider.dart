@@ -5,11 +5,21 @@ import '../services/notification_service.dart';
 import '../models/schedule.dart';
 import '../services/auth_service.dart';
 import '../services/caregiver_notification_service.dart';
+import 'subscription_provider.dart';
+
+/// Exception thrown when a free user tries to add more than the allowed medicines
+class PremiumLimitException implements Exception {
+  final String message;
+  PremiumLimitException([this.message = 'Free limit reached']);
+}
 
 /// Provider for managing medicines
 class MedicineProvider with ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notifications = NotificationService.instance;
+
+  // Injected SubscriptionProvider to check limit
+  SubscriptionProvider? _subscriptionProvider;
 
   List<Medicine> _medicines = [];
   bool _isLoading = false;
@@ -20,6 +30,13 @@ class MedicineProvider with ChangeNotifier {
   /// Get low stock medicines
   List<Medicine> get lowStockMedicines =>
       _medicines.where((m) => m.isLowStock).toList();
+
+  MedicineProvider({SubscriptionProvider? subscriptionProvider})
+    : _subscriptionProvider = subscriptionProvider;
+
+  void updateSubscription(SubscriptionProvider? subscription) {
+    _subscriptionProvider = subscription;
+  }
 
   /// Load all medicines from database
   Future<void> loadMedicines() async {
@@ -38,6 +55,14 @@ class MedicineProvider with ChangeNotifier {
 
   /// Add a new medicine
   Future<Medicine?> addMedicine(Medicine medicine) async {
+    // 1. Check Limits
+    final isPremium = _subscriptionProvider?.isPremium ?? false;
+    if (!isPremium && _medicines.length >= 3) {
+      throw PremiumLimitException(
+        "You have reached the free limit of 3 medicines.",
+      );
+    }
+
     try {
       final newMedicine = await _db.createMedicine(medicine);
       _medicines.add(newMedicine);
@@ -84,7 +109,7 @@ class MedicineProvider with ChangeNotifier {
   Future<void> decrementStock(int medicineId) async {
     try {
       await _db.decrementStock(medicineId);
-      
+
       // Update local list
       final index = _medicines.indexWhere((m) => m.id == medicineId);
       if (index != -1) {
@@ -105,16 +130,18 @@ class MedicineProvider with ChangeNotifier {
 
           // Remote Alert (Caregivers)
           try {
-             final authService = AuthService();
-             final profile = await authService.getCurrentUserProfile();
-             if (profile != null && profile.shareEnabled && profile.linkedCaregiverIds.isNotEmpty) {
-               await CaregiverNotificationService().sendLowStockAlert(
-                 patientName: profile.displayName ?? 'Patient',
-                 medicineName: updatedMedicine.name,
-                 remainingCount: updatedMedicine.currentStock,
-                 caregiverIds: profile.linkedCaregiverIds,
-               );
-             }
+            final authService = AuthService();
+            final profile = await authService.getCurrentUserProfile();
+            if (profile != null &&
+                profile.shareEnabled &&
+                profile.linkedCaregiverIds.isNotEmpty) {
+              await CaregiverNotificationService().sendLowStockAlert(
+                patientName: profile.displayName ?? 'Patient',
+                medicineName: updatedMedicine.name,
+                remainingCount: updatedMedicine.currentStock,
+                caregiverIds: profile.linkedCaregiverIds,
+              );
+            }
           } catch (e) {
             debugPrint('Error sending remote low stock alert: $e');
           }
@@ -132,7 +159,7 @@ class MedicineProvider with ChangeNotifier {
   Future<void> incrementStock(int medicineId) async {
     try {
       await _db.incrementStock(medicineId);
-      
+
       final index = _medicines.indexWhere((m) => m.id == medicineId);
       if (index != -1) {
         final medicine = _medicines[index];
@@ -181,16 +208,18 @@ class MedicineProvider with ChangeNotifier {
           dailyDoses += (daysCount / 7.0);
         }
       } else if (s.frequencyType == FrequencyType.interval) {
-         if (s.intervalDays != null && s.intervalDays! > 0) {
-           dailyDoses += (1.0 / s.intervalDays!);
-         }
+        if (s.intervalDays != null && s.intervalDays! > 0) {
+          dailyDoses += (1.0 / s.intervalDays!);
+        }
       }
     }
 
     if (dailyDoses > 0) {
       final daysRemaining = medicine.currentStock / dailyDoses;
-      final refillDate = DateTime.now().add(Duration(days: daysRemaining.floor()));
-      
+      final refillDate = DateTime.now().add(
+        Duration(days: daysRemaining.floor()),
+      );
+
       // 1. Critical Alert (Day Zero)
       await _notifications.scheduleRefillReminder(
         medicineId: medicine.id!,
@@ -200,13 +229,13 @@ class MedicineProvider with ChangeNotifier {
 
       // 2. Warning Alert (3 Days Before)
       if (daysRemaining > 4) {
-         final warningDate = refillDate.subtract(const Duration(days: 3));
-         await _notifications.scheduleLowStockWarning(
-            medicineId: medicine.id!,
-            medicineName: medicine.name,
-            warningDate: warningDate,
-            daysLeft: 3,
-         );
+        final warningDate = refillDate.subtract(const Duration(days: 3));
+        await _notifications.scheduleLowStockWarning(
+          medicineId: medicine.id!,
+          medicineName: medicine.name,
+          warningDate: warningDate,
+          daysLeft: 3,
+        );
       }
     }
   }

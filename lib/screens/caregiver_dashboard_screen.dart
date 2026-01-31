@@ -13,7 +13,8 @@ class CaregiverDashboardScreen extends StatefulWidget {
   const CaregiverDashboardScreen({super.key});
 
   @override
-  State<CaregiverDashboardScreen> createState() => _CaregiverDashboardScreenState();
+  State<CaregiverDashboardScreen> createState() =>
+      _CaregiverDashboardScreenState();
 }
 
 class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
@@ -111,8 +112,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
               'Ask your patient to share their invite code with you to start monitoring their medication adherence.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
@@ -121,7 +122,9 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                 if (mounted) {
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AcceptInviteScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const AcceptInviteScreen(),
+                    ),
                   );
                   if (result == true) {
                     _loadData();
@@ -137,8 +140,6 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     );
   }
 }
-
-
 
 /// Card displaying a patient's info and adherence summary
 class _PatientCard extends StatefulWidget {
@@ -174,13 +175,13 @@ class _PatientCardState extends State<_PatientCard> {
 
   Future<void> _generateReport() async {
     if (_isGeneratingReport) return;
-    
+
     setState(() => _isGeneratingReport = true);
     await HapticHelper.selection();
 
     try {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Generating PDF Report...'),
@@ -198,7 +199,6 @@ class _PatientCardState extends State<_PatientCard> {
         stats: _stats ?? {},
         recentLogs: logs,
       );
-      
     } catch (e) {
       debugPrint('Error generating report: $e');
       if (mounted) {
@@ -223,8 +223,8 @@ class _PatientCardState extends State<_PatientCard> {
     final adherenceColor = adherenceRate >= 80
         ? Colors.green
         : adherenceRate >= 50
-            ? Colors.orange
-            : Colors.red;
+        ? Colors.orange
+        : Colors.red;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -266,7 +266,9 @@ class _PatientCardState extends State<_PatientCard> {
             ),
             child: Center(
               child: Text(
-                (widget.patient.displayName ?? 'P').substring(0, 1).toUpperCase(),
+                (widget.patient.displayName ?? 'P')
+                    .substring(0, 1)
+                    .toUpperCase(),
                 style: TextStyle(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.bold,
@@ -286,7 +288,9 @@ class _PatientCardState extends State<_PatientCard> {
             child: Row(
               children: [
                 Icon(
-                  adherenceRate >= 80 ? Icons.check_circle_rounded : Icons.warning_rounded,
+                  adherenceRate >= 80
+                      ? Icons.check_circle_rounded
+                      : Icons.warning_rounded,
                   size: 16,
                   color: adherenceColor,
                 ),
@@ -298,6 +302,42 @@ class _PatientCardState extends State<_PatientCard> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
+                ),
+                const SizedBox(width: 12),
+                StreamBuilder<List<SharedAdherenceData>>(
+                  stream: context.read<SyncProvider>().getLogsStream(
+                    widget.patient.id,
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.isEmpty)
+                      return const SizedBox.shrink();
+                    final latest = snapshot.data!.first;
+                    final time = latest.actualTime ?? latest.scheduledTime;
+                    final timeStr =
+                        '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Last: $timeStr',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -336,7 +376,7 @@ class _PatientCardState extends State<_PatientCard> {
                   children: [
                     const Divider(height: 1),
                     const SizedBox(height: 20),
-                    
+
                     // Stats Row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -359,11 +399,15 @@ class _PatientCardState extends State<_PatientCard> {
                       ],
                     ),
                     const SizedBox(height: 24),
-    
+
                     // Today's Log Stream
                     Row(
                       children: [
-                        Icon(Icons.history, size: 16, color: colorScheme.outline),
+                        Icon(
+                          Icons.history,
+                          size: 16,
+                          color: colorScheme.outline,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           "TODAY'S ACTIVITY",
@@ -377,9 +421,12 @@ class _PatientCardState extends State<_PatientCard> {
                     ),
                     const SizedBox(height: 12),
                     StreamBuilder<List<SharedAdherenceData>>(
-                      stream: context.read<SyncProvider>().getTodayLogsStream(widget.patient.id),
+                      stream: context.read<SyncProvider>().getTodayLogsStream(
+                        widget.patient.id,
+                      ),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const Center(
                             child: Padding(
                               padding: EdgeInsets.all(16),
@@ -387,9 +434,9 @@ class _PatientCardState extends State<_PatientCard> {
                             ),
                           );
                         }
-    
+
                         final logs = snapshot.data ?? [];
-    
+
                         if (logs.isEmpty) {
                           return Container(
                             padding: const EdgeInsets.all(16),
@@ -397,7 +444,9 @@ class _PatientCardState extends State<_PatientCard> {
                               color: theme.cardColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: colorScheme.outlineVariant.withOpacity(0.5),
+                                color: colorScheme.outlineVariant.withOpacity(
+                                  0.5,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -419,9 +468,12 @@ class _PatientCardState extends State<_PatientCard> {
                             ),
                           );
                         }
-    
+
                         return Column(
-                          children: logs.take(5).map((log) => _buildLogItem(log)).toList(),
+                          children: logs
+                              .take(5)
+                              .map((log) => _buildLogItem(log))
+                              .toList(),
                         );
                       },
                     ),
@@ -441,14 +493,11 @@ class _PatientCardState extends State<_PatientCard> {
         Text(
           value,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -486,7 +535,7 @@ class _PatientCardState extends State<_PatientCard> {
         borderRadius: BorderRadius.circular(12),
         // border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.3)),
         boxShadow: [
-           BoxShadow(
+          BoxShadow(
             color: Colors.black.withOpacity(0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),

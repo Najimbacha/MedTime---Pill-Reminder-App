@@ -166,29 +166,26 @@ class _AppleMedicineCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Medicine Icon with colored background
+            // 3D Medicine Icon
             Container(
-              width: 56, // Increased from 48
-              height: 56,
+              width: 58, 
+              height: 58,
+              padding: const EdgeInsets.all(4), 
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    color.withOpacity(0.25),
-                    color.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
+                color: isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: color.withOpacity(0.2),
-                  width: 1.5,
+                  color: isDark ? Colors.white10 : Colors.indigo.withOpacity(0.06),
+                  width: 1,
                 ),
               ),
-              padding: const EdgeInsets.all(6), // Reduced from 8 to let image fill more
               child: Image.asset(
-                medicine.iconAssetPath,
+                _get3DAssetPath(medicine.typeIcon), // Use new 3D mapping
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                    // Fallback to original if 3D missing
+                    return Image.asset(medicine.iconAssetPath); 
+                },
               ),
             ),
             const SizedBox(width: 14),
@@ -363,6 +360,16 @@ class _AppleMedicineCard extends StatelessWidget {
       case 3: return 'Injection';
       case 4: return 'Liquid';
       default: return 'Medicine';
+    }
+  }
+
+  String _get3DAssetPath(int typeIcon) {
+    switch (typeIcon) {
+      case 1: return 'assets/icons/medicine/3d/tablet.png'; // Pill
+      case 2: return 'assets/icons/medicine/3d/liquid.png'; // Syrup
+      case 3: return 'assets/icons/medicine/3d/injection.png'; // Injection
+      case 4: return 'assets/icons/medicine/3d/drop.png'; // Drops/Liquid
+      default: return 'assets/icons/medicine/3d/tablet.png';
     }
   }
 }

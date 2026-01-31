@@ -12,8 +12,10 @@ import 'providers/sync_provider.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/streak_service.dart';
+import 'services/ad_service.dart';
 import 'providers/subscription_provider.dart';
 import 'providers/statistics_provider.dart';
+import 'providers/snooze_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/splash_screen.dart';
@@ -32,15 +34,17 @@ void main() async {
     ).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
-        debugPrint('⚠️ Firebase init timed out - continuing without cloud features');
+        debugPrint(
+          '⚠️ Firebase init timed out - continuing without cloud features',
+        );
         throw TimeoutException('Firebase init timed out');
       },
     );
     debugPrint('✅ Firebase Initialized');
-    
+
     // Initialize Crashlytics
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    
+
     // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -70,6 +74,10 @@ void main() async {
     );
     debugPrint('✅ StreakService Initialized');
 
+    debugPrint('💰 Initializing AdService...');
+    await AdService.instance.initialize();
+    debugPrint('✅ AdService Initialized');
+
     runApp(const PrivacyMedsApp());
   } catch (e, stack) {
     debugPrint('🔴 Application Init Error: $e');
@@ -92,14 +100,23 @@ class PrivacyMedsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MedicineProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
         ChangeNotifierProvider(create: (_) => LogProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => SyncProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => StatisticsProvider()),
+        ChangeNotifierProvider(create: (_) => SnoozeProvider()..initialize()),
         ChangeNotifierProvider.value(value: SettingsService.instance),
+
+        // ProxyProvider to inject SubscriptionProvider into MedicineProvider
+        // ProxyProvider to inject SubscriptionProvider into MedicineProvider
+        ChangeNotifierProxyProvider<SubscriptionProvider, MedicineProvider>(
+          create: (context) => MedicineProvider()..loadMedicines(),
+          update: (context, subscription, medicineProvider) =>
+              (medicineProvider ?? MedicineProvider())
+                ..updateSubscription(subscription),
+        ),
       ],
       child: Consumer<SettingsService>(
         builder: (context, settings, _) {
