@@ -1,69 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import '../services/revenuecat_service.dart';
+import '../services/auth_service.dart';
 
 class SubscriptionProvider with ChangeNotifier {
-  static const String _premiumKey = 'is_premium_user';
+  final RevenueCatService _revenueCat = RevenueCatService();
+
   bool _isPremium = false;
   bool _isLoading = true;
+  Offerings? _offerings;
 
   bool get isPremium => _isPremium;
   bool get isLoading => _isLoading;
+  Offerings? get offerings => _offerings;
 
   SubscriptionProvider() {
     _init();
   }
 
   Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isPremium = prefs.getBool(_premiumKey) ?? false;
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  /// MOCK: Simulate purchasing premium
-  Future<void> purchasePremium() async {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      await _revenueCat.initialize();
 
-    _isPremium = true;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_premiumKey, true);
+      // Sync identity if already signed in
+      final user = AuthService().currentUser;
+      if (user != null) {
+        await _revenueCat.logIn(user.uid);
+      }
 
-    _isLoading = false;
-    notifyListeners();
+      // Check initial status
+      _isPremium = await _revenueCat.isPremium();
+
+      // Load offerings (prices, periods, etc.)
+      _offerings = await _revenueCat.getOfferings();
+    } catch (e) {
+      debugPrint('❌ RevenueCat initialization failed: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+
+    // Listen for customer info changes
+    Purchases.addCustomerInfoUpdateListener((customerInfo) {
+      final activeEntitlements = customerInfo.entitlements.active;
+      _isPremium = activeEntitlements.containsKey('entlad0336decf');
+      notifyListeners();
+    });
   }
 
-  /// MOCK: Simulate restoring purchases
-  Future<void> restorePurchases() async {
+  /// Purchase a package
+  Future<bool> purchasePackage(Package package) async {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
+    final success = await _revenueCat.purchasePackage(package);
 
-    // For mock purposes, let's say restore always succeeds if we previously set it, 
-    // but here we just re-read or force true for testing "Restore" flow. 
-    // Let's just re-read from prefs or assume success for demo.
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.containsKey(_premiumKey)) {
-        _isPremium = prefs.getBool(_premiumKey) ?? false;
-    } else {
-        // If not found, maybe they are not premium.
-        _isPremium = false;
+    if (success) {
+      _isPremium = true;
     }
 
     _isLoading = false;
     notifyListeners();
+    return success;
   }
-  
-  /// DEBUG ONLY: Reset premium status
-  Future<void> debugResetPremium() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_premiumKey);
-    _isPremium = false;
+
+  /// Restore purchases
+  Future<void> restorePurchases() async {
+    _isLoading = true;
+    notifyListeners();
+
+    _isPremium = await _revenueCat.restorePurchases();
+
+    _isLoading = false;
     notifyListeners();
   }
+
+  /// Helper to get monthly package
+  Package? get monthlyPackage => _offerings?.current?.monthly;
+
+  /// Helper to get annual package
+  Package? get annualPackage => _offerings?.current?.annual;
+
+  /// Helper to get lifetime package
+  Package? get lifetimePackage => _offerings?.current?.lifetime;
 }

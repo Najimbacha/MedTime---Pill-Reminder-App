@@ -9,11 +9,9 @@ class ScheduleProvider with ChangeNotifier {
   final DatabaseHelper _db;
   final NotificationService _notifications;
 
-  ScheduleProvider({
-    DatabaseHelper? db,
-    NotificationService? notifications,
-  })  : _db = db ?? DatabaseHelper.instance,
-        _notifications = notifications ?? NotificationService.instance;
+  ScheduleProvider({DatabaseHelper? db, NotificationService? notifications})
+    : _db = db ?? DatabaseHelper.instance,
+      _notifications = notifications ?? NotificationService.instance;
 
   List<Schedule> _schedules = [];
   bool _isLoading = false;
@@ -51,10 +49,10 @@ class ScheduleProvider with ChangeNotifier {
     try {
       final newSchedule = await _db.createSchedule(schedule);
       _schedules.add(newSchedule);
-      
+
       // Schedule notification
       await _scheduleNotification(newSchedule, medicine);
-      
+
       notifyListeners();
       return newSchedule;
     } catch (e) {
@@ -70,10 +68,10 @@ class ScheduleProvider with ChangeNotifier {
       final index = _schedules.indexWhere((s) => s.id == schedule.id);
       if (index != -1) {
         _schedules[index] = schedule;
-        
+
         // Reschedule notification
         await _scheduleNotification(schedule, medicine);
-        
+
         notifyListeners();
       }
       return true;
@@ -88,10 +86,10 @@ class ScheduleProvider with ChangeNotifier {
     try {
       await _db.deleteSchedule(id);
       _schedules.removeWhere((s) => s.id == id);
-      
+
       // Cancel notification
       await _notifications.cancelNotification(id);
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -101,7 +99,10 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Schedule notification for a schedule
-  Future<void> _scheduleNotification(Schedule schedule, Medicine medicine) async {
+  Future<void> _scheduleNotification(
+    Schedule schedule,
+    Medicine medicine,
+  ) async {
     final scheduledTime = schedule.getNextScheduledTime();
     if (scheduledTime == null || schedule.id == null) return;
 
@@ -112,6 +113,7 @@ class ScheduleProvider with ChangeNotifier {
         medicineName: medicine.name,
         dosage: medicine.dosage,
         scheduledTime: scheduledTime,
+        frequencyType: schedule.frequencyType, // ← enables auto-repeat
       );
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
@@ -124,13 +126,14 @@ class ScheduleProvider with ChangeNotifier {
       // Cancel all existing notifications
       await _notifications.cancelAllNotifications();
 
-      // Reschedule all active schedules
-      for (final schedule in todaySchedules) {
+      // Reschedule ALL active schedules (not just today's — daily/interval
+      // schedules with matchDateTimeComponents handle their own repeats)
+      for (final schedule in _schedules) {
         final medicine = medicines.firstWhere(
           (m) => m.id == schedule.medicineId,
           orElse: () => Medicine(name: 'Unknown', dosage: ''),
         );
-        
+
         await _scheduleNotification(schedule, medicine);
       }
     } catch (e) {

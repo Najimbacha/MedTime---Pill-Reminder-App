@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../providers/subscription_provider.dart';
 
-class PaywallScreen extends StatelessWidget {
+class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
+
+  @override
+  State<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends State<PaywallScreen> {
+  // Track selection by index: 0 = Lifetime, 1 = Monthly
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +152,7 @@ class PaywallScreen extends StatelessWidget {
   Widget _buildPremiumHeader() {
     return Column(
       children: [
+        const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -150,42 +160,46 @@ class PaywallScreen extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFFFD700), Color(0xFFB8860B)], // Gold Gradient
+              colors: [Color(0xFFFFD700), Color(0xFFFFA500)], // Gold to Orange
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFD700).withOpacity(0.5),
-                blurRadius: 30,
-                spreadRadius: 5,
+                color: const Color(0xFFFFD700).withOpacity(0.3),
+                blurRadius: 40,
+                spreadRadius: 10,
               ),
             ],
           ),
           child: const Icon(
             Icons.workspace_premium_rounded,
-            size: 48,
+            size: 56,
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         const Text(
-          'Unlock MedTime Premium',
+          'MedTime Premium',
           style: TextStyle(
-            fontSize: 28,
+            fontSize: 32,
             fontWeight: FontWeight.w900,
             color: Colors.white,
-            letterSpacing: -0.5,
+            letterSpacing: -1,
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
-        Text(
-          'Join thousands of users managing their health with confidence.',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.white.withOpacity(0.7),
-            height: 1.5,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Master your health journey with advanced features and family connection.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.8),
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -193,19 +207,20 @@ class PaywallScreen extends StatelessWidget {
 
   Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFD700).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white10),
             ),
-            child: Icon(icon, color: const Color(0xFFFFD700), size: 24),
+            child: Icon(icon, color: const Color(0xFFFFD700), size: 22),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,8 +228,8 @@ class PaywallScreen extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
                     color: Colors.white,
                   ),
                 ),
@@ -224,6 +239,7 @@ class PaywallScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.6),
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -252,47 +268,121 @@ class PaywallScreen extends StatelessWidget {
             );
           }
 
+          final offerings = subscription.offerings;
+
+          // Check if we have real offerings
+          final hasRealOfferings =
+              offerings != null && offerings.current != null;
+
+          final monthly = hasRealOfferings ? offerings.current!.monthly : null;
+          final lifetime = hasRealOfferings
+              ? offerings.current!.lifetime
+              : null;
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Annual Plan (Best Value)
               _PricingCard(
-                title: 'Annual Plan',
-                price: '\$29.99',
-                period: '/ year',
-                subtitle: 'Save 50% vs Monthly',
+                title: 'Lifetime Access',
+                price: lifetime?.storeProduct.priceString ?? '\$30.00',
+                period: 'One-time',
+                subtitle: 'Unlock Everything Forever',
                 isBestValue: true,
-                isSelected: true, // Default selected
-                onTap: () => _handlePurchase(context, subscription),
+                isSelected: _selectedIndex == 0,
+                onTap: () => setState(() => _selectedIndex = 0),
               ),
               const SizedBox(height: 12),
 
-              // Monthly Plan
               _PricingCard(
                 title: 'Monthly Plan',
-                price: '\$4.99',
+                price: monthly?.storeProduct.priceString ?? '\$1.99',
                 period: '/ month',
-                isSelected: false,
-                onTap: () => _handlePurchase(context, subscription),
+                isSelected: _selectedIndex == 1,
+                onTap: () => setState(() => _selectedIndex = 1),
               ),
 
               const SizedBox(height: 24),
 
-              // Footer Actions
-              TextButton(
-                onPressed: () => subscription.restorePurchases(),
-                style: TextButton.styleFrom(foregroundColor: Colors.white54),
-                child: const Text(
-                  'Restore Purchases',
-                  style: TextStyle(fontSize: 13),
+              if (!hasRealOfferings)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    'Note: Displaying demo prices. Purchases will be available from the Play Store.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              // Purchase Button — always enabled
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => _handlePurchase(
+                    context,
+                    subscription,
+                    _selectedIndex == 0 ? lifetime : monthly,
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Get Premium Access',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 ),
               ),
-              Text(
-                'Secured by Google Play. Cancel anytime.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
-                  fontSize: 11,
-                ),
+
+              const SizedBox(height: 16),
+
+              // Footer Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () => subscription.restorePurchases(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white54,
+                    ),
+                    child: const Text(
+                      'Restore',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const Text('•', style: TextStyle(color: Colors.white24)),
+                  TextButton(
+                    onPressed: () {
+                      /* TODO: Replace with your URL */
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white54,
+                    ),
+                    child: const Text(
+                      'Privacy Policy',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const Text('•', style: TextStyle(color: Colors.white24)),
+                  TextButton(
+                    onPressed: () {
+                      /* TODO: Replace with your URL */
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white54,
+                    ),
+                    child: const Text(
+                      'Terms of Use',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -304,9 +394,25 @@ class PaywallScreen extends StatelessWidget {
   void _handlePurchase(
     BuildContext context,
     SubscriptionProvider provider,
+    Package? package,
   ) async {
-    await provider.purchasePremium();
-    if (context.mounted) {
+    if (package == null) {
+      // No real package available — show a friendly message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Purchases are not available yet. Please try again from the Play Store version.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final success = await provider.purchasePackage(package);
+    if (success && context.mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

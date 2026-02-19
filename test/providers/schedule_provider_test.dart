@@ -57,6 +57,7 @@ class MockNotificationService implements NotificationService {
     required String medicineName,
     required String dosage,
     required DateTime scheduledTime,
+    FrequencyType? frequencyType,
   }) async {
     scheduledIds.add(notificationId);
   }
@@ -71,7 +72,7 @@ class MockNotificationService implements NotificationService {
   Future<void> cancelAllNotifications() async {
     scheduledIds.clear();
   }
-  
+
   // Unimplemented methods required by interface
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -87,10 +88,7 @@ void main() {
   setUp(() {
     mockDb = MockDatabaseHelper();
     mockNotifications = MockNotificationService();
-    provider = ScheduleProvider(
-      db: mockDb,
-      notifications: mockNotifications,
-    );
+    provider = ScheduleProvider(db: mockDb, notifications: mockNotifications);
   });
 
   group('ScheduleProvider Tests', () {
@@ -117,7 +115,7 @@ void main() {
 
       expect(provider.schedules.length, 1);
       expect(provider.schedules.first.medicineId, 1);
-      
+
       // Verify DB interaction (mock stores it)
       final dbSchedules = await mockDb.getAllSchedules();
       expect(dbSchedules.length, 1);
@@ -131,12 +129,10 @@ void main() {
       // Setup: Add first
       await provider.addSchedule(testSchedule, testMedicine);
       final createdSchedule = provider.schedules.first;
-      
+
       // Act: Update time
-      final updatedSchedule = createdSchedule.copyWith(
-        timeOfDay: '09:00',
-      );
-      
+      final updatedSchedule = createdSchedule.copyWith(timeOfDay: '09:00');
+
       await provider.updateSchedule(updatedSchedule, testMedicine);
 
       // Assert
@@ -160,15 +156,15 @@ void main() {
 
     test('getSchedulesForMedicine filters correctly', () async {
       await provider.addSchedule(testSchedule, testMedicine);
-      
+
       // Add another medicine's schedule
       final med2Schedule = Schedule(
-        medicineId: 99, 
+        medicineId: 99,
         timeOfDay: '10:00',
-        frequencyType: FrequencyType.daily
+        frequencyType: FrequencyType.daily,
       );
       // We pass testMedicine but it doesn't matter for the DB insertion in mock
-       await provider.addSchedule(med2Schedule, testMedicine);
+      await provider.addSchedule(med2Schedule, testMedicine);
 
       final med1Schedules = provider.getSchedulesForMedicine(1);
       expect(med1Schedules.length, 1);

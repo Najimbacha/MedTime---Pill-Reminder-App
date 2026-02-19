@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
 import '../models/caregiver_invite.dart';
+import 'revenuecat_service.dart';
 
 /// Service for Firebase Authentication and user management
 class AuthService {
@@ -45,6 +46,7 @@ class AuthService {
       );
 
       if (credential.user != null) {
+        await RevenueCatService().logIn(credential.user!.uid);
         return await _getOrCreateUserProfile(credential.user!);
       }
     } on FirebaseAuthException catch (e) {
@@ -70,6 +72,9 @@ class AuthService {
         if (displayName != null) {
           await credential.user!.updateDisplayName(displayName);
         }
+
+        // Sync with RevenueCat
+        await RevenueCatService().logIn(credential.user!.uid);
 
         // Create user profile in Firestore
         final profile = UserProfile(
@@ -98,6 +103,7 @@ class AuthService {
       final credential = await _auth.signInAnonymously();
 
       if (credential.user != null) {
+        await RevenueCatService().logIn(credential.user!.uid);
         return await _getOrCreateUserProfile(credential.user!);
       }
     } on FirebaseAuthException catch (e) {
@@ -131,6 +137,7 @@ class AuthService {
       final userCredential = await _auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
+        await RevenueCatService().logIn(userCredential.user!.uid);
         return await _getOrCreateUserProfile(userCredential.user!);
       }
     } on FirebaseAuthException catch (e) {
@@ -143,6 +150,7 @@ class AuthService {
 
   /// Sign out
   Future<void> signOut() async {
+    await RevenueCatService().logOut();
     await _googleSignIn.signOut();
     await _auth.signOut();
   }

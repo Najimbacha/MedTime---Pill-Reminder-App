@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android notification small icon.
+  Pure WHITE (#FFFFFF) paths on transparent background — no <circle> elements,
+  only <path> is valid in Android Vector Drawables.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+  <!-- Upright pill capsule: rounded rectangle using arc path commands -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M15,7 L15,17 A3,3 0,0 1 9,17 L9,7 A3,3 0,0 1 15,7Z"/>
+
+</vector>

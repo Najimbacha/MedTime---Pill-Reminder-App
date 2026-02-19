@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +10,6 @@ import '../models/schedule.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
-import '../providers/auth_provider.dart';
 
 import '../core/components/timeline_item.dart';
 import '../core/components/medicine_card.dart';
@@ -21,15 +21,13 @@ import '../widgets/glass_dialog.dart';
 import '../widgets/staggered_list_animation.dart';
 import '../utils/sound_helper.dart';
 import 'add_edit_medicine_screen.dart';
-
 import 'package:lottie/lottie.dart';
-import '../services/notification_service.dart';
+
 import '../services/streak_service.dart';
 import '../services/report_service.dart';
 import '../services/history_service.dart';
 import 'package:confetti/confetti.dart';
-import '../widgets/empty_state_widget.dart';
-import 'achievements_screen.dart';
+
 import '../widgets/medicine_action_sheet.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/snooze_provider.dart';
@@ -158,51 +156,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showNameEditDialog(BuildContext context, String currentName) {
-    final controller = TextEditingController(
-      text: currentName == 'Friend' ? '' : currentName,
-    );
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('What should we call you?'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Enter your name',
-            filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white10
-                : Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newName = controller.text.trim();
-              if (newName.isNotEmpty) {
-                context.read<AuthProvider>().updateDisplayName(newName);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -232,7 +185,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                           parent: BouncingScrollPhysics(), // Smoother scroll
                         ),
                         slivers: [
-                          _buildAppBar(isDark),
                           Consumer3<
                             MedicineProvider,
                             ScheduleProvider,
@@ -344,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         child: Center(
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 60,
+                                              vertical: 20,
                                             ),
                                             child: _buildEmptyState(),
                                           ),
@@ -607,197 +559,181 @@ class _DashboardScreenState extends State<DashboardScreen>
     return true;
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
+  Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-  SliverAppBar _buildAppBar(bool isDark) {
-    final authProvider = context.watch<AuthProvider>();
-    final name =
-        authProvider.userProfile?.displayName ??
-        authProvider.firebaseUser?.displayName ??
-        'Friend';
-    final photoUrl = authProvider.firebaseUser?.photoURL;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
 
-    return SliverAppBar(
-      floating: true,
-      pinned: true,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFFAFAFA),
-      toolbarHeight: 60,
-      title: Container(
-        padding: const EdgeInsets.symmetric(vertical: 0),
-        child: Row(
-          children: [
-            // User Avatar
-            Container(
+          // Animated glowing icon
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(seconds: 3),
+            curve: Curves.easeInOutSine,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, 10 * math.sin(value * math.pi)),
+                child: child,
+              );
+            },
+            child: Container(
+              width: 130,
+              height: 130,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF6366F1).withOpacity(0.15),
+                    const Color(0xFF8B5CF6).withOpacity(0.25),
+                  ],
+                ),
+                border: Border.all(
+                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.2),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+                    color: const Color(0xFF6366F1).withOpacity(0.25),
+                    blurRadius: 40,
+                    spreadRadius: 5,
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withOpacity(0.15),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage: photoUrl != null
-                      ? NetworkImage(photoUrl)
-                      : null,
-                  child: photoUrl == null
-                      ? Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Greeting & Name
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_getGreeting()},',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _showNameEditDialog(context, name),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF1F2937),
-                              letterSpacing: -0.5,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: isDark ? Colors.white30 : Colors.black26,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        // Streak Badge in AppBar
-        if (_streak > 0)
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AchievementsScreen(),
-                  ),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.orange.shade400,
-                        Colors.deepOrange.shade400,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.orange.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.local_fire_department_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_streak',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: const Icon(
+                Icons.medication_rounded,
+                size: 64,
+                color: Color(0xFF6366F1),
               ),
             ),
           ),
-      ],
-    );
-  }
 
-  Widget _buildEmptyState() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        EmptyStateWidget(
-          title: 'No medications',
-          message: 'Add your first medicine to get started with tracking.',
-          imageAsset: 'assets/icons/medicine/check_badge.png',
-          buttonText: 'Add Medicine',
-          onButtonPressed: _navigateToAddMedicine,
-        ),
-      ],
+          const SizedBox(height: 36),
+
+          // Headline
+          Text(
+            'Your health journey\nstarts here ✨',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF111827),
+              letterSpacing: -0.8,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Subtitle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 36),
+            child: Text(
+              'Add your medications and get smart reminders, logs, and adherence tracking.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: isDark ? Colors.white54 : Colors.grey[600],
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Feature Chips
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              _FeatureChip(
+                icon: Icons.notifications_active_rounded,
+                label: 'Smart Reminders',
+                isDark: isDark,
+              ),
+              _FeatureChip(
+                icon: Icons.bar_chart_rounded,
+                label: 'Adherence Tracking',
+                isDark: isDark,
+              ),
+              _FeatureChip(
+                icon: Icons.lock_rounded,
+                label: 'Fully Private',
+                isDark: isDark,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 36),
+
+          // CTA Button
+          GestureDetector(
+            onTap: _navigateToAddMedicine,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.45),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'Add First Medicine',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Trust badges
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.shield_rounded,
+                size: 14,
+                color: isDark ? Colors.white24 : Colors.grey[400],
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Secure • Offline-first • Private',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white24 : Colors.grey[400],
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -1476,8 +1412,8 @@ class _StatsCard extends StatelessWidget {
                       : isRestDay
                       ? LinearGradient(
                           colors: [
-                            Colors.amber.shade400,
-                            Colors.orange.shade300,
+                            Colors.amber.shade400.withOpacity(0.8),
+                            Colors.orange.shade300.withOpacity(0.8),
                           ],
                         )
                       : const LinearGradient(
@@ -2332,6 +2268,53 @@ class _CalendarSheetState extends State<_CalendarSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A small pill-shaped chip used in the empty state to highlight features.
+class _FeatureChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+
+  const _FeatureChip({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: isDark
+            ? const Color(0xFF6366F1).withOpacity(0.12)
+            : const Color(0xFF6366F1).withOpacity(0.08),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF6366F1)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? const Color(0xFF6366F1).withOpacity(0.9)
+                  : const Color(0xFF4F46E5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

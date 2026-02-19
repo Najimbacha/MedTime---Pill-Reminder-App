@@ -67,9 +67,20 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
           return const SizedBox.shrink();
         }
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
         return Container(
           width: double.infinity,
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -78,18 +89,26 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 4,
+                  vertical: 6,
                 ),
-                color: Colors.amber.shade50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF3B3B5A), const Color(0xFF2A2A40)]
+                        : [Colors.amber.shade50, Colors.amber.shade100],
+                  ),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.stars_rounded,
                       size: 14,
-                      color: Colors.amber.shade800,
+                      color: isDark
+                          ? Colors.amber.shade300
+                          : Colors.amber.shade800,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -103,9 +122,11 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
                         'Remove Ads with Premium',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade900,
-                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? Colors.amber.shade300
+                              : Colors.amber.shade900,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -114,12 +135,14 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
               ),
 
               // The Actual Ad
-              SizedBox(
-                height: _bannerAd!.size.height.toDouble(),
-                width: _bannerAd!.size.width.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: SizedBox(
+                  height: _bannerAd!.size.height.toDouble(),
+                  width: _bannerAd!.size.width.toDouble(),
+                  child: AdWidget(ad: _bannerAd!),
+                ),
               ),
-              const SizedBox(height: 4),
             ],
           ),
         );

@@ -21,6 +21,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     
+    <!-- Billing for RevenueCat -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+    
     <application
         android:label="MedTime"
         android:name="${applicationName}"
@@ -59,7 +62,8 @@
             android:value="ca-app-pub-3940256099942544~3347511713"/>
         
         <!-- Notification receivers for flutter_local_notifications -->
-        <receiver android:exported="false" 
+        <!-- exported=true required on Android 12+ for system to deliver alarms -->
+        <receiver android:exported="true" 
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" 
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
@@ -70,6 +74,8 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+        <receiver android:exported="true"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

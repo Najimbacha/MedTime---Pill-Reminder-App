@@ -16,7 +16,8 @@ import '../providers/schedule_provider.dart';
 import '../services/interaction_service.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/common_medicines.dart';
-import '../utils/time_picker_sheet.dart';
+import '../services/ad_service.dart';
+import '../providers/subscription_provider.dart';
 
 /// Screen for adding or editing a medicine
 class AddEditMedicineScreen extends StatefulWidget {
@@ -143,6 +144,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
 
     _nameController.addListener(_checkForInteractions);
+
+    // Preload Interstitial Ad for Free Users
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final subscription = context.read<SubscriptionProvider>();
+        if (!subscription.isPremium) {
+          AdService.instance.loadInterstitialAd();
+        }
+      }
+    });
   }
 
   void _parseDosage(String dosage) {
@@ -2409,6 +2420,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       if (mounted) {
         await HapticHelper.success();
         setState(() => _isSaving = false);
+
+        // Show Interstitial Ad for Free Users before popping
+        final subscription = context.read<SubscriptionProvider>();
+        AdService.instance.showInterstitialAd(
+          isPremium: subscription.isPremium,
+        );
+
         Navigator.pop(context);
         final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(

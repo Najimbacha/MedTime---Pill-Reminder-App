@@ -1,10 +1,5 @@
 /// Frequency types for medicine schedules
-enum FrequencyType {
-  daily,
-  specificDays,
-  interval,
-  asNeeded,
-}
+enum FrequencyType { daily, specificDays, interval, asNeeded }
 
 /// Represents a schedule for taking a medicine
 class Schedule {
@@ -34,20 +29,21 @@ class Schedule {
     return frequencyDays!.split(',').map((e) => int.parse(e.trim())).toList();
   }
 
-  /// Check if schedule should trigger today
-  bool shouldTriggerToday() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekday = now.weekday; // 1=Monday, 7=Sunday
+  /// Check if schedule should trigger on a specific date
+  bool shouldTriggerOnDate(DateTime date) {
+    final checkDate = DateTime(date.year, date.month, date.day);
+    final weekday = checkDate.weekday; // 1=Monday, 7=Sunday
 
     // Check date range if provided
     if (startDate != null) {
       final start = DateTime.parse(startDate!);
-      if (today.isBefore(start)) return false;
+      final startDateOnly = DateTime(start.year, start.month, start.day);
+      if (checkDate.isBefore(startDateOnly)) return false;
     }
     if (endDate != null) {
       final end = DateTime.parse(endDate!);
-      if (today.isAfter(end)) return false;
+      final endDateOnly = DateTime(end.year, end.month, end.day);
+      if (checkDate.isAfter(endDateOnly)) return false;
     }
 
     switch (frequencyType) {
@@ -58,12 +54,16 @@ class Schedule {
       case FrequencyType.interval:
         if (intervalDays == null || startDate == null) return true;
         final start = DateTime.parse(startDate!);
-        final diff = now.difference(start).inDays;
+        final startDateOnly = DateTime(start.year, start.month, start.day);
+        final diff = checkDate.difference(startDateOnly).inDays;
         return diff % intervalDays! == 0;
       case FrequencyType.asNeeded:
         return true;
     }
   }
+
+  /// Check if schedule should trigger today
+  bool shouldTriggerToday() => shouldTriggerOnDate(DateTime.now());
 
   /// Get next scheduled DateTime (today or next valid day)
   DateTime? getNextScheduledTime() {
@@ -134,9 +134,13 @@ class Schedule {
     for (int i = 0; i < 7; i++) {
       next = from.add(Duration(days: i + 1));
       if (days.contains(next.weekday)) {
-        return DateTime(next.year, next.month, next.day, 
-            int.parse(timeOfDay.split(':')[0]), 
-            int.parse(timeOfDay.split(':')[1]));
+        return DateTime(
+          next.year,
+          next.month,
+          next.day,
+          int.parse(timeOfDay.split(':')[0]),
+          int.parse(timeOfDay.split(':')[1]),
+        );
       }
     }
     return from; // Fallback
@@ -145,15 +149,19 @@ class Schedule {
   /// Get next interval day for scheduling
   DateTime _getNextIntervalDay(DateTime from) {
     if (intervalDays == null || startDate == null) return from;
-    
+
     final start = DateTime.parse(startDate!);
     final daysSinceStart = from.difference(start).inDays;
     final daysUntilNext = intervalDays! - (daysSinceStart % intervalDays!);
-    
+
     final next = from.add(Duration(days: daysUntilNext));
-    return DateTime(next.year, next.month, next.day,
-        int.parse(timeOfDay.split(':')[0]),
-        int.parse(timeOfDay.split(':')[1]));
+    return DateTime(
+      next.year,
+      next.month,
+      next.day,
+      int.parse(timeOfDay.split(':')[0]),
+      int.parse(timeOfDay.split(':')[1]),
+    );
   }
 
   /// Get human-readable frequency description

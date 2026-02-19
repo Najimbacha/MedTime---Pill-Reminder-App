@@ -2,9 +2,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io' show Platform;
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'database_helper.dart';
 import '../models/log.dart';
+import '../models/schedule.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(
@@ -46,23 +49,40 @@ void notificationTapBackground(
         String? name = parts.length > 1 ? parts[1] : 'Medicine';
         String? dosage = parts.length > 2 ? parts[2] : '';
 
-        // Re-schedule
-        const androidDetails = AndroidNotificationDetails(
-          'medicine_reminders',
-          'Medicine Reminders',
-          channelDescription: 'Notifications for medicine reminders',
+        // Re-schedule snooze with premium styling
+        final androidDetails = AndroidNotificationDetails(
+          'critical_medicine_channel',
+          'Critical Medicine Alerts',
+          channelDescription: 'High priority alerts for medication reminders',
           importance: Importance.max,
           priority: Priority.max,
+          largeIcon: const DrawableResourceAndroidBitmap(
+            '@mipmap/launcher_icon',
+          ),
+          color: const Color(0xFF5B5BD6),
+          colorized: false,
           playSound: true,
           enableVibration: true,
           fullScreenIntent: true,
           category: AndroidNotificationCategory.alarm,
           visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+          styleInformation: BigTextStyleInformation(
+            '⏰ Snoozed — Dosage: $dosage',
+            contentTitle: '💊 Time to take $name',
+            summaryText: 'MedTime Reminder',
+            htmlFormatContent: false,
+            htmlFormatTitle: false,
+          ),
           actions: [
-            AndroidNotificationAction('take', 'Take', showsUserInterface: true),
+            AndroidNotificationAction(
+              'take',
+              '✅ Take Now',
+              showsUserInterface: true,
+            ),
             AndroidNotificationAction(
               'snooze',
-              'Snooze 10min',
+              '⏰ Snooze Again',
               showsUserInterface: false,
             ),
           ],
@@ -177,12 +197,18 @@ class NotificationService {
 
   /// Initialize notification service
   Future<void> initialize() async {
-    // Initialize timezone database
+    // Initialize timezone database and set local timezone
     tz.initializeTimeZones();
+    try {
+      final localTimezone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(localTimezone.identifier));
+    } catch (e) {
+      debugPrint('⚠️ Could not get local timezone: $e');
+    }
 
-    // Android initialization settings
+    // Android initialization settings — use app icon for status bar
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      '@drawable/ic_notification',
     );
 
     // iOS initialization settings
@@ -214,12 +240,10 @@ class NotificationService {
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(
           const AndroidNotificationChannel(
-            'critical_medicine_channel', // id
-            'Critical Medicine Alerts', // title
-            description:
-                'High priority alerts for medication reminders with custom sound',
+            'critical_medicine_channel',
+            'Critical Medicine Alerts',
+            description: 'High priority alerts for medication reminders',
             importance: Importance.max,
-            sound: RawResourceAndroidNotificationSound('alert'),
             playSound: true,
             enableVibration: true,
           ),
@@ -331,37 +355,68 @@ class NotificationService {
   }
 
   /// Schedule a medicine reminder notification
+  /// [frequencyType] controls repeat behaviour:
+  ///  - daily   → fires every day at same time (no manual reschedule needed)
+  ///  - specificDays → fires every week on that same day+time
+  ///  - interval / asNeeded / null → one-shot exact alarm
   Future<void> scheduleMedicineReminder({
     required int notificationId,
     required int medicineId,
     required String medicineName,
     required String dosage,
     required DateTime scheduledTime,
+    FrequencyType? frequencyType,
   }) async {
-    // Create notification details with actions and custom sound
+    // Choose repeat component
+    DateTimeComponents? matchComponents;
+    if (frequencyType == FrequencyType.daily) {
+      matchComponents = DateTimeComponents.time;
+    } else if (frequencyType == FrequencyType.specificDays) {
+      matchComponents = DateTimeComponents.dayOfWeekAndTime;
+    }
+
+    // Build smart body text — don't show empty dosage
+    final hasDosage = dosage.trim().isNotEmpty;
+    final collapsedBody = hasDosage
+        ? '$dosage • Tap to confirm or snooze'
+        : 'Tap “Take Now” to confirm or snooze for 10 min';
+    final expandedBody = hasDosage
+        ? 'Dosage: $dosage\n\nTap “Take Now” to log this dose, or snooze for 10 minutes.'
+        : 'Tap “Take Now” to log this dose, or snooze for 10 minutes.';
+
+    // Create notification details with a pill capsule icon and clear text
     final androidDetails = AndroidNotificationDetails(
-      'critical_medicine_channel', // Use the critical channel
+      'critical_medicine_channel',
       'Critical Medicine Alerts',
       channelDescription: 'High priority alerts for medication reminders',
       importance: Importance.max,
       priority: Priority.max,
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+      color: const Color(0xFF5B5BD6),
+      colorized: false,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('alert'),
       enableVibration: true,
-      fullScreenIntent: true, // Critical alert behavior
+      fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
-      audioAttributesUsage:
-          AudioAttributesUsage.alarm, // Bypass some DND settings
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      // Rich expanded notification
+      styleInformation: BigTextStyleInformation(
+        expandedBody,
+        contentTitle: '💊 $medicineName — Time to take it!',
+        summaryText: 'MedTime • Reminder',
+        htmlFormatContent: false,
+        htmlFormatTitle: false,
+      ),
       actions: [
         const AndroidNotificationAction(
           'take',
-          'Take',
+          '✅ Take Now',
           showsUserInterface: true,
         ),
         const AndroidNotificationAction(
           'snooze',
-          'Snooze 10min',
+          '⏰ Snooze 10 min',
           showsUserInterface: false,
         ),
       ],
@@ -372,7 +427,6 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      sound: 'alert.mp3',
     );
 
     final notificationDetails = NotificationDetails(
@@ -383,13 +437,19 @@ class NotificationService {
     // Schedule notification
     await _notifications.zonedSchedule(
       notificationId,
-      'Time to take $medicineName',
-      'Dosage: $dosage',
+      '💊 $medicineName',
+      collapsedBody,
       tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: matchComponents,
       payload:
           '$medicineId|$medicineName|$dosage|${scheduledTime.toIso8601String()}',
+    );
+
+    debugPrint(
+      '🔔 Scheduled: $medicineName at $scheduledTime '
+      '(id=$notificationId, repeat=${matchComponents?.name ?? "one-shot"})',
     );
   }
 

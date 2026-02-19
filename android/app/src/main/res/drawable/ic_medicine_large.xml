@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Colored pill capsule icon for use as notification largeIcon.
+  Unlike the small icon, the large icon CAN have colors.
+  Design: upright capsule, white upper half, indigo-blue lower half — matching MedTime branding.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+  <!-- Indigo-blue lower half of pill -->
+  <path
+      android:fillColor="#5B5BD6"
+      android:pathData="M14,24 L14,36 C14,41.523 18.477,46 24,46 C29.523,46 34,41.523 34,36 L34,24 Z"/>
+
+  <!-- White upper half of pill -->
+  <path
+      android:fillColor="#F0F4FF"
+      android:pathData="M34,24 L34,12 C34,6.477 29.523,2 24,2 C18.477,2 14,6.477 14,12 L14,24 Z"/>
+
+  <!-- Subtle dividing line between halves -->
+  <path
+      android:fillColor="#C4C8F5"
+      android:pathData="M14,23 L34,23 L34,25 L14,25 Z"/>
+
+  <!-- Small clock dots in lower blue half to indicate time/reminder -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.7"
+      android:pathData="M24,33 m-3,0 a3,3 0,0 1,6,0 a3,3 0,0 1,-6,0Z"/>
+
+  <path
+      android:fillColor="#5B5BD6"
+      android:pathData="M24,33 m-1.8,0 a1.8,1.8 0,0 1,3.6,0 a1.8,1.8 0,0 1,-3.6,0Z"/>
+
+  <!-- Clock hands -->
+  <path
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="1.2"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M24,33 L23,31.5"/>
+
+  <path
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="1.2"
+      android:strokeLineCap="round"
+      android:fillColor="#00000000"
+      android:pathData="M24,33 L25.5,32"/>
+
+</vector>

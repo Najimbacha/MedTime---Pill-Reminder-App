@@ -7,6 +7,7 @@ import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
+import '../widgets/mesh_gradient_background.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -114,17 +115,13 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFE3F2FD), // Light Blue
-              Colors.white,
-            ],
-          ),
-        ),
+      body: MeshGradientBackground(
+        colors: const [
+          Color(0xFF020617), // Deep Slate/Black
+          Color(0xFF1E293B), // Slate 800
+          Color(0xFF4F46E5), // Indigo 600
+          Color(0xFF6366F1), // Indigo 500
+        ],
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -139,34 +136,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Dynamic Shadow
-                          Transform.translate(
-                            offset: const Offset(0, 60), // Below the icon
-                            child: Container(
-                              width:
-                                  100 +
-                                  (_floatAnimation.value *
-                                      1.5), // Shrink when going up
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(
-                                  0.1 + (_floatAnimation.value * 0.002),
-                                ), // Fade when going up
-                                borderRadius: BorderRadius.circular(100),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius:
-                                        20 -
-                                        (_floatAnimation.value *
-                                            0.5), // Blur more when going up
-                                    spreadRadius: 5,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // 3D Icon Container
+                          // 3D Icon Container with Shimmer
                           Container(
                             width: 180,
                             height: 180,
@@ -174,39 +144,50 @@ class _SplashScreenState extends State<SplashScreen>
                               borderRadius: BorderRadius.circular(40),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.blue.withOpacity(0.2),
-                                  blurRadius: 30,
-                                  offset: const Offset(0, 15),
+                                  color: const Color(
+                                    0xFF6366F1,
+                                  ).withOpacity(0.3),
+                                  blurRadius: 40,
+                                  spreadRadius: 5,
+                                  offset: const Offset(0, 10),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(40),
-                              child: Image.asset(
-                                'assets/images/splash_icon.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          // Shiny Overlay (Simulated Reflection)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              width: 180,
-                              height: 180,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(40),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topRight,
-                                  end: Alignment.bottomLeft,
-                                  colors: [
-                                    Colors.white.withOpacity(0.4),
-                                    Colors.transparent,
-                                    Colors.transparent,
-                                  ],
-                                  stops: const [0.0, 0.4, 1.0],
-                                ),
+                              child: Stack(
+                                children: [
+                                  Image.asset(
+                                    'assets/images/splash_icon.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                  // Shimmering reflection
+                                  Positioned.fill(
+                                    child: AnimatedBuilder(
+                                      animation: _controller,
+                                      builder: (context, child) {
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Colors.white.withOpacity(0.0),
+                                                Colors.white.withOpacity(0.2),
+                                                Colors.white.withOpacity(0.0),
+                                              ],
+                                              stops: [
+                                                0.0,
+                                                _controller.value,
+                                                1.0,
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -217,7 +198,7 @@ class _SplashScreenState extends State<SplashScreen>
                 },
               ),
               const SizedBox(height: 60),
-              // Text Fade In
+              // Premium Typography
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0.0, end: 1.0),
                 duration: const Duration(seconds: 1),
@@ -235,20 +216,19 @@ class _SplashScreenState extends State<SplashScreen>
                   children: [
                     Text(
                       'MedTime',
-                      style: Theme.of(context).textTheme.headlineLarge
-                          ?.copyWith(
-                            color: const Color(0xFF1976D2),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 36,
-                            letterSpacing: 1.2,
-                          ),
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
-                      'Your Personal Pill Companion',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey[600],
-                        fontSize: 16,
+                      'SMART • SECURE • PRIVATE',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white.withOpacity(0.6),
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

@@ -1,196 +1,97 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
-import '../core/theme/app_radius.dart';
-import '../core/theme/app_text_styles.dart';
 
-class SettingsCard extends StatefulWidget {
-  final String? title;
-  final String? subtitle;
-  final List<Widget> children;
-  final bool initiallyExpanded;
+// ──────────────────────────────────────────────────────────
+// SECTION LABEL — thin uppercase label above a group
+// ──────────────────────────────────────────────────────────
+class SettingsSectionLabel extends StatelessWidget {
+  final String title;
+  final IconData? icon;
 
-  const SettingsCard({
-    super.key,
-    this.title,
-    this.subtitle,
-    required this.children,
-    this.initiallyExpanded = false,
-  });
-
-  @override
-  State<SettingsCard> createState() => _SettingsCardState();
-}
-
-class _SettingsCardState extends State<SettingsCard>
-    with SingleTickerProviderStateMixin {
-  late bool _isExpanded;
-  late AnimationController _controller;
-  late Animation<double> _iconTurns;
-  late Animation<double> _heightFactor;
-
-  @override
-  void initState() {
-    super.initState();
-    _isExpanded = widget.initiallyExpanded;
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _iconTurns = Tween<double>(begin: 0.0, end: 0.5).animate(_controller);
-    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeIn));
-
-    if (_isExpanded) {
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-      if (_isExpanded) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    });
-  }
+  const SettingsSectionLabel({super.key, required this.title, this.icon});
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: AppColors.primary.withOpacity(0.7)),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              color: isDark ? Colors.white38 : Colors.black38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+// ──────────────────────────────────────────────────────────
+// SETTINGS GROUP — flat card, no collapse, clean separator lines
+// ──────────────────────────────────────────────────────────
+class SettingsGroup extends StatelessWidget {
+  final List<Widget> children;
+
+  const SettingsGroup({super.key, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surface1Dark : Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : AppColors.borderLight.withOpacity(0.6),
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.06),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
-          // Header
-          if (widget.title != null)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _handleTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 18,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.title!,
-                              style: AppTextStyles.labelMedium.copyWith(
-                                color: isDark
-                                    ? AppColors.textSecondaryDark
-                                    : AppColors.textSecondaryLight,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (widget.subtitle != null && !_isExpanded) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                widget.subtitle!,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: isDark
-                                      ? Colors.white38
-                                      : Colors.grey[500],
-                                  fontSize: 11,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      RotationTransition(
-                        turns: _iconTurns,
-                        child: Icon(
-                          Icons.expand_more_rounded,
-                          color: isDark ? Colors.white54 : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Padding(
+                padding: const EdgeInsets.only(left: 68),
+                child: Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: isDark
+                      ? Colors.white.withOpacity(0.06)
+                      : Colors.black.withOpacity(0.07),
                 ),
               ),
-            ),
-
-          // Body
-          AnimatedBuilder(
-            animation: _controller.view,
-            builder: (BuildContext context, Widget? child) {
-              return ClipRect(
-                child: Align(heightFactor: _heightFactor.value, child: child),
-              );
-            },
-            child: Column(
-              children: [
-                if (widget.title != null)
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : AppColors.borderLight.withOpacity(0.5),
-                  ),
-
-                for (int i = 0; i < widget.children.length; i++) ...[
-                  widget.children[i],
-                  if (i < widget.children.length - 1)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 60,
-                        right: 20,
-                      ), // Indented divider
-                      child: Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : AppColors.borderLight.withOpacity(0.5),
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
+// ──────────────────────────────────────────────────────────
+// SETTINGS TILE — the core row widget
+// ──────────────────────────────────────────────────────────
 class SettingsTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -217,52 +118,55 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveColor = isDestructive ? AppColors.error : iconColor;
+    final textColor = isDestructive
+        ? AppColors.error
+        : (isDark ? Colors.white : const Color(0xFF1C1C1E));
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: isLoading ? null : onTap,
+        splashColor: effectiveColor.withOpacity(0.06),
+        highlightColor: effectiveColor.withOpacity(0.03),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [
-              // Modern Icon Container (Squircle)
+              // Icon pill
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  color: effectiveColor.withOpacity(isDark ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(child: Icon(icon, color: iconColor, size: 22)),
+                child: Icon(icon, color: effectiveColor, size: 20),
               ),
-              const SizedBox(width: 16),
-              // Text Content
+              const SizedBox(width: 14),
+              // Labels
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: isDestructive
-                            ? AppColors.error
-                            : (isDark
-                                  ? AppColors.textPrimaryDark
-                                  : AppColors.textPrimaryLight),
+                      style: TextStyle(
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w600,
+                        color: textColor,
+                        letterSpacing: -0.2,
                       ),
-                      maxLines: 1,
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         subtitle!,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: isDark
-                              ? AppColors.textSecondaryDark
-                              : AppColors.textSecondaryLight,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                          fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -272,24 +176,25 @@ class SettingsTile extends StatelessWidget {
                 ),
               ),
               // Trailing
-              if (isLoading) ...[
-                const SizedBox(width: 8),
-                const SizedBox(
+              if (isLoading)
+                SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ] else if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ] else if (showChevron && onTap != null) ...[
-                const SizedBox(width: 8),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: effectiveColor,
+                  ),
+                )
+              else if (trailing != null)
+                trailing!
+              else if (showChevron && onTap != null)
                 Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: isDark ? Colors.white30 : Colors.black26,
-                  size: 16,
+                  Icons.chevron_right_rounded,
+                  color: isDark
+                      ? Colors.white24
+                      : Colors.black.withOpacity(0.2),
+                  size: 20,
                 ),
-              ],
             ],
           ),
         ),
@@ -298,8 +203,12 @@ class SettingsTile extends StatelessWidget {
   }
 }
 
+// ──────────────────────────────────────────────────────────
+// QUICK ACTION CARD — gradient card for featured actions
+// ──────────────────────────────────────────────────────────
 class QuickActionCard extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final IconData icon;
   final List<Color> gradientColors;
   final VoidCallback onTap;
@@ -308,6 +217,7 @@ class QuickActionCard extends StatelessWidget {
   const QuickActionCard({
     super.key,
     required this.title,
+    this.subtitle,
     required this.icon,
     required this.gradientColors,
     required this.onTap,
@@ -320,55 +230,72 @@ class QuickActionCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 110, // Decreased height from 130 to 110
+          height: 100,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: gradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24), // Softer corners
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ), // Glass hint
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: gradientColors[0].withOpacity(0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-                spreadRadius: -2,
+                color: gradientColors[0].withOpacity(0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
               ),
             ],
           ),
           child: Stack(
             children: [
+              // Soft white overlay gleam
+              Positioned(
+                top: -20,
+                right: -10,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.08),
+                  ),
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 24),
-                    ),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                    Icon(icon, color: Colors.white, size: 26),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        if (subtitle != null)
+                          Text(
+                            subtitle!,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (badge != null) Positioned(top: 12, right: 12, child: badge!),
+              if (badge != null) Positioned(top: 10, right: 10, child: badge!),
             ],
           ),
         ),
@@ -377,11 +304,15 @@ class QuickActionCard extends StatelessWidget {
   }
 }
 
+// ──────────────────────────────────────────────────────────
+// SETTINGS HEADER — full-width hero profile card
+// ──────────────────────────────────────────────────────────
 class SettingsHeader extends StatelessWidget {
   final String? name;
   final String? email;
   final String? photoUrl;
   final bool isPremium;
+  final bool isSignedIn;
   final VoidCallback? onTap;
 
   const SettingsHeader({
@@ -390,202 +321,316 @@ class SettingsHeader extends StatelessWidget {
     this.email,
     this.photoUrl,
     this.isPremium = false,
+    this.isSignedIn = false,
     this.onTap,
   });
 
   String _getInitials() {
     if (name != null && name!.isNotEmpty) {
-      final parts = name!.split(' ');
-      if (parts.length > 1) {
-        return parts[0][0] + parts[1][0];
-      }
-      return name![0];
+      final parts = name!.trim().split(' ');
+      if (parts.length > 1) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      return name![0].toUpperCase();
     }
     return '?';
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final goldGradient = const LinearGradient(
-      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-    );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.surface1Dark : Colors.white,
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
           borderRadius: BorderRadius.circular(24),
-          border: isPremium
-              ? Border.all(
-                  color: const Color(0xFFFFD700).withOpacity(0.5),
-                  width: 1.5,
-                )
-              : Border.all(
-                  color: isDark
-                      ? Colors.white10
-                      : Colors.black.withOpacity(0.05),
-                  width: 1,
-                ),
+          border: Border.all(
+            color: isPremium
+                ? const Color(0xFFFFD700).withOpacity(0.5)
+                : (isDark
+                      ? Colors.white.withOpacity(0.06)
+                      : Colors.black.withOpacity(0.06)),
+            width: isPremium ? 1.5 : 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: isPremium
-                  ? const Color(0xFFFFD700).withOpacity(0.15)
-                  : Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-              blurRadius: 16,
+                  ? const Color(0xFFFFD700).withOpacity(0.12)
+                  : Colors.black.withOpacity(isDark ? 0.25 : 0.06),
+              blurRadius: 24,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Row(
-          children: [
-            // Avatar
-            Stack(
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isPremium ? goldGradient : null,
-                    color: isDark ? Colors.white10 : Colors.grey[200],
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(2),
-                    child: ClipOval(
-                      child: photoUrl != null
-                          ? Image.network(photoUrl!, fit: BoxFit.cover)
-                          : Container(
-                              color: AppColors.primary.withOpacity(0.1),
-                              child: Center(
-                                child: Text(
-                                  _getInitials(),
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                    ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Column(
+            children: [
+              // Gradient banner
+              Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isPremium
+                        ? [const Color(0xFFB8860B), const Color(0xFFFFD700)]
+                        : [AppColors.primary, const Color(0xFF8B5CF6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-                if (isPremium)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        gradient: goldGradient,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark
-                              ? const Color(0xFF1E1E1E)
-                              : Colors.white,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 4,
+              ),
+
+              // Content row
+              Transform.translate(
+                offset: const Offset(0, -20),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Column(
+                    children: [
+                      // Avatar
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF1C1C1E)
+                                    : Colors.white,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: photoUrl != null
+                                  ? Image.network(photoUrl!, fit: BoxFit.cover)
+                                  : Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: isPremium
+                                              ? [
+                                                  const Color(0xFFB8860B),
+                                                  const Color(0xFFFFD700),
+                                                ]
+                                              : [
+                                                  AppColors.primary,
+                                                  const Color(0xFF8B5CF6),
+                                                ],
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _getInitials(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 22,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const Spacer(),
+                          // CTA chip
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.08)
+                                  : Colors.black.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isSignedIn
+                                      ? Icons.manage_accounts_rounded
+                                      : Icons.login_rounded,
+                                  size: 15,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isSignedIn ? 'Manage' : 'Sign In',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.star_rounded,
-                        color: Colors.white,
-                        size: 10,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          name ?? 'User',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? AppColors.textPrimaryDark
-                                : AppColors.textPrimaryLight,
-                            letterSpacing: -0.5,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+
+                      const SizedBox(height: 12),
+
+                      // Name + email
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  name ?? (isSignedIn ? 'User' : 'Guest'),
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF111827),
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                if (isPremium) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFFD700),
+                                          Color(0xFFFFA500),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Text(
+                                      'PRO',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (email != null && email!.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                email!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ] else if (!isSignedIn) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                'Tap to sign in and sync your data',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black38,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (isPremium) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withOpacity(0.2),
-                            border: Border.all(
-                              color: const Color(0xFFFFD700),
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'PRO',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFB8860B), // Dark Gold text
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 20),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    email ?? '',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark
-                          ? AppColors.textSecondaryDark
-                          : AppColors.textSecondaryLight,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: isDark ? Colors.white30 : Colors.black26,
-              size: 16,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+// ──────────────────────────────────────────────────────────
+// STATUS BADGE — small inline status chip
+// ──────────────────────────────────────────────────────────
+class StatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool outline;
+
+  const StatusBadge({
+    super.key,
+    required this.label,
+    required this.color,
+    this.outline = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: outline ? Colors.transparent : color.withOpacity(0.12),
+        border: outline ? Border.all(color: color, width: 1) : null,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// LEGACY COMPAT — keep old SettingsCard for any other callers
+// ──────────────────────────────────────────────────────────
+// ignore: deprecated_member_use_from_same_package
+@Deprecated('Use SettingsGroup instead')
+class SettingsCard extends StatelessWidget {
+  final String? title;
+  final String? subtitle;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+
+  const SettingsCard({
+    super.key,
+    this.title,
+    this.subtitle,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => SettingsGroup(children: children);
 }
