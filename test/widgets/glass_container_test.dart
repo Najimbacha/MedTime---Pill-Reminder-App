@@ -1,7 +1,6 @@
-/// Widget tests for GlassContainer
-/// Tests the glassmorphism container component
+// Widget tests for GlassContainer
+// Tests the glassmorphism container component
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:privacy_meds/widgets/glass_container.dart';
@@ -97,7 +96,7 @@ void main() {
         await tester.pumpWidget(
           createWidgetUnderTest(
             child: const Text('Custom Color'),
-            color: Colors.red.withOpacity(0.2),
+            color: Colors.red.withValues(alpha: 0.2),
           ),
         );
 

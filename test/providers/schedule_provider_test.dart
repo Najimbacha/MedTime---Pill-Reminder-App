@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart'; // For TimeOfDay
-import 'package:flutter/foundation.dart';
 import 'package:privacy_meds/providers/schedule_provider.dart';
 import 'package:privacy_meds/models/schedule.dart';
 import 'package:privacy_meds/models/medicine.dart';
@@ -10,7 +8,7 @@ import 'package:privacy_meds/services/notification_service.dart';
 // ==================== MOCKS ====================
 
 class MockDatabaseHelper implements DatabaseHelper {
-  List<Schedule> _schedules = [];
+  final List<Schedule> _schedules = [];
   int _idCounter = 1;
 
   @override

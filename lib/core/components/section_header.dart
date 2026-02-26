@@ -8,10 +8,10 @@ class SectionHeader extends StatelessWidget {
   final Widget? trailing;
 
   const SectionHeader({
-    Key? key,
+    super.key,
     required this.title,
     this.trailing,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class SectionHeader extends StatelessWidget {
             color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
           ),
         ),
-        if (trailing != null) trailing!,
+        trailing ?? const SizedBox.shrink(),
       ],
     );
   }

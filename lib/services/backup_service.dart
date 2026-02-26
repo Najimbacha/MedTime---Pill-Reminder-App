@@ -36,9 +36,11 @@ class BackupService {
       final file = File('${dir.path}/$fileName');
       await file.writeAsString(encrypted);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'MedTime Encrypted Backup',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'MedTime Encrypted Backup',
+        ),
       );
     } catch (e) {
       debugPrint('Backup failed: $e');

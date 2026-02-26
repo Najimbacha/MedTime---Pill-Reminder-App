@@ -14,7 +14,7 @@ class CabinetScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -35,7 +35,7 @@ class CabinetScreen extends StatelessWidget {
       body: Consumer<MedicineProvider>(
         builder: (context, provider, child) {
           final medicines = provider.medicines;
-          
+
           if (medicines.isEmpty) {
             return Center(
               child: EmptyStateWidget(
@@ -58,7 +58,8 @@ class CabinetScreen extends StatelessWidget {
                 child: _AppleMedicineCard(
                   medicine: medicine,
                   isDark: isDark,
-                  onTap: () => _navigateToAddMedicine(context, medicine: medicine),
+                  onTap: () =>
+                      _navigateToAddMedicine(context, medicine: medicine),
                 ),
               );
             },
@@ -72,7 +73,9 @@ class CabinetScreen extends StatelessWidget {
           backgroundColor: Theme.of(context).primaryColor,
           elevation: 6,
           highlightElevation: 10,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           label: const Text(
             'Add Medicine',
             style: TextStyle(
@@ -87,8 +90,10 @@ class CabinetScreen extends StatelessWidget {
     );
   }
 
-
-  void _navigateToAddMedicine(BuildContext context, {Medicine? medicine}) async {
+  void _navigateToAddMedicine(
+    BuildContext context, {
+    Medicine? medicine,
+  }) async {
     // If editing (medicine != null), allow access always
     if (medicine != null) {
       Navigator.push(
@@ -103,7 +108,7 @@ class CabinetScreen extends StatelessWidget {
     // Adding new medicine: Check limits
     final subscription = context.read<SubscriptionProvider>();
     final medicineProvider = context.read<MedicineProvider>();
-    
+
     if (!subscription.isPremium && medicineProvider.medicines.length >= 3) {
       await Navigator.push(
         context,
@@ -116,9 +121,7 @@ class CabinetScreen extends StatelessWidget {
     if (context.mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => const AddEditMedicineScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const AddEditMedicineScreen()),
       );
     }
   }
@@ -140,25 +143,23 @@ class _AppleMedicineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = medicine.colorValue;
     final isLow = medicine.isLowStock;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12), // Reduced from 16
         decoration: BoxDecoration(
-          color: isDark 
-              ? Colors.white.withOpacity(0.06) 
-              : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark 
-                ? Colors.white.withOpacity(0.08) 
-                : Colors.black.withOpacity(0.04),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -168,14 +169,18 @@ class _AppleMedicineCard extends StatelessWidget {
           children: [
             // 3D Medicine Icon
             Container(
-              width: 58, 
+              width: 58,
               height: 58,
-              padding: const EdgeInsets.all(4), 
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF8FAFC),
+                color: isDark
+                    ? const Color(0xFF1E1E2E)
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? Colors.white10 : Colors.indigo.withOpacity(0.06),
+                  color: isDark
+                      ? Colors.white10
+                      : Colors.indigo.withValues(alpha: 0.06),
                   width: 1,
                 ),
               ),
@@ -183,13 +188,13 @@ class _AppleMedicineCard extends StatelessWidget {
                 _get3DAssetPath(medicine.typeIcon), // Use new 3D mapping
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                    // Fallback to original if 3D missing
-                    return Image.asset(medicine.iconAssetPath); 
+                  // Fallback to original if 3D missing
+                  return Image.asset(medicine.iconAssetPath);
                 },
               ),
             ),
             const SizedBox(width: 14),
-            
+
             // Medicine Details
             Expanded(
               child: Column(
@@ -213,9 +218,12 @@ class _AppleMedicineCard extends StatelessWidget {
                       if (isLow)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: Colors.red.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
@@ -230,17 +238,23 @@ class _AppleMedicineCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  
+
                   // Info Row: Dosage + Stock info
                   Row(
                     children: [
                       // Dosage chip
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: color.withOpacity(0.1), width: 0.5),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.1),
+                            width: 0.5,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -263,49 +277,65 @@ class _AppleMedicineCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      
+
                       // Stock status & Prediction
                       Builder(
                         builder: (context) {
                           // Get prediction
-                          final scheduleProvider = context.watch<ScheduleProvider>();
-                          final refillDate = scheduleProvider.getEstimatedRefillDate(
-                            medicine.id!, 
-                            medicine.currentStock
-                          );
+                          final scheduleProvider = context
+                              .watch<ScheduleProvider>();
+                          final refillDate = scheduleProvider
+                              .getEstimatedRefillDate(
+                                medicine.id!,
+                                medicine.currentStock,
+                              );
 
                           String stockText = '${medicine.currentStock} left';
-                          Color stockColor = isDark ? Colors.white38 : Colors.grey.shade500;
-                          
+                          Color stockColor = isDark
+                              ? Colors.white38
+                              : Colors.grey.shade500;
+
                           if (refillDate != null) {
-                            final daysUntil = refillDate.difference(DateTime.now()).inDays;
-                            
+                            final daysUntil = refillDate
+                                .difference(DateTime.now())
+                                .inDays;
+
                             if (daysUntil <= 0) {
                               stockText = 'Refill Needed Today';
                               stockColor = Colors.red;
                             } else if (daysUntil < 7) {
-                              stockText = 'Empty by ${_getWeekday(refillDate)}'; // "Empty by Tue"
+                              stockText =
+                                  'Empty by ${_getWeekday(refillDate)}'; // "Empty by Tue"
                               stockColor = Colors.orange.shade700;
                             } else if (daysUntil < 30) {
-                              stockText = 'Lasts until ${_getMonthDay(refillDate)}'; // "Lasts until Feb 12"
-                              stockColor = isDark ? Colors.white60 : Colors.grey.shade700;
+                              stockText =
+                                  'Lasts until ${_getMonthDay(refillDate)}'; // "Lasts until Feb 12"
+                              stockColor = isDark
+                                  ? Colors.white60
+                                  : Colors.grey.shade700;
                             }
                           } else if (isLow) {
-                             stockText = '${medicine.currentStock} left (Low)';
-                             stockColor = Colors.red;
+                            stockText = '${medicine.currentStock} left (Low)';
+                            stockColor = Colors.red;
                           }
 
                           return Text(
                             stockText,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: (refillDate != null && refillDate.difference(DateTime.now()).inDays < 7) || isLow
+                              fontWeight:
+                                  (refillDate != null &&
+                                          refillDate
+                                                  .difference(DateTime.now())
+                                                  .inDays <
+                                              7) ||
+                                      isLow
                                   ? FontWeight.bold
                                   : FontWeight.w500,
                               color: stockColor,
                             ),
                           );
-                        }
+                        },
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -320,7 +350,7 @@ class _AppleMedicineCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Chevron
             Icon(
               Icons.chevron_right_rounded,
@@ -332,45 +362,72 @@ class _AppleMedicineCard extends StatelessWidget {
       ),
     );
   }
-  
+
   String _getWeekday(DateTime date) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[date.weekday - 1];
   }
-  
+
   String _getMonthDay(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[date.month - 1]} ${date.day}';
   }
 
   IconData _getTypeIcon(int typeIcon) {
     switch (typeIcon) {
-      case 1: return Icons.medication_rounded;
-      case 2: return Icons.liquor_rounded; // Syrup
-      case 3: return Icons.vaccines_rounded;
-      case 4: return Icons.water_drop_rounded; // Drops/Bottle
-      default: return Icons.medication_rounded;
+      case 1:
+        return Icons.medication_rounded;
+      case 2:
+        return Icons.liquor_rounded; // Syrup
+      case 3:
+        return Icons.vaccines_rounded;
+      case 4:
+        return Icons.water_drop_rounded; // Drops/Bottle
+      default:
+        return Icons.medication_rounded;
     }
   }
 
   String _getTypeName(int typeIcon) {
     switch (typeIcon) {
-      case 1: return 'Pill';
-      case 2: return 'Syrup';
-      case 3: return 'Injection';
-      case 4: return 'Liquid';
-      default: return 'Medicine';
+      case 1:
+        return 'Pill';
+      case 2:
+        return 'Syrup';
+      case 3:
+        return 'Injection';
+      case 4:
+        return 'Liquid';
+      default:
+        return 'Medicine';
     }
   }
 
   String _get3DAssetPath(int typeIcon) {
     switch (typeIcon) {
-      case 1: return 'assets/icons/medicine/3d/tablet.png'; // Pill
-      case 2: return 'assets/icons/medicine/3d/liquid.png'; // Syrup
-      case 3: return 'assets/icons/medicine/3d/injection.png'; // Injection
-      case 4: return 'assets/icons/medicine/3d/drop.png'; // Drops/Liquid
-      default: return 'assets/icons/medicine/3d/tablet.png';
+      case 1:
+        return 'assets/icons/medicine/3d/tablet.png'; // Pill
+      case 2:
+        return 'assets/icons/medicine/3d/liquid.png'; // Syrup
+      case 3:
+        return 'assets/icons/medicine/3d/injection.png'; // Injection
+      case 4:
+        return 'assets/icons/medicine/3d/drop.png'; // Drops/Liquid
+      default:
+        return 'assets/icons/medicine/3d/tablet.png';
     }
   }
 }
-

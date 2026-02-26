@@ -15,6 +15,8 @@ class ScheduleProvider with ChangeNotifier {
 
   List<Schedule> _schedules = [];
   bool _isLoading = false;
+  bool _isRescheduling = false;
+  DateTime? _lastRescheduleAt;
 
   List<Schedule> get schedules => _schedules;
   bool get isLoading => _isLoading;
@@ -122,6 +124,15 @@ class ScheduleProvider with ChangeNotifier {
 
   /// Reschedule all notifications (useful after app restart)
   Future<void> rescheduleAllNotifications(List<Medicine> medicines) async {
+    // Prevent burst calls from re-canceling/recreating alarms repeatedly.
+    if (_isRescheduling) return;
+    final now = DateTime.now();
+    if (_lastRescheduleAt != null &&
+        now.difference(_lastRescheduleAt!) < const Duration(seconds: 30)) {
+      return;
+    }
+
+    _isRescheduling = true;
     try {
       // Cancel all existing notifications
       await _notifications.cancelAllNotifications();
@@ -136,8 +147,11 @@ class ScheduleProvider with ChangeNotifier {
 
         await _scheduleNotification(schedule, medicine);
       }
+      _lastRescheduleAt = now;
     } catch (e) {
       debugPrint('Error rescheduling notifications: $e');
+    } finally {
+      _isRescheduling = false;
     }
   }
 

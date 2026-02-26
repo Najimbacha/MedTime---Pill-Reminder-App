@@ -33,7 +33,8 @@ class Medicine {
     this.rxcui,
   });
 
-  final String? rxcui; // RxNorm Concept Unique Identifier for interaction checks
+  final String?
+  rxcui; // RxNorm Concept Unique Identifier for interaction checks
 
   /// Check if stock is low
   bool get isLowStock => currentStock <= lowStockThreshold;
@@ -117,6 +118,8 @@ class Medicine {
     int? lowStockThreshold,
     int? color,
     String? imagePath,
+    String? pharmacyName,
+    String? pharmacyPhone,
     String? rxcui,
   }) {
     return Medicine(

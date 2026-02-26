@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_radius.dart';
-import '../theme/app_shadows.dart';
-import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 
 enum MedicineStatus { pending, completed, overdue, skipped }
@@ -22,7 +19,7 @@ class MedicineCard extends StatelessWidget {
   final VoidCallback? onSkip;
 
   const MedicineCard({
-    Key? key,
+    super.key,
     required this.name,
     this.dosage,
     required this.color,
@@ -34,7 +31,7 @@ class MedicineCard extends StatelessWidget {
     this.customGradient,
     this.onTake,
     this.onSkip,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +44,7 @@ class MedicineCard extends StatelessWidget {
       ? null
       : LinearGradient(
           colors: isDark 
-            ? [AppColors.surface1Dark, AppColors.surface1Dark.withOpacity(0.8)]
+            ? [AppColors.surface1Dark, AppColors.surface1Dark.withValues(alpha: 0.8)]
             : [Colors.white, Color(0xFFF8FAFC)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -60,7 +57,7 @@ class MedicineCard extends StatelessWidget {
     final List<BoxShadow> boxShadows = customElevation != null
         ? [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
               offset: const Offset(0, 8),
               blurRadius: customElevation!,
             ),
@@ -68,7 +65,7 @@ class MedicineCard extends StatelessWidget {
         : (isPending
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.08),
                     offset: const Offset(0, 10),
                     blurRadius: 20,
                     spreadRadius: -5,
@@ -88,8 +85,8 @@ class MedicineCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24), // Softer corners
           border: Border.all(
             color: isDark 
-               ? Colors.white.withOpacity(0.05) 
-               : AppColors.borderLight.withOpacity(0.6),
+               ? Colors.white.withValues(alpha: 0.05) 
+               : AppColors.borderLight.withValues(alpha: 0.6),
             width: 1,
           ),
           boxShadow: boxShadows,
@@ -104,7 +101,7 @@ class MedicineCard extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(icon, color: color, size: 26),
@@ -160,7 +157,7 @@ class MedicineCard extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           elevation: 4,
-                          shadowColor: AppColors.primary.withOpacity(0.4),
+                          shadowColor: AppColors.primary.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -265,7 +262,7 @@ class MedicineCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         shape: BoxShape.circle,
       ),
       child: Icon(icon, color: color, size: 20),

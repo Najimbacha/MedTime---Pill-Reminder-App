@@ -63,7 +63,7 @@ class MedicineActionSheet extends StatelessWidget {
                 height: 56,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: medicine.colorValue.withOpacity(0.15),
+                  color: medicine.colorValue.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Image.asset(
@@ -101,7 +101,7 @@ class MedicineActionSheet extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withOpacity(0.2),
+                          color: Colors.amber.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -320,7 +320,7 @@ class _SnoozeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
+              ? Colors.white.withValues(alpha: 0.08)
               : const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(

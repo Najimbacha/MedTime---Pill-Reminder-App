@@ -11,11 +11,11 @@ class ProgressRing extends StatefulWidget {
   final double size;
 
   const ProgressRing({
-    Key? key,
+    super.key,
     required this.completed,
     required this.total,
     this.size = 200,
-  }) : super(key: key);
+  });
 
   @override
   State<ProgressRing> createState() => _ProgressRingState();

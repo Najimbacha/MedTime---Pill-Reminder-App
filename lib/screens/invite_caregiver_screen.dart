@@ -87,12 +87,15 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
     if (_invite == null) return;
 
     await HapticHelper.selection();
-    await Share.share(
-      'Join me on MedTime to help track my medication!\n\n'
-      'Download the MedTime app and use this invite code:\n\n'
-      '${_invite!.code}\n\n'
-      'This code expires in 24 hours.',
-      subject: 'MedTime Caregiver Invite',
+    await SharePlus.instance.share(
+      ShareParams(
+        text:
+            'Join me on MedTime to help track my medication!\n\n'
+            'Download the MedTime app and use this invite code:\n\n'
+            '${_invite!.code}\n\n'
+            'This code expires in 24 hours.',
+        subject: 'MedTime Caregiver Invite',
+      ),
     );
   }
 
@@ -179,11 +182,11 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
       color: theme.cardColor,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
           blurRadius: 10,
           offset: const Offset(0, 4),
         ),
@@ -204,7 +207,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withOpacity(0.3),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -236,7 +239,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -274,10 +277,10 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: colorScheme.primary.withOpacity(0.2),
+                  color: colorScheme.primary.withValues(alpha: 0.2),
                   width: 1.5,
                 ),
               ),
@@ -323,7 +326,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                  borderRadius: BorderRadius.circular(16),
                  boxShadow: [
                    BoxShadow(
-                     color: colorScheme.primary.withOpacity(0.3),
+                     color: colorScheme.primary.withValues(alpha: 0.3),
                      blurRadius: 12,
                      offset: const Offset(0, 6),
                    ),
@@ -363,7 +366,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: containerDecoration.copyWith(
-              color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

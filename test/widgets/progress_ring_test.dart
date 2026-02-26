@@ -1,5 +1,5 @@
-/// Widget tests for ProgressRing
-/// Tests the circular progress indicator for adherence display
+// Widget tests for ProgressRing
+// Tests the circular progress indicator for adherence display
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

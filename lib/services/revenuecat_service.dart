@@ -37,7 +37,7 @@ class RevenueCatService {
     try {
       return await Purchases.getCustomerInfo();
     } on PlatformException catch (e) {
-      print('Error fetching customer info: $e');
+      debugPrint('Error fetching customer info: $e');
       return null;
     }
   }
@@ -72,7 +72,7 @@ class RevenueCatService {
     } on PlatformException catch (e) {
       final errorCode = PurchasesErrorHelper.getErrorCode(e);
       if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
-        print('Error purchasing package: $e');
+        debugPrint('Error purchasing package: $e');
       }
       return false;
     }
@@ -83,7 +83,7 @@ class RevenueCatService {
       final customerInfo = await Purchases.restorePurchases();
       return customerInfo.entitlements.all[_entitlementId]?.isActive ?? false;
     } on PlatformException catch (e) {
-      print('Error restoring purchases: $e');
+      debugPrint('Error restoring purchases: $e');
       return false;
     }
   }

@@ -16,14 +16,14 @@ class AppButton extends StatefulWidget {
   final bool fullWidth;
 
   const AppButton({
-    Key? key,
+    super.key,
     required this.text,
     this.onPressed,
     this.type = AppButtonType.primary,
     this.isLoading = false,
     this.icon,
     this.fullWidth = false,
-  }) : super(key: key);
+  });
 
   @override
   State<AppButton> createState() => _AppButtonState();
@@ -31,7 +31,6 @@ class AppButton extends StatefulWidget {
 
 class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -41,9 +40,6 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
       duration: const Duration(milliseconds: 100),
       lowerBound: 0.0,
       upperBound: 0.05, 
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
 

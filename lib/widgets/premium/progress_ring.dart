@@ -39,7 +39,7 @@ class ProgressRing extends StatelessWidget {
             painter: _RingPainter(
               progress: 1.0,
               strokeWidth: strokeWidth,
-              color: backgroundColor.withOpacity(0.2),
+              color: backgroundColor.withValues(alpha: 0.2),
               style: PaintingStyle.stroke,
             ),
           ),
@@ -134,7 +134,7 @@ class _RingPainter extends CustomPainter {
     }
 
     if (opacity < 1.0) {
-      paint.color = paint.color.withOpacity(opacity);
+      paint.color = paint.color.withValues(alpha: opacity);
       // Note: Shader opacity handling is tricky in Paint.
       // For simple glow, we rely on the layer opacity.
     }

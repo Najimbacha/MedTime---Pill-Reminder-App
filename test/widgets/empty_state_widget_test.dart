@@ -1,5 +1,5 @@
-/// Widget tests for EmptyStateWidget
-/// Tests the empty state display for various configurations
+// Widget tests for EmptyStateWidget
+// Tests the empty state display for various configurations
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

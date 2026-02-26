@@ -1,15 +1,14 @@
-/// Integration tests for DatabaseHelper
-/// Uses sqflite_common_ffi to test actual SQLite operations
+// Integration tests for DatabaseHelper
+// Uses sqflite_common_ffi to test actual SQLite operations
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:privacy_meds/models/medicine.dart';
 import 'package:privacy_meds/models/schedule.dart';
 import 'package:privacy_meds/models/log.dart';
 import 'package:privacy_meds/models/snoozed_dose.dart';
 
-/// A testable version of DatabaseHelper that uses an in-memory database
+// A testable version of DatabaseHelper that uses an in-memory database
 class TestableDatabaseHelper {
   Database? _database;
 

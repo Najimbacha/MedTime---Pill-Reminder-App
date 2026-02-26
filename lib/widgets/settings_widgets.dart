@@ -18,7 +18,7 @@ class SettingsSectionLabel extends StatelessWidget {
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 13, color: AppColors.primary.withOpacity(0.7)),
+            Icon(icon, size: 13, color: AppColors.primary.withValues(alpha: 0.7)),
             const SizedBox(width: 6),
           ],
           Text(
@@ -54,13 +54,13 @@ class SettingsGroup extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.06)
-              : Colors.black.withOpacity(0.06),
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.06),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -78,8 +78,8 @@ class SettingsGroup extends StatelessWidget {
                   height: 1,
                   thickness: 0.5,
                   color: isDark
-                      ? Colors.white.withOpacity(0.06)
-                      : Colors.black.withOpacity(0.07),
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.07),
                 ),
               ),
           ],
@@ -128,8 +128,8 @@ class SettingsTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: isLoading ? null : onTap,
-        splashColor: effectiveColor.withOpacity(0.06),
-        highlightColor: effectiveColor.withOpacity(0.03),
+        splashColor: effectiveColor.withValues(alpha: 0.06),
+        highlightColor: effectiveColor.withValues(alpha: 0.03),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
@@ -139,7 +139,7 @@ class SettingsTile extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: effectiveColor.withOpacity(isDark ? 0.18 : 0.1),
+                  color: effectiveColor.withValues(alpha: isDark ? 0.18 : 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: effectiveColor, size: 20),
@@ -192,7 +192,7 @@ class SettingsTile extends StatelessWidget {
                   Icons.chevron_right_rounded,
                   color: isDark
                       ? Colors.white24
-                      : Colors.black.withOpacity(0.2),
+                      : Colors.black.withValues(alpha: 0.2),
                   size: 20,
                 ),
             ],
@@ -240,7 +240,7 @@ class QuickActionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: gradientColors[0].withOpacity(0.35),
+                color: gradientColors[0].withValues(alpha: 0.35),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
                 spreadRadius: -4,
@@ -258,7 +258,7 @@ class QuickActionCard extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -285,7 +285,7 @@ class QuickActionCard extends StatelessWidget {
                           Text(
                             subtitle!,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -347,17 +347,17 @@ class SettingsHeader extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isPremium
-                ? const Color(0xFFFFD700).withOpacity(0.5)
+                ? const Color(0xFFFFD700).withValues(alpha: 0.5)
                 : (isDark
-                      ? Colors.white.withOpacity(0.06)
-                      : Colors.black.withOpacity(0.06)),
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.06)),
             width: isPremium ? 1.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
               color: isPremium
-                  ? const Color(0xFFFFD700).withOpacity(0.12)
-                  : Colors.black.withOpacity(isDark ? 0.25 : 0.06),
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -405,7 +405,7 @@ class SettingsHeader extends StatelessWidget {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
+                                  color: Colors.black.withValues(alpha: 0.15),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -450,8 +450,8 @@ class SettingsHeader extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: isDark
-                                  ? Colors.white.withOpacity(0.08)
-                                  : Colors.black.withOpacity(0.05),
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -595,7 +595,7 @@ class StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: outline ? Colors.transparent : color.withOpacity(0.12),
+        color: outline ? Colors.transparent : color.withValues(alpha: 0.12),
         border: outline ? Border.all(color: color, width: 1) : null,
         borderRadius: BorderRadius.circular(10),
       ),

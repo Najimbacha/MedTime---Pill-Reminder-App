@@ -101,12 +101,12 @@ class _GlassTimelineState extends State<GlassTimeline> {
                     opacity: isSelected ? 0.2 : 0.05,
                     border: isSelected
                         ? Border.all(
-                            color: const Color(0xFF6366F1).withOpacity(0.5),
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                             width: 1.5,
                           )
                         : null,
                     color: isSelected
-                        ? const Color(0xFF6366F1).withOpacity(0.1)
+                        ? const Color(0xFF6366F1).withValues(alpha: 0.1)
                         : Colors.transparent,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -140,7 +140,7 @@ class _GlassTimelineState extends State<GlassTimeline> {
                                     BoxShadow(
                                       color: const Color(
                                         0xFF6366F1,
-                                      ).withOpacity(0.4),
+                                      ).withValues(alpha: 0.4),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),

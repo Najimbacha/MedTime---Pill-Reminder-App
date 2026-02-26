@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../services/notification_service.dart';
-import '../core/theme/app_colors.dart';
 
 class NotificationTroubleshootScreen extends StatefulWidget {
   const NotificationTroubleshootScreen({super.key});
@@ -31,7 +30,6 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
     // Check permissions
     final notif = await Permission.notification.status;
     final alarm = await Permission.scheduleExactAlarm.status;
-    final bat = await Permission.ignoreBatteryOptimizations.status; // status is misleading for this one
     
     // ignoreBatteryOptimizations status logic is tricky with permission_handler headers.
     // It's better to use isIgnoringBatteryOptimizations() directly if available or check status.
@@ -123,10 +121,10 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
   Widget _buildStatusCard() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+        side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

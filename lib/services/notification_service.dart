@@ -109,7 +109,7 @@ void notificationTapBackground(
           payload: payload, // Keep same payload
         );
 
-        print('✅ Snooze scheduled for $scheduledTime in background');
+        debugPrint('✅ Snooze scheduled for $scheduledTime in background');
       } else if (actionId == 'take') {
         final db = DatabaseHelper.instance;
 
@@ -126,12 +126,12 @@ void notificationTapBackground(
               status: LogStatus.take,
             );
             await db.createLog(log);
-            print('✅ Log created in background for medicine $medicineId');
+            debugPrint('✅ Log created in background for medicine $medicineId');
           } catch (e) {
             debugPrint('Error marking medicine as taken from notification: $e');
           }
         } else {
-          print('⚠️ No scheduled time in payload, cannot create log.');
+          debugPrint('⚠️ No scheduled time in payload, cannot create log.');
         }
 
         // 2. Decrement stock
@@ -558,6 +558,31 @@ class NotificationService {
   /// Cancel all notifications
   Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
+  }
+
+  /// Cancel all known notifications belonging to one medicine.
+  Future<void> cancelNotificationsForMedicine({
+    required int medicineId,
+    List<int> scheduleIds = const [],
+  }) async {
+    // Explicit fixed-offset IDs used by this app.
+    await _notifications.cancel(medicineId); // direct reminder ID fallback
+    await _notifications.cancel(medicineId + 10000); // low stock alert
+    await _notifications.cancel(medicineId + 20000); // refill reminder
+    await _notifications.cancel(medicineId + 30000); // low stock warning
+
+    for (final scheduleId in scheduleIds) {
+      await _notifications.cancel(scheduleId);
+    }
+
+    // Payload-based cleanup catches snooze/derived IDs and custom IDs.
+    final pending = await _notifications.pendingNotificationRequests();
+    for (final request in pending) {
+      final payload = request.payload;
+      if (payload != null && payload.startsWith('$medicineId|')) {
+        await _notifications.cancel(request.id);
+      }
+    }
   }
 
   /// Get pending notifications

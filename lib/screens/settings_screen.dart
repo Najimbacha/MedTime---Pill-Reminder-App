@@ -75,8 +75,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       confirmLabel: 'Delete Account',
       confirmColor: AppColors.error,
       onConfirm: () async {
+        final navigator = Navigator.of(context);
         await auth.deleteAccount();
-        if (mounted) Navigator.pop(context);
+        if (!mounted) return;
+        navigator.pop();
       },
     );
   }
@@ -156,8 +158,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   filled: true,
                   fillColor: isDark
-                      ? Colors.white.withOpacity(0.07)
-                      : Colors.black.withOpacity(0.04),
+                      ? Colors.white.withValues(alpha: 0.07)
+                      : Colors.black.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -173,8 +175,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: 'Save',
                 onTap: () {
                   final val = int.tryParse(controller.text);
-                  if (val != null && val >= 0)
+                  if (val != null && val >= 0) {
                     settings.setLowStockThreshold(val);
+                  }
                   Navigator.pop(ctx);
                 },
               ),
@@ -279,7 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.4),
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -345,7 +348,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     color: isDark
                         ? Colors.white30
-                        : Colors.black.withOpacity(0.3),
+                        : Colors.black.withValues(alpha: 0.3),
                     fontSize: 14,
                   ),
                 ),
@@ -361,17 +364,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _performReset() async {
     try {
       final db = DatabaseHelper.instance;
+      final medProvider = Provider.of<MedicineProvider>(context, listen: false);
+      final logProvider = Provider.of<LogProvider>(context, listen: false);
+      final messenger = ScaffoldMessenger.of(context);
       await db.deleteAllData();
       if (mounted) {
-        final medProvider = Provider.of<MedicineProvider>(
-          context,
-          listen: false,
-        );
         for (var med in medProvider.medicines) {
           if (med.id != null) await medProvider.deleteMedicine(med.id!);
         }
-        await Provider.of<LogProvider>(context, listen: false).clearAllLogs();
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        await logProvider.clearAllLogs();
+        if (!mounted) return;
+        messenger.showSnackBar(
           const SnackBar(content: Text('App data reset successfully')),
         );
       }
@@ -381,9 +385,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _generateReport(BuildContext context) async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Generating report…')));
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Generating report…')));
     try {
       final medProvider = Provider.of<MedicineProvider>(context, listen: false);
       final logProvider = Provider.of<LogProvider>(context, listen: false);
@@ -400,10 +403,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         patientName: authProvider.userProfile?.displayName ?? 'Patient',
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-        );
+      if (context.mounted) {
+        messenger.showSnackBar(
+            SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -435,7 +437,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
+                color: iconColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 28),
@@ -584,6 +586,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                           onTap: () async {
                             if (await _checkPremium(context)) {
+                              if (!context.mounted) return;
                               await _generateReport(context);
                             }
                           },
@@ -606,6 +609,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                           onTap: () async {
                             if (await _checkPremium(context)) {
+                              if (!context.mounted) return;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -684,6 +688,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                         onTap: () async {
                           if (await _checkPremium(context)) {
+                            if (!context.mounted) return;
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -749,6 +754,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                         onTap: () async {
                           if (await _checkPremium(context)) {
+                            if (!context.mounted) return;
                             _showBackupSheet(context);
                           }
                         },
@@ -779,6 +785,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             );
                           } else if (await _checkPremium(context)) {
+                            if (!context.mounted) return;
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -882,8 +889,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.white.withOpacity(0.05)
-                                : Colors.black.withOpacity(0.04),
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.black.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -892,7 +899,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Icon(
                                 Icons.medication_rounded,
                                 size: 14,
-                                color: AppColors.primary.withOpacity(0.6),
+                                color: AppColors.primary.withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -902,7 +909,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   fontWeight: FontWeight.w600,
                                   color: isDark
                                       ? Colors.white30
-                                      : Colors.black.withOpacity(0.3),
+                                      : Colors.black.withValues(alpha: 0.3),
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -1002,12 +1009,12 @@ class _ThemeChip extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withOpacity(0.15)
+              ? AppColors.primary.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected
-                ? AppColors.primary.withOpacity(0.5)
+                ? AppColors.primary.withValues(alpha: 0.5)
                 : Colors.transparent,
             width: 1,
           ),
@@ -1041,7 +1048,7 @@ class _BottomSheetContainer extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 24,
             offset: const Offset(0, -4),
           ),
@@ -1127,8 +1134,8 @@ class _SheetSecondaryButton extends StatelessWidget {
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           backgroundColor: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.04),
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.04),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -1170,9 +1177,9 @@ class _BackupOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -1180,7 +1187,7 @@ class _BackupOption extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -1211,7 +1218,7 @@ class _BackupOption extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: isDark ? Colors.white24 : Colors.black.withOpacity(0.2),
+              color: isDark ? Colors.white24 : Colors.black.withValues(alpha: 0.2),
               size: 20,
             ),
           ],

@@ -77,7 +77,7 @@ class _MeshPainter extends CustomPainter {
       final rect = Rect.fromCircle(center: Offset(x, y), radius: radius);
 
       paint.shader = RadialGradient(
-        colors: [colors[i].withOpacity(0.4), colors[i].withOpacity(0.0)],
+        colors: [colors[i].withValues(alpha: 0.4), colors[i].withValues(alpha: 0.0)],
       ).createShader(rect);
 
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);

@@ -17,9 +17,7 @@ import 'providers/subscription_provider.dart';
 import 'providers/statistics_provider.dart';
 import 'providers/snooze_provider.dart';
 import 'core/theme/app_theme.dart';
-import 'screens/main_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/onboarding_screen.dart';
 import 'widgets/notification_handler.dart';
 
 void main() async {

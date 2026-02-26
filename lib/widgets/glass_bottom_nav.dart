@@ -23,13 +23,13 @@ class GlassBottomNavBar extends StatelessWidget {
           // Full width, no floating margins
           decoration: BoxDecoration(
             color: isDark 
-                ? const Color(0xFF0F172A).withOpacity(0.90) 
-                : Colors.white.withOpacity(0.90),
+                ? const Color(0xFF0F172A).withValues(alpha: 0.90) 
+                : Colors.white.withValues(alpha: 0.90),
             border: Border(
               top: BorderSide(
                 color: isDark 
-                    ? Colors.white.withOpacity(0.08) 
-                    : Colors.black.withOpacity(0.05),
+                    ? Colors.white.withValues(alpha: 0.08) 
+                    : Colors.black.withValues(alpha: 0.05),
                 width: 1,
               ),
             ),
@@ -100,7 +100,7 @@ class GlassBottomNavBar extends StatelessWidget {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutBack,
-              transform: Matrix4.identity()..scale(isSelected ? 1.1 : 1.0),
+              transform: Matrix4.identity()..scaleByDouble(isSelected ? 1.1 : 1.0, isSelected ? 1.1 : 1.0, 1.0, 1.0),
               alignment: Alignment.center,
               child: Icon(
                 isSelected ? activeIcon : inactiveIcon,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/shared_adherence_data.dart';
 import '../models/user_profile.dart';
-import '../providers/auth_provider.dart';
 import '../providers/sync_provider.dart';
 import '../utils/haptic_helper.dart';
 import 'accept_invite_screen.dart';
@@ -73,15 +72,14 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          final navigator = Navigator.of(context);
           await HapticHelper.selection();
-          if (mounted) {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AcceptInviteScreen()),
-            );
-            if (result == true) {
-              _loadData();
-            }
+          if (!mounted) return;
+          final result = await navigator.push(
+            MaterialPageRoute(builder: (_) => const AcceptInviteScreen()),
+          );
+          if (result == true) {
+            _loadData();
           }
         },
         icon: const Icon(Icons.person_add),
@@ -100,7 +98,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
             Icon(
               Icons.family_restroom,
               size: 80,
-              color: colorScheme.primary.withOpacity(0.5),
+              color: colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 24),
             Text(
@@ -232,11 +230,11 @@ class _PatientCardState extends State<_PatientCard> {
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -261,7 +259,7 @@ class _PatientCardState extends State<_PatientCard> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withOpacity(0.4),
+              color: colorScheme.primaryContainer.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
@@ -309,8 +307,9 @@ class _PatientCardState extends State<_PatientCard> {
                     widget.patient.id,
                   ),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData || snapshot.data!.isEmpty)
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const SizedBox.shrink();
+                    }
                     final latest = snapshot.data!.first;
                     final time = latest.actualTime ?? latest.scheduledTime;
                     final timeStr =
@@ -367,7 +366,7 @@ class _PatientCardState extends State<_PatientCard> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -444,7 +443,7 @@ class _PatientCardState extends State<_PatientCard> {
                               color: theme.cardColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: colorScheme.outlineVariant.withOpacity(
+                                color: colorScheme.outlineVariant.withValues(alpha: 
                                   0.5,
                                 ),
                               ),
@@ -533,10 +532,10 @@ class _PatientCardState extends State<_PatientCard> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        // border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.3)),
+        // border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -548,7 +547,7 @@ class _PatientCardState extends State<_PatientCard> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 20, color: color),
@@ -580,7 +579,7 @@ class _PatientCardState extends State<_PatientCard> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

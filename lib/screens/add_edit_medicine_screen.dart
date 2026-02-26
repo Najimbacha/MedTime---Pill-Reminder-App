@@ -10,9 +10,13 @@ import 'paywall_screen.dart';
 
 import '../core/theme/app_colors.dart';
 import '../models/medicine.dart';
+import '../models/medicine_deletion_snapshot.dart';
 import '../models/schedule.dart';
+import '../providers/log_provider.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
+import '../providers/snooze_provider.dart';
+import '../providers/statistics_provider.dart';
 import '../services/interaction_service.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/common_medicines.dart';
@@ -62,6 +66,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   List<InteractionResult> _warnings = [];
   final InteractionService _interactionService = InteractionService();
   bool _isSaving = false;
+  bool _isDeleting = false;
   Timer? _debounceTimer;
 
   static const Map<String, int> _medicineTypeIcons = {
@@ -76,13 +81,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     2: 'liquid',
     3: 'injection',
     4: 'drop',
-  };
-
-  static const Map<String, String> _medicineTypeIconPaths = {
-    'tablet': 'assets/icons/medicine/pill_capsule.png',
-    'liquid': 'assets/icons/medicine/bottle.png',
-    'injection': 'assets/icons/medicine/injection.png',
-    'drop': 'assets/icons/medicine/syrup.png',
   };
 
   @override
@@ -181,135 +179,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     super.dispose();
   }
 
-  Widget _buildImagePicker(bool isDark) {
-    return GestureDetector(
-      onTap: () => _pickImage(ImageSource.gallery),
-      child: Stack(
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF333333)
-                    : const Color(0xFFE0E0E0),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: _imagePath != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.file(File(_imagePath!), fit: BoxFit.cover),
-                  )
-                : Icon(
-                    Icons.add_a_photo_rounded,
-                    size: 32,
-                    color: isDark ? Colors.white24 : Colors.black26,
-                  ),
-          ),
-          if (_imagePath != null)
-            Positioned(
-              top: -8,
-              right: -8,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() => _imagePath = null);
-                  HapticHelper.light();
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    IconData? icon,
-    String? label,
-    required bool isDark,
-    bool readOnly = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    void Function(String)? onChanged,
-    FocusNode? focusNode,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surface1Dark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      child: TextFormField(
-        controller: controller,
-        focusNode: focusNode,
-        readOnly: readOnly,
-        keyboardType: keyboardType,
-        style: TextStyle(
-          fontFamily: 'Roboto',
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: isDark ? Colors.white : Colors.black87,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: isDark ? Colors.white30 : Colors.black26,
-            fontWeight: FontWeight.normal,
-          ),
-          prefixIcon: icon != null
-              ? Icon(icon, color: isDark ? Colors.white38 : Colors.black38)
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-          isDense: true,
-        ),
-        validator: validator,
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildTypeAndColorSelector(bool isDark) {
-    return Column(
-      children: [
-        _buildMedicineTypeSelector(isDark),
-        const SizedBox(height: 16),
-        _buildColorSelector(isDark),
-      ],
-    );
-  }
-
   Future<void> _checkForInteractions() async {
     // Cancel previous timer
     _debounceTimer?.cancel();
@@ -362,6 +231,117 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
 
     return true;
+  }
+
+  Future<void> _onDeleteMedicinePressed() async {
+    final medicine = widget.medicine;
+    if (medicine == null || medicine.id == null || _isDeleting) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Delete medicine?'),
+          content: const Text(
+            'This permanently deletes this medicine, schedules, logs, and snoozed reminders.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+    await _deleteMedicineWithUndo(medicine.id!);
+  }
+
+  Future<void> _deleteMedicineWithUndo(int medicineId) async {
+    final medicineProvider = context.read<MedicineProvider>();
+    final scheduleProvider = context.read<ScheduleProvider>();
+    final logProvider = context.read<LogProvider>();
+    final snoozeProvider = context.read<SnoozeProvider>();
+    final statisticsProvider = context.read<StatisticsProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    setState(() => _isDeleting = true);
+    try {
+      final snapshot = await medicineProvider.deleteMedicineWithSnapshot(
+        medicineId,
+      );
+      if (!mounted) return;
+
+      if (snapshot == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Failed to delete medicine')),
+        );
+        return;
+      }
+
+      navigator.pop();
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Medicine deleted'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () {
+              _undoDelete(
+                snapshot: snapshot,
+                medicineProvider: medicineProvider,
+                scheduleProvider: scheduleProvider,
+                logProvider: logProvider,
+                snoozeProvider: snoozeProvider,
+                statisticsProvider: statisticsProvider,
+                messenger: messenger,
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+      }
+    }
+  }
+
+  Future<void> _undoDelete({
+    required MedicineDeletionSnapshot snapshot,
+    required MedicineProvider medicineProvider,
+    required ScheduleProvider scheduleProvider,
+    required LogProvider logProvider,
+    required SnoozeProvider snoozeProvider,
+    required StatisticsProvider statisticsProvider,
+    required ScaffoldMessengerState messenger,
+  }) async {
+    final restored = await medicineProvider.restoreDeletedMedicine(snapshot);
+    if (!restored) {
+      messenger.showSnackBar(const SnackBar(content: Text('Restore failed')));
+      return;
+    }
+
+    await Future.wait([
+      scheduleProvider.loadSchedules(),
+      logProvider.loadLogs(),
+      snoozeProvider.refresh(),
+      statisticsProvider.loadStatistics(),
+    ]);
+
+    messenger.showSnackBar(const SnackBar(content: Text('Medicine restored')));
   }
 
   Widget _buildIntervalInput(bool isDark) {
@@ -460,6 +440,23 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (isEditing)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                tooltip: 'Delete medicine',
+                onPressed: _isDeleting ? null : _onDeleteMedicinePressed,
+                icon: _isDeleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline_rounded),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -726,8 +723,12 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: isDark
-                                            ? Colors.white.withOpacity(0.12)
-                                            : Colors.black.withOpacity(0.08),
+                                            ? Colors.white.withValues(
+                                                alpha: 0.12,
+                                              )
+                                            : Colors.black.withValues(
+                                                alpha: 0.08,
+                                              ),
                                         width: 1,
                                       ),
                                     ),
@@ -799,61 +800,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             ),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.black.withOpacity(0.6)
-                  : Colors.white.withOpacity(0.9),
+                  ? Colors.black.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.9),
               border: Border(
                 top: BorderSide(
                   color: isDark
                       ? Colors.white12
-                      : Colors.black.withOpacity(0.05),
+                      : Colors.black.withValues(alpha: 0.05),
                 ),
               ),
             ),
             child: _buildSaveButton(isEditing, isDark),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDosageUnitDropdown(bool isDark) {
-    return Container(
-      height: 56, // Match text field height
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surface1Dark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      alignment: Alignment.centerLeft,
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _dosageUnit,
-          isExpanded: true,
-          icon: Icon(
-            Icons.expand_more_rounded,
-            color: isDark ? Colors.white70 : Colors.black54,
-          ),
-          dropdownColor: isDark ? AppColors.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-          items: _dosageUnits.map((unit) {
-            return DropdownMenuItem(value: unit, child: Text(unit));
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _dosageUnit = value);
-              HapticHelper.light();
-            }
-          },
-        ),
       ),
     );
   }
@@ -865,13 +824,13 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.08)
-            : Colors.black.withOpacity(0.04),
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.black.withOpacity(0.06),
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.black.withValues(alpha: 0.06),
           width: 1,
         ),
       ),
@@ -917,8 +876,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.black.withOpacity(0.04),
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -943,14 +902,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDark ? Colors.white.withOpacity(0.15) : Colors.white)
+                      ? (isDark
+                            ? Colors.white.withValues(alpha: 0.15)
+                            : Colors.white)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
-                              isDark ? 0.2 : 0.06,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.2 : 0.06,
                             ),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
@@ -1053,15 +1014,15 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: chipColor.withOpacity(0.4),
+                            color: chipColor.withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
                         ]
                       : [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
-                              isDark ? 0.2 : 0.05,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.2 : 0.05,
                             ),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
@@ -1100,101 +1061,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           ),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildFrequencySegmentedControl(bool isDark) {
-    final options = [
-      {
-        'type': FrequencyType.daily,
-        'label': 'Daily',
-        'icon': Icons.today_rounded,
-      },
-      {
-        'type': FrequencyType.specificDays,
-        'label': 'Days',
-        'icon': Icons.date_range_rounded,
-      },
-      {
-        'type': FrequencyType.interval,
-        'label': 'Interval',
-        'icon': Icons.loop_rounded,
-      },
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.black26 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: options.map((option) {
-          final isSelected = _frequencyType == option['type'];
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _frequencyType = option['type'] as FrequencyType;
-                  if (_reminderTimes.isEmpty) {
-                    _reminderTimes.add(const TimeOfDay(hour: 9, minute: 0));
-                  }
-                });
-                HapticHelper.selection();
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (isDark ? const Color(0xFF6366F1) : Colors.white)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(
-                              isDark ? 0.3 : 0.08,
-                            ),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      option['icon'] as IconData,
-                      size: 16,
-                      color: isSelected
-                          ? (isDark ? Colors.white : Colors.black87)
-                          : (isDark ? Colors.white38 : Colors.black38),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      option['label'] as String,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: isSelected
-                            ? (isDark ? Colors.white : Colors.black)
-                            : (isDark ? Colors.white54 : Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
     );
   }
 
@@ -1253,7 +1119,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
+                          color: AppColors.primary.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1296,19 +1162,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            displayColor.withOpacity(hasNoTimes ? 0.15 : 0.1),
-            displayColor.withOpacity(hasNoTimes ? 0.08 : 0.05),
+            displayColor.withValues(alpha: hasNoTimes ? 0.15 : 0.1),
+            displayColor.withValues(alpha: hasNoTimes ? 0.08 : 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: displayColor.withOpacity(hasNoTimes ? 0.4 : 0.3),
+          color: displayColor.withValues(alpha: hasNoTimes ? 0.4 : 0.3),
           width: hasNoTimes ? 1.5 : 1,
         ),
         boxShadow: hasNoTimes
             ? [
                 BoxShadow(
-                  color: warningColor.withOpacity(0.2),
+                  color: warningColor.withValues(alpha: 0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -1586,7 +1452,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   : null,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1675,8 +1541,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark
-                            ? primaryColor.withOpacity(0.2)
-                            : primaryColor.withOpacity(0.08))
+                            ? primaryColor.withValues(alpha: 0.2)
+                            : primaryColor.withValues(alpha: 0.08))
                       : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
@@ -1688,7 +1554,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: primaryColor.withOpacity(0.2),
+                            color: primaryColor.withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -1736,19 +1602,19 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Widget _buildColorSelector(bool isDark) {
-    return Container(
+    return SizedBox(
       height: 60,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: AppColors.medicineColors.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final color = AppColors.medicineColors[index];
-          final isSelected = _selectedColor == color.value;
+          final isSelected = _selectedColor == color.toARGB32();
 
           return GestureDetector(
             onTap: () {
-              setState(() => _selectedColor = color.value);
+              setState(() => _selectedColor = color.toARGB32());
               HapticHelper.selection();
             },
             child: AnimatedContainer(
@@ -1764,7 +1630,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: color.withOpacity(0.4),
+                    color: color.withValues(alpha: 0.4),
                     blurRadius: isSelected ? 12 : 6,
                     offset: const Offset(0, 4),
                   ),
@@ -1806,7 +1672,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color, width: 1.5),
           ),
@@ -1879,7 +1745,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
             boxShadow: isValid
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.4),
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -1921,111 +1787,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     ),
                   ],
                 ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStickyBottomBar(bool isEditing, bool isDark) {
-    final isValid = _isFormValid();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isDark
-              ? [
-                  const Color(0xFF121212).withOpacity(0.95),
-                  const Color(0xFF121212),
-                ]
-              : [Colors.white.withOpacity(0.95), Colors.white],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: GestureDetector(
-          onTap: (_isSaving || !isValid) ? null : _saveMedicine,
-          child: Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: isValid
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isDark
-                          ? [Colors.white, const Color(0xFFE8E8E8)]
-                          : [const Color(0xFF2A2A2A), Colors.black],
-                    )
-                  : null,
-              color: isValid
-                  ? null
-                  : (isDark ? Colors.white12 : Colors.black12),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: isValid
-                  ? [
-                      BoxShadow(
-                        color: (isDark ? Colors.white : Colors.black)
-                            .withOpacity(0.25),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.15),
-                        blurRadius: 24,
-                        offset: const Offset(0, 4),
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: _isSaving
-                ? Center(
-                    child: SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isDark ? Colors.black : Colors.white,
-                        ),
-                      ),
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isEditing ? Icons.check_rounded : Icons.add_rounded,
-                        size: 22,
-                        color: isValid
-                            ? (isDark ? Colors.black : Colors.white)
-                            : (isDark ? Colors.white38 : Colors.black38),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        isEditing ? 'Save Changes' : 'Add Medicine',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: isValid
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark ? Colors.white38 : Colors.black38),
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
         ),
       ),
     );
@@ -2172,18 +1933,6 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
   }
 
-  void _addQuickTime(TimeOfDay time) {
-    if (!_reminderTimes.contains(time)) {
-      setState(() {
-        _reminderTimes.add(time);
-        _reminderTimes.sort(
-          (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute),
-        );
-      });
-      HapticHelper.selection();
-    }
-  }
-
   Future<void> _editTime(TimeOfDay oldTime) async {
     final TimeOfDay? picked = await _showModernTimePicker(context, oldTime);
     if (picked != null && picked != oldTime) {
@@ -2253,11 +2002,11 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: (hasCritical ? Colors.red : Colors.orange)
-                          .withOpacity(0.1),
+                          .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: (hasCritical ? Colors.red : Colors.orange)
-                            .withOpacity(0.3),
+                            .withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -2357,7 +2106,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         await medicineProvider.updateMedicine(medicine);
         savedMedicine = medicine;
       }
-    } on PremiumLimitException catch (e) {
+    } on PremiumLimitException catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
         // Show Paywall
@@ -2418,59 +2167,17 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       }
 
       if (mounted) {
+        final subscription = context.read<SubscriptionProvider>();
         await HapticHelper.success();
+        if (!mounted) return;
         setState(() => _isSaving = false);
 
         // Show Interstitial Ad for Free Users before popping
-        final subscription = context.read<SubscriptionProvider>();
         AdService.instance.showInterstitialAd(
           isPremium: subscription.isPremium,
         );
 
         Navigator.pop(context);
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: Color(0xFF10B981),
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  widget.medicine == null
-                      ? 'Medicine added successfully'
-                      : 'Medicine updated successfully',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: isDark
-                ? const Color(0xFF1E1E2E)
-                : const Color(0xFF1A1A1A),
-            behavior: SnackBarBehavior.floating,
-            elevation: 8,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
         return;
       }
     }
@@ -2517,24 +2224,16 @@ class _SectionLabel extends StatelessWidget {
 
 class _MinimalTextField extends StatelessWidget {
   final String label;
-  final String? hint;
   final TextEditingController controller;
   final bool isDark;
-  final String? Function(String?)? validator;
   final TextInputType? keyboardType;
-  final FocusNode? focusNode;
-  final ValueChanged<String>? onChanged;
   final IconData? icon;
 
   const _MinimalTextField({
     required this.label,
-    this.hint,
     required this.controller,
     required this.isDark,
-    this.validator,
     this.keyboardType,
-    this.focusNode,
-    this.onChanged,
     this.icon,
   });
 
@@ -2561,12 +2260,12 @@ class _MinimalTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.08),
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.08),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2574,9 +2273,6 @@ class _MinimalTextField extends StatelessWidget {
           ),
           child: TextFormField(
             controller: controller,
-            focusNode: focusNode,
-            onChanged: onChanged,
-            validator: validator,
             keyboardType: keyboardType,
             style: TextStyle(
               fontSize: 16,
@@ -2584,7 +2280,6 @@ class _MinimalTextField extends StatelessWidget {
               color: isDark ? Colors.white : Colors.black87,
             ),
             decoration: InputDecoration(
-              hintText: hint,
               hintStyle: TextStyle(
                 color: isDark ? Colors.white30 : Colors.black38,
                 fontWeight: FontWeight.w500,
@@ -2608,143 +2303,6 @@ class _MinimalTextField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TimeChip extends StatelessWidget {
-  final TimeOfDay time;
-  final bool isDark;
-  final VoidCallback? onRemove;
-  final VoidCallback onTap;
-
-  const _TimeChip({
-    required this.time,
-    required this.isDark,
-    this.onRemove,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [Colors.white, const Color(0xFFE8E8E8)]
-                : [const Color(0xFF2A2A2A), Colors.black],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.schedule_rounded,
-              size: 16,
-              color: isDark ? Colors.black54 : Colors.white70,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              time.format(context),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.black : Colors.white,
-                letterSpacing: -0.3,
-              ),
-            ),
-            if (onRemove != null) ...[
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: (isDark ? Colors.black : Colors.white).withOpacity(
-                      0.2,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: isDark ? Colors.black : Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickTimeChip extends StatelessWidget {
-  final String label;
-  final TimeOfDay time;
-  final bool isDark;
-  final Function(TimeOfDay) onTap;
-
-  const _QuickTimeChip({
-    required this.label,
-    required this.time,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onTap(time),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF1E1E2E), const Color(0xFF181825)]
-                : [Colors.white, const Color(0xFFF5F5F5)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.08),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black87,
-            letterSpacing: -0.2,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2814,18 +2372,18 @@ class _AppleCard extends StatelessWidget {
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.white.withOpacity(0.8),
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.04),
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.04),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
             blurRadius: 20,
             offset: const Offset(0, 4),
             spreadRadius: 0,
@@ -2864,13 +2422,13 @@ class _AppleTextField extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.08)
-            : Colors.black.withOpacity(0.04),
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.black.withOpacity(0.06),
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.black.withValues(alpha: 0.06),
           width: 1,
         ),
       ),
@@ -2940,13 +2498,13 @@ class _AppleTimePill extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isDark
-                ? Colors.white.withOpacity(0.12)
-                : Colors.black.withOpacity(0.08),
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.08),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -2978,8 +2536,8 @@ class _AppleTimePill extends StatelessWidget {
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.white.withOpacity(0.15)
-                        : Colors.black.withOpacity(0.08),
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -3002,14 +2560,12 @@ class _GlassCard extends StatelessWidget {
   final Widget child;
   final bool isDark;
   final EdgeInsetsGeometry padding;
-  final double borderRadius;
   final Color? accentColor;
 
   const _GlassCard({
     required this.child,
     required this.isDark,
     this.padding = const EdgeInsets.all(20),
-    this.borderRadius = 24,
     this.accentColor,
   });
 
@@ -3019,36 +2575,42 @@ class _GlassCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.03)]
-              : [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
+              ? [
+                  Colors.white.withValues(alpha: 0.08),
+                  Colors.white.withValues(alpha: 0.03),
+                ]
+              : [
+                  Colors.white.withValues(alpha: 0.9),
+                  Colors.white.withValues(alpha: 0.7),
+                ],
         ),
         border: Border.all(
           width: 1.5,
           color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.white.withOpacity(0.8),
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.white.withValues(alpha: 0.8),
         ),
         boxShadow: [
           BoxShadow(
-            color: accent.withOpacity(isDark ? 0.15 : 0.08),
+            color: accent.withValues(alpha: isDark ? 0.15 : 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: -4,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
           filter: isDark
               ? ImageFilter.blur(sigmaX: 12, sigmaY: 12)
@@ -3056,15 +2618,15 @@ class _GlassCard extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
+              borderRadius: BorderRadius.circular(24),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: isDark
-                    ? [Colors.white.withOpacity(0.05), Colors.transparent]
+                    ? [Colors.white.withValues(alpha: 0.05), Colors.transparent]
                     : [
-                        Colors.white.withOpacity(0.6),
-                        Colors.white.withOpacity(0.3),
+                        Colors.white.withValues(alpha: 0.6),
+                        Colors.white.withValues(alpha: 0.3),
                       ],
               ),
             ),
@@ -3095,12 +2657,12 @@ class _TimeArcWidget extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: isDark
               ? [
-                  const Color(0xFF1E1B4B).withOpacity(0.5),
-                  const Color(0xFF0F172A).withOpacity(0.3),
+                  const Color(0xFF1E1B4B).withValues(alpha: 0.5),
+                  const Color(0xFF0F172A).withValues(alpha: 0.3),
                 ]
               : [
-                  const Color(0xFFFEF3C7).withOpacity(0.5),
-                  const Color(0xFFE0E7FF).withOpacity(0.3),
+                  const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+                  const Color(0xFFE0E7FF).withValues(alpha: 0.3),
                 ],
         ),
       ),
@@ -3152,32 +2714,12 @@ class _TimeArcPainter extends CustomPainter {
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round;
 
-    // Morning gradient (6AM-12PM)
-    final morningGradient = SweepGradient(
-      startAngle: 3.14,
-      endAngle: 3.14 + 0.5,
-      colors: [
-        const Color(0xFFFBBF24).withOpacity(0.6),
-        const Color(0xFFF59E0B).withOpacity(0.6),
-      ],
-    );
-
-    // Afternoon gradient (12PM-6PM)
-    final afternoonGradient = SweepGradient(
-      startAngle: 3.14 + 0.5,
-      endAngle: 3.14 + 1,
-      colors: [
-        const Color(0xFF6366F1).withOpacity(0.6),
-        const Color(0xFF8B5CF6).withOpacity(0.6),
-      ],
-    );
-
     // Draw base arc
     arcPaint.shader = LinearGradient(
       colors: [
-        const Color(0xFFFBBF24).withOpacity(isDark ? 0.4 : 0.6),
-        const Color(0xFF6366F1).withOpacity(isDark ? 0.4 : 0.6),
-        const Color(0xFF8B5CF6).withOpacity(isDark ? 0.4 : 0.6),
+        const Color(0xFFFBBF24).withValues(alpha: isDark ? 0.4 : 0.6),
+        const Color(0xFF6366F1).withValues(alpha: isDark ? 0.4 : 0.6),
+        const Color(0xFF8B5CF6).withValues(alpha: isDark ? 0.4 : 0.6),
       ],
     ).createShader(Rect.fromCircle(center: center, radius: radius));
 
@@ -3201,7 +2743,7 @@ class _TimeArcPainter extends CustomPainter {
 
       // Outer glow
       final glowPaint = Paint()
-        ..color = const Color(0xFF6366F1).withOpacity(0.4)
+        ..color = const Color(0xFF6366F1).withValues(alpha: 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(Offset(markerX, markerY), 10, glowPaint);
 

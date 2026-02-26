@@ -1,5 +1,5 @@
-/// Test fixtures for creating test data
-/// Provides factory methods for creating Medicine, Schedule, Log, and other models
+// Test fixtures for creating test data
+// Provides factory methods for creating Medicine, Schedule, Log, and other models
 
 import 'package:privacy_meds/models/medicine.dart';
 import 'package:privacy_meds/models/schedule.dart';
@@ -8,7 +8,7 @@ import 'package:privacy_meds/models/snoozed_dose.dart';
 import 'package:privacy_meds/models/emergency_info.dart';
 import 'package:privacy_meds/models/caregiver.dart';
 
-/// Factory for creating test Medicine objects
+// Factory for creating test Medicine objects
 class MedicineFixtures {
   /// Creates a default test medicine
   static Medicine create({
@@ -63,7 +63,7 @@ class MedicineFixtures {
   }
 }
 
-/// Factory for creating test Schedule objects
+// Factory for creating test Schedule objects
 class ScheduleFixtures {
   /// Creates a daily schedule
   static Schedule daily({
@@ -138,7 +138,7 @@ class ScheduleFixtures {
   }
 }
 
-/// Factory for creating test Log objects
+// Factory for creating test Log objects
 class LogFixtures {
   /// Creates a "taken" log
   static Log taken({
@@ -190,7 +190,7 @@ class LogFixtures {
   }
 }
 
-/// Factory for creating test SnoozedDose objects
+// Factory for creating test SnoozedDose objects
 class SnoozedDoseFixtures {
   /// Creates a snoozed dose that's still active
   static SnoozedDose active({
@@ -220,7 +220,7 @@ class SnoozedDoseFixtures {
   }
 }
 
-/// Factory for creating test EmergencyInfo objects
+// Factory for creating test EmergencyInfo objects
 class EmergencyInfoFixtures {
   /// Creates a complete emergency info
   static EmergencyInfo complete() {
@@ -240,7 +240,7 @@ class EmergencyInfoFixtures {
   }
 }
 
-/// Factory for creating test Caregiver objects
+// Factory for creating test Caregiver objects
 class CaregiverFixtures {
   /// Creates a caregiver with all notifications enabled
   static Caregiver withAllNotifications({

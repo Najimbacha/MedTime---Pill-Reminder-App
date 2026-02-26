@@ -89,7 +89,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -267,7 +267,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: 100, // Full height background
-                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
                 ),
               ),
             ],

@@ -1,15 +1,14 @@
-/// End-to-end user flow integration tests
-/// Tests complete user scenarios from medicine creation to adherence tracking
+// End-to-end user flow integration tests
+// Tests complete user scenarios from medicine creation to adherence tracking
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:privacy_meds/models/medicine.dart';
 import 'package:privacy_meds/models/schedule.dart';
 import 'package:privacy_meds/models/log.dart';
 import 'package:privacy_meds/models/snoozed_dose.dart';
 
-/// Integrated test harness that simulates the full app flow
+// Integrated test harness that simulates the full app flow
 class IntegrationTestHarness {
   Database? _database;
 

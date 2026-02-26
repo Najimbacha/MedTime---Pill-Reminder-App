@@ -23,11 +23,11 @@ class MedicineTypeSelector extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   const MedicineTypeSelector({
-    Key? key,
+    super.key,
     required this.options,
     this.selectedValue,
     required this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +50,7 @@ class MedicineTypeSelector extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.primary.withOpacity(0.1)
+                      ? AppColors.primary.withValues(alpha: 0.1)
                       : (isDark ? AppColors.surface1Dark : AppColors.surface1Light),
                   border: Border.all(
                     color: isSelected

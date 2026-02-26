@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/log.dart';
-import '../utils/common_medicines.dart';
 
 class MedicineLogCard extends StatelessWidget {
   final String medicineName;
@@ -55,17 +54,17 @@ class MedicineLogCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isCompleted
-              ? const Color(0xFF10B981).withOpacity(0.3)
+              ? const Color(0xFF10B981).withValues(alpha: 0.3)
               : (isMissed
-                  ? Colors.red.withOpacity(0.3)
+                  ? Colors.red.withValues(alpha: 0.3)
                   : (isDark
-                      ? Colors.white.withOpacity(0.08)
-                      : Colors.black.withOpacity(0.04))),
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.04))),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -79,10 +78,10 @@ class MedicineLogCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: isCompleted
-                  ? const Color(0xFF10B981).withOpacity(0.15)
+                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
                   : (isMissed
-                      ? Colors.red.withOpacity(0.15)
-                      : medicineColor.withOpacity(0.15)),
+                      ? Colors.red.withValues(alpha: 0.15)
+                      : medicineColor.withValues(alpha: 0.15)),
               shape: BoxShape.circle,
             ),
             child: isCompleted
@@ -183,9 +182,9 @@ class MedicineLogCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,5 @@
-/// Widget tests for MedicineLogCard
-/// Tests the log card display for different statuses
+// Widget tests for MedicineLogCard
+// Tests the log card display for different statuses
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

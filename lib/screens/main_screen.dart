@@ -6,7 +6,6 @@ import 'cabinet_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 import '../utils/haptic_helper.dart';
-import '../core/theme/app_colors.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

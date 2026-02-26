@@ -54,10 +54,12 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
       notifyOnLowStock: _notifyOnLowStock,
     );
 
-    if (mounted) {
-      await context.read<SettingsService>().saveCaregiver(caregiver);
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+    final settings = context.read<SettingsService>();
+    final navigator = Navigator.of(context);
+    await settings.saveCaregiver(caregiver);
+    if (!mounted) return;
+    navigator.pop();
   }
 
   @override

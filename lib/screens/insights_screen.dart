@@ -3,8 +3,6 @@ import 'package:fl_chart/fl_chart.dart';
 import '../services/history_service.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../models/medicine.dart';
-import '../models/log.dart';
 import '../providers/medicine_provider.dart';
 import '../services/report_service.dart';
 import '../utils/haptic_helper.dart';
@@ -84,6 +82,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
       // user name handling
       
       // Get data
+      if (!mounted) return;
       final medicines = context.read<MedicineProvider>().medicines;
       final logs = await _historyService.getRecentLogs(limit: 30);
       

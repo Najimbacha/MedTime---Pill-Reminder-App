@@ -38,13 +38,13 @@ class AchievementsScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isUnlocked
-                    ? (isDark ? Colors.amber.withOpacity(0.3) : Colors.amber)
+                    ? (isDark ? Colors.amber.withValues(alpha: 0.3) : Colors.amber)
                     : (isDark ? Colors.white10 : Colors.black12),
                 width: isUnlocked ? 1.5 : 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -57,7 +57,7 @@ class AchievementsScreen extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: isUnlocked
-                        ? Colors.amber.withOpacity(0.15)
+                        ? Colors.amber.withValues(alpha: 0.15)
                         : (isDark ? Colors.white10 : Colors.black12),
                     shape: BoxShape.circle,
                   ),

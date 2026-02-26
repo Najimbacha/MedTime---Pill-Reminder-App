@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
 import '../services/settings_service.dart';
-import '../services/notification_service.dart'; // Keep if used (though mainly used in ScheduleProvider)
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
 import 'main_screen.dart';
@@ -21,7 +19,6 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _floatAnimation;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
 
   @override
   void initState() {
@@ -39,14 +36,6 @@ class _SplashScreenState extends State<SplashScreen>
     // Breathing effect (slight scale)
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
-
-    // Initial fade in
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
     );
 
     _navigateToNext();
@@ -146,7 +135,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 BoxShadow(
                                   color: const Color(
                                     0xFF6366F1,
-                                  ).withOpacity(0.3),
+                                  ).withValues(alpha: 0.3),
                                   blurRadius: 40,
                                   spreadRadius: 5,
                                   offset: const Offset(0, 10),
@@ -172,9 +161,9 @@ class _SplashScreenState extends State<SplashScreen>
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Colors.white.withOpacity(0.0),
-                                                Colors.white.withOpacity(0.2),
-                                                Colors.white.withOpacity(0.0),
+                                                Colors.white.withValues(alpha: 0.0),
+                                                Colors.white.withValues(alpha: 0.2),
+                                                Colors.white.withValues(alpha: 0.0),
                                               ],
                                               stops: [
                                                 0.0,
@@ -226,7 +215,7 @@ class _SplashScreenState extends State<SplashScreen>
                     Text(
                       'SMART • SECURE • PRIVATE',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         letterSpacing: 4,
                         fontWeight: FontWeight.w500,
                       ),

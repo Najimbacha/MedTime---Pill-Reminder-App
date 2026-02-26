@@ -23,7 +23,7 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
 
   const AppTextField({
-    Key? key,
+    super.key,
     required this.label,
     this.hint,
     this.helperText,
@@ -40,7 +40,7 @@ class AppTextField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.textInputAction,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

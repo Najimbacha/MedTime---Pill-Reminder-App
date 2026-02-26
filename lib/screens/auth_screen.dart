@@ -5,7 +5,6 @@ import '../providers/auth_provider.dart';
 import '../utils/haptic_helper.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
-import '../core/theme/app_radius.dart';
 
 /// Authentication screen for sign in / sign up
 class AuthScreen extends StatefulWidget {
@@ -38,8 +37,8 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    await HapticHelper.selection();
     final authProvider = context.read<AuthProvider>();
+    await HapticHelper.selection();
 
     bool success;
     if (_isSignUp) {
@@ -59,6 +58,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (success && mounted) {
       await HapticHelper.success();
+      if (!mounted) return;
       Navigator.pop(context, true);
     } else {
       await HapticHelper.error();
@@ -66,13 +66,14 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signInAnonymously() async {
-    await HapticHelper.selection();
     final authProvider = context.read<AuthProvider>();
+    await HapticHelper.selection();
 
     final success = await authProvider.signInAnonymously();
 
     if (success && mounted) {
       await HapticHelper.success();
+      if (!mounted) return;
       Navigator.pop(context, true);
     } else {
       await HapticHelper.error();
@@ -80,13 +81,14 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    await HapticHelper.selection();
     final authProvider = context.read<AuthProvider>();
+    await HapticHelper.selection();
 
     final success = await authProvider.signInWithGoogle();
 
     if (success && mounted) {
       await HapticHelper.success();
+      if (!mounted) return;
       Navigator.pop(context, true);
     } else if (!success && authProvider.error != null) {
       await HapticHelper.error();
@@ -125,16 +127,16 @@ class _AuthScreenState extends State<AuthScreen> {
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
                       color: isDark 
-                          ? AppColors.surface1Dark.withOpacity(0.8) 
-                          : Colors.white.withOpacity(0.85),
+                          ? AppColors.surface1Dark.withValues(alpha: 0.8) 
+                          : Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: Colors.white.withOpacity(isDark ? 0.05 : 0.6),
+                        color: Colors.white.withValues(alpha: isDark ? 0.05 : 0.6),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 30,
                           offset: const Offset(0, 15),
                         ),
@@ -154,11 +156,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                   width: 80,
                                   height: 80,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.15),
+                                    color: AppColors.primary.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.2),
+                                        color: AppColors.primary.withValues(alpha: 0.2),
                                         blurRadius: 20,
                                         spreadRadius: 5,
                                       )
@@ -201,7 +203,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 onPressed: authProvider.isLoading ? null : _signInWithGoogle,
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
-                                  backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                                  backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
                                   side: BorderSide(
                                     color: isDark ? Colors.white24 : Colors.grey.shade300,
                                   ),
@@ -216,7 +218,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                       'https://www.google.com/favicon.ico',
                                       height: 20,
                                       width: 20,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.login, size: 20),
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.login, size: 20),
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
@@ -301,9 +303,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppColors.error.withOpacity(0.1),
+                                    color: AppColors.error.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                                   ),
                                   child: Row(
                                     children: [
@@ -331,7 +333,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.white,
                                     elevation: 8,
-                                    shadowColor: AppColors.primary.withOpacity(0.4),
+                                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                     ),
@@ -438,7 +440,7 @@ class _AuthScreenState extends State<AuthScreen> {
         labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
         prefixIcon: Icon(icon, color: isDark ? Colors.white54 : Colors.grey),
         filled: true,
-        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.05),
+        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.05),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,

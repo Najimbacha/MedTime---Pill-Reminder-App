@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class MedicineDefaults {
   final String name;
   final int typeIcon; // 1: pill, 2: bottle, 3: needle, 4: syrup

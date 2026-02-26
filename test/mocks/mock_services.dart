@@ -1,5 +1,5 @@
-/// Mock implementations for testing
-/// Provides mock versions of DatabaseHelper and NotificationService
+// Mock implementations for testing
+// Provides mock versions of DatabaseHelper and NotificationService
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:privacy_meds/models/medicine.dart';
@@ -9,7 +9,7 @@ import 'package:privacy_meds/models/snoozed_dose.dart';
 import 'package:privacy_meds/services/database_helper.dart';
 import 'package:privacy_meds/services/notification_service.dart';
 
-/// Mock implementation of DatabaseHelper for testing
+// Mock implementation of DatabaseHelper for testing
 class MockDatabaseHelper implements DatabaseHelper {
   final List<Medicine> _medicines = [];
   final List<Schedule> _schedules = [];
@@ -317,7 +317,7 @@ class MockDatabaseHelper implements DatabaseHelper {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Mock implementation of NotificationService for testing
+// Mock implementation of NotificationService for testing
 class MockNotificationService implements NotificationService {
   final List<int> scheduledNotificationIds = [];
   final List<int> cancelledNotificationIds = [];

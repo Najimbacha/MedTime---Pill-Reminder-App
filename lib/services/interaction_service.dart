@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/medicine.dart';
 
@@ -33,7 +34,7 @@ class InteractionService {
       _interactionData = data['interactions'] ?? [];
       _isLoaded = true;
     } catch (e) {
-      print('Error loading interaction data: $e');
+      debugPrint('Error loading interaction data: $e');
     }
   }
 

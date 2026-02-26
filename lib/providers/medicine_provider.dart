@@ -3,6 +3,7 @@ import '../models/medicine.dart';
 import '../services/database_helper.dart';
 import '../services/notification_service.dart';
 import '../models/schedule.dart';
+import '../models/medicine_deletion_snapshot.dart';
 import '../services/auth_service.dart';
 import '../services/caregiver_notification_service.dart';
 import 'subscription_provider.dart';
@@ -101,6 +102,57 @@ class MedicineProvider with ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('Error deleting medicine: $e');
+      return false;
+    }
+  }
+
+  /// Delete a medicine and return snapshot for undo.
+  Future<MedicineDeletionSnapshot?> deleteMedicineWithSnapshot(
+    int medicineId,
+  ) async {
+    try {
+      final medicine = await _db.getMedicine(medicineId);
+      if (medicine == null) return null;
+
+      final schedules = await _db.getSchedulesForMedicine(medicineId);
+      final logs = await _db.getLogsForMedicine(medicineId);
+      final snoozedDoses = await _db.getSnoozedDosesForMedicine(medicineId);
+
+      final snapshot = MedicineDeletionSnapshot(
+        medicine: medicine,
+        schedules: schedules,
+        logs: logs,
+        snoozedDoses: snoozedDoses,
+      );
+
+      await _notifications.cancelNotificationsForMedicine(
+        medicineId: medicineId,
+        scheduleIds: schedules.map((s) => s.id).whereType<int>().toList(),
+      );
+
+      await _db.deleteMedicineGraph(medicineId);
+      _medicines.removeWhere((m) => m.id == medicineId);
+      notifyListeners();
+
+      return snapshot;
+    } catch (e) {
+      debugPrint('Error deleting medicine with snapshot: $e');
+      return null;
+    }
+  }
+
+  /// Restore previously deleted medicine data graph.
+  Future<bool> restoreDeletedMedicine(MedicineDeletionSnapshot snapshot) async {
+    try {
+      await _db.restoreMedicineGraph(snapshot);
+      await loadMedicines();
+
+      await _rescheduleSnapshotSchedules(snapshot);
+      await _updateRefillReminder(snapshot.medicine);
+
+      return true;
+    } catch (e) {
+      debugPrint('Error restoring deleted medicine: $e');
       return false;
     }
   }
@@ -237,6 +289,30 @@ class MedicineProvider with ChangeNotifier {
           daysLeft: 3,
         );
       }
+    }
+  }
+
+  Future<void> _rescheduleSnapshotSchedules(
+    MedicineDeletionSnapshot snapshot,
+  ) async {
+    final medicineId = snapshot.medicine.id;
+    if (medicineId == null) return;
+
+    for (final schedule in snapshot.schedules) {
+      final scheduleId = schedule.id;
+      if (scheduleId == null) continue;
+
+      final nextTime = schedule.getNextScheduledTime();
+      if (nextTime == null) continue;
+
+      await _notifications.scheduleMedicineReminder(
+        notificationId: scheduleId,
+        medicineId: medicineId,
+        medicineName: snapshot.medicine.name,
+        dosage: snapshot.medicine.dosage,
+        scheduledTime: nextTime,
+        frequencyType: schedule.frequencyType,
+      );
     }
   }
 }

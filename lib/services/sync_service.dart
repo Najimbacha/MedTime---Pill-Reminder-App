@@ -74,7 +74,7 @@ class SyncService extends ChangeNotifier {
       final data = SharedAdherenceData(
         id: '',
         odMedicineId: medicine.id.toString(),
-        medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
+        medicineName: '${medicine.name} ${medicine.dosage}',
         scheduledTime: log.scheduledTime,
         actualTime: log.actualTime,
         status: statusStr,
@@ -97,7 +97,7 @@ class SyncService extends ChangeNotifier {
         debugPrint('🔵 SyncService: Missed dose detected, sending alerts...');
         await CaregiverNotificationService().sendMissedDoseAlert(
           patientName: profile.displayName ?? 'Patient', 
-          medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
+          medicineName: '${medicine.name} ${medicine.dosage}',
           caregiverIds: profile.linkedCaregiverIds,
         );
       }
@@ -249,7 +249,7 @@ class SyncService extends ChangeNotifier {
         final data = SharedAdherenceData(
           id: '',
           odMedicineId: medicine.id.toString(),
-          medicineName: '${medicine.name} ${medicine.dosage ?? ''}',
+          medicineName: '${medicine.name} ${medicine.dosage}',
           scheduledTime: log.scheduledTime,
           actualTime: log.actualTime,
           status: statusStr,

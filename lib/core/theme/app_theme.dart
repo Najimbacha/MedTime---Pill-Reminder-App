@@ -16,8 +16,8 @@ class AppTheme {
       onError: Colors.white,
       surface: AppColors.surfaceLight,
       onSurface: AppColors.textPrimaryLight,
-      background: AppColors.backgroundLight,
-      onBackground: AppColors.textPrimaryLight,
+      
+      
       surfaceTint: Colors.transparent, 
     ),
     scaffoldBackgroundColor: AppColors.backgroundLight,
@@ -130,8 +130,8 @@ class AppTheme {
       onError: Colors.white,
       surface: AppColors.surfaceDark,
       onSurface: AppColors.textPrimaryDark,
-      background: AppColors.backgroundDark,
-      onBackground: AppColors.textPrimaryDark,
+      
+      
       surfaceTint: Colors.transparent,
     ),
     scaffoldBackgroundColor: AppColors.backgroundDark,

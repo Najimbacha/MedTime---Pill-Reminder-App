@@ -121,22 +121,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _navigateToAddMedicine() async {
     final subscription = context.read<SubscriptionProvider>();
     final medicineProvider = context.read<MedicineProvider>();
+    final navigator = Navigator.of(context);
 
     // Free Tier Limit: 3 Medications
     if (!subscription.isPremium && medicineProvider.medicines.length >= 3) {
       debugPrint('🔒 Free Limit Reached');
-      await Navigator.push(
-        context,
+      await navigator.push(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       );
+      if (!mounted) return;
       // If they subscribed, let them pass
       if (!subscription.isPremium) return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddEditMedicineScreen()),
-    ).then((_) => _loadData());
+    navigator
+        .push(
+          MaterialPageRoute(
+            builder: (context) => const AddEditMedicineScreen(),
+          ),
+        )
+        .then((_) => _loadData());
   }
 
   void _showFeedback(String message, {bool isError = false}) {
@@ -225,8 +229,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     entry,
                                   ) {
                                     if (entry.timelineStatus ==
-                                        TimelineStatus.completed)
+                                        TimelineStatus.completed) {
                                       return false;
+                                    }
                                     final key =
                                         '${entry.medicine.id}_${entry.scheduledDateTime.toIso8601String()}';
                                     return !_dismissedItems.containsKey(key);
@@ -479,7 +484,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                         child: Container(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           child: Center(
                             child: TweenAnimationBuilder<double>(
                               tween: Tween(begin: 0.0, end: 1.0),
@@ -497,24 +502,27 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 height: 260,
                                 repeat: false,
                                 frameRate: FrameRate.max,
-                                errorBuilder: (_, error, __) => Container(
-                                  width: 160,
-                                  height: 160,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white24,
-                                      width: 3,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      width: 160,
+                                      height: 160,
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.15,
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white24,
+                                          width: 3,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.white,
+                                        size: 84,
+                                      ),
                                     ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white,
-                                    size: 84,
-                                  ),
-                                ),
                               ),
                             ),
                           ),
@@ -554,8 +562,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     final name = medicine.name.trim();
     if (name.length < 2) return false;
     if (!RegExp(r'[a-zA-Z]').hasMatch(name)) return false;
-    if (medicine.dosage.isNotEmpty && !RegExp(r'\d').hasMatch(medicine.dosage))
+    if (medicine.dosage.isNotEmpty &&
+        !RegExp(r'\d').hasMatch(medicine.dosage)) {
       return false;
+    }
     return true;
   }
 
@@ -588,17 +598,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF6366F1).withOpacity(0.15),
-                    const Color(0xFF8B5CF6).withOpacity(0.25),
+                    const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    const Color(0xFF8B5CF6).withValues(alpha: 0.25),
                   ],
                 ),
                 border: Border.all(
-                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.25),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.25),
                     blurRadius: 40,
                     spreadRadius: 5,
                   ),
@@ -682,7 +692,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.45),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.45),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -743,16 +753,19 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ...
 
   Future<void> _exportReport() async {
+    final subscription = context.read<SubscriptionProvider>();
+    final medicineProvider = context.read<MedicineProvider>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     await HapticHelper.selection();
 
     // 🔒 PREMIUM GATE
-    final subscription = context.read<SubscriptionProvider>();
     if (!subscription.isPremium) {
       debugPrint('🔒 Premium Feature: Export Report');
-      await Navigator.push(
-        context,
+      await navigator.push(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       );
+      if (!mounted) return;
       // If user returns without purchasing, stop here
       if (!subscription.isPremium) return;
     }
@@ -808,7 +821,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (name == null && mounted) return;
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: const [
@@ -833,7 +846,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final reportService = ReportService();
 
       // Fetch required data on demand
-      final medicines = context.read<MedicineProvider>().medicines;
+      final medicines = medicineProvider.medicines;
       final overallAdherence = await _historyService.getOverallAdherence();
       final recentLogs = await _historyService.getRecentLogs(limit: 30);
 
@@ -851,7 +864,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     } catch (e) {
       debugPrint('Error generating report: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
@@ -936,6 +949,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (mounted) {
         await _loadData();
+        if (!mounted) return;
 
         // Ensure previous snackbars are cleared so this one (with timer) takes precedence
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -1050,11 +1064,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   TimelineStatus _getTimelineStatus(Log? log, DateTime scheduledDateTime) {
-    if (log != null && log.status == LogStatus.take)
+    if (log != null && log.status == LogStatus.take) {
       return TimelineStatus.completed;
+    }
     final now = DateTime.now();
-    if (now.isAfter(scheduledDateTime.add(const Duration(minutes: 30))))
+    if (now.isAfter(scheduledDateTime.add(const Duration(minutes: 30)))) {
       return TimelineStatus.overdue;
+    }
     return TimelineStatus.pending;
   }
 
@@ -1064,8 +1080,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (log.status == LogStatus.skip) return MedicineStatus.skipped;
     }
     final now = DateTime.now();
-    if (now.isAfter(scheduledDateTime.add(const Duration(minutes: 30))))
+    if (now.isAfter(scheduledDateTime.add(const Duration(minutes: 30)))) {
       return MedicineStatus.overdue;
+    }
     return MedicineStatus.pending;
   }
 }
@@ -1124,12 +1141,12 @@ class _TopBannerState extends State<_TopBanner>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: widget.isError
-                  ? Colors.red.withOpacity(0.9)
+                  ? Colors.red.withValues(alpha: 0.9)
                   : (widget.isDark ? const Color(0xFF2A2A2A) : Colors.white),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -1356,7 +1373,7 @@ class _StatsCard extends StatelessWidget {
 
     // Motivational title based on state
     String title;
-    String? subtitle;
+    String subtitle;
     if (isRestDay) {
       title = 'Rest Day 🌿';
       subtitle = 'No medications scheduled';
@@ -1383,13 +1400,13 @@ class _StatsCard extends StatelessWidget {
               BoxShadow(
                 color: const Color(
                   0xFF6366F1,
-                ).withOpacity(isDark ? 0.15 : 0.08),
+                ).withValues(alpha: isDark ? 0.15 : 0.08),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
                 spreadRadius: -4,
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -1412,8 +1429,8 @@ class _StatsCard extends StatelessWidget {
                       : isRestDay
                       ? LinearGradient(
                           colors: [
-                            Colors.amber.shade400.withOpacity(0.8),
-                            Colors.orange.shade300.withOpacity(0.8),
+                            Colors.amber.shade400.withValues(alpha: 0.8),
+                            Colors.orange.shade300.withValues(alpha: 0.8),
                           ],
                         )
                       : const LinearGradient(
@@ -1438,7 +1455,7 @@ class _StatsCard extends StatelessWidget {
                             value: 1,
                             strokeWidth: 7,
                             color: isDark
-                                ? Colors.white.withOpacity(0.06)
+                                ? Colors.white.withValues(alpha: 0.06)
                                 : const Color(0xFFF1F5F9),
                             strokeCap: StrokeCap.round,
                           ),
@@ -1454,7 +1471,7 @@ class _StatsCard extends StatelessWidget {
                                 BoxShadow(
                                   color: const Color(
                                     0xFF6366F1,
-                                  ).withOpacity(0.25),
+                                  ).withValues(alpha: 0.25),
                                   blurRadius: 16,
                                   spreadRadius: -6,
                                 ),
@@ -1565,17 +1582,14 @@ class _StatsCard extends StatelessWidget {
                           const SizedBox(height: 4),
 
                           // Subtitle/stats
-                          if (subtitle != null)
-                            Text(
-                              subtitle!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark
-                                    ? Colors.white54
-                                    : Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white54 : Colors.grey[600],
+                              fontWeight: FontWeight.w500,
                             ),
+                          ),
 
                           // Next schedule badge (if applicable)
                           if (!isRestDay &&
@@ -1589,7 +1603,7 @@ class _StatsCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.06)
+                                    ? Colors.white.withValues(alpha: 0.06)
                                     : Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1655,8 +1669,8 @@ class _StatsCard extends StatelessWidget {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.03),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -1706,7 +1720,9 @@ class _SectionTitle extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+              color: (isDark ? Colors.white : Colors.black).withValues(
+                alpha: 0.05,
+              ),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -1754,13 +1770,15 @@ class _MinimalMedicineCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.black.withOpacity(0.04),
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: (isDark ? Colors.black : Colors.grey).withOpacity(0.04),
+              color: (isDark ? Colors.black : Colors.grey).withValues(
+                alpha: 0.04,
+              ),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1778,7 +1796,7 @@ class _MinimalMedicineCard extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: entry.medicine.colorValue.withOpacity(0.4),
+                    color: entry.medicine.colorValue.withValues(alpha: 0.4),
                     blurRadius: 4,
                     spreadRadius: 1,
                   ),
@@ -1790,7 +1808,10 @@ class _MinimalMedicineCard extends StatelessWidget {
               width: 40,
               height: 40,
               child: Hero(
-                tag: 'medicine_icon_${entry.medicine.id}',
+                // A medicine can appear multiple times in the same timeline route.
+                // Include occurrence info to keep Hero tags unique within subtree.
+                tag:
+                    'medicine_icon_${entry.medicine.id}_${entry.scheduledDateTime.microsecondsSinceEpoch}_${identityHashCode(entry)}',
                 child: Image.asset(
                   entry.medicine.iconAssetPath,
                   width: 40,
@@ -1865,7 +1886,7 @@ class _MinimalMedicineCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.2),
+                            color: Colors.amber.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -1916,7 +1937,7 @@ class _MinimalMedicineCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
+                        color: Colors.amber.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: Colors.amber.shade400,
@@ -1969,7 +1990,9 @@ class _MinimalMedicineCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6366F1).withOpacity(0.3),
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.3),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -2042,15 +2065,15 @@ class _CalendarHeroWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
           border: Border.all(
             color: isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.grey.withOpacity(0.1),
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.grey.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -2242,7 +2265,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                             shape: BoxShape.circle,
                           ),
                           todayDecoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.3),
+                            color: const Color(
+                              0xFF6366F1,
+                            ).withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                           ),
                           defaultTextStyle: TextStyle(
@@ -2291,10 +2316,10 @@ class _FeatureChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: isDark
-            ? const Color(0xFF6366F1).withOpacity(0.12)
-            : const Color(0xFF6366F1).withOpacity(0.08),
+            ? const Color(0xFF6366F1).withValues(alpha: 0.12)
+            : const Color(0xFF6366F1).withValues(alpha: 0.08),
         border: Border.all(
-          color: const Color(0xFF6366F1).withOpacity(0.2),
+          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -2309,7 +2334,7 @@ class _FeatureChip extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: isDark
-                  ? const Color(0xFF6366F1).withOpacity(0.9)
+                  ? const Color(0xFF6366F1).withValues(alpha: 0.9)
                   : const Color(0xFF4F46E5),
             ),
           ),

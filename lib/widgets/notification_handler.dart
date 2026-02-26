@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notification_service.dart';
 import '../providers/medicine_provider.dart';
-import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
 
 class NotificationHandler extends StatefulWidget {

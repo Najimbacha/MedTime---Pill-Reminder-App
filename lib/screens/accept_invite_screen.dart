@@ -50,16 +50,19 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
       await HapticHelper.success();
 
       if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
         await authProvider.refreshProfile();
+        if (!mounted) return;
         
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Successfully linked with ${invite?.patientName ?? 'patient'}!'),
             backgroundColor: Colors.green,
           ),
         );
 
-        Navigator.pop(context, true);
+        navigator.pop(true);
       }
     } on AuthException catch (e) {
       _error = e.message;

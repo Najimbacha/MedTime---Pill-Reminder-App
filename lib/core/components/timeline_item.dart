@@ -14,13 +14,13 @@ class TimelineItem extends StatelessWidget {
   final Color? lineColor;
 
   const TimelineItem({
-    Key? key,
+    super.key,
     required this.time,
     required this.status,
     required this.child,
     this.isLast = false,
     this.lineColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

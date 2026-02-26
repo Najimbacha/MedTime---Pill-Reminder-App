@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/medicine.dart';
 import '../models/schedule.dart';
 import '../models/log.dart';
 import '../models/snoozed_dose.dart';
+import '../models/medicine_deletion_snapshot.dart';
 
 /// Singleton database helper for managing local SQLite database
 /// Handles all CRUD operations for medicines, schedules, and logs
@@ -167,6 +167,65 @@ class DatabaseHelper {
   Future<int> deleteMedicine(int id) async {
     final db = await database;
     return db.delete('medicines', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Delete medicine and all related records atomically.
+  Future<void> deleteMedicineGraph(int medicineId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'snoozed_doses',
+        where: 'medicine_id = ?',
+        whereArgs: [medicineId],
+      );
+      await txn.delete(
+        'logs',
+        where: 'medicine_id = ?',
+        whereArgs: [medicineId],
+      );
+      await txn.delete(
+        'schedules',
+        where: 'medicine_id = ?',
+        whereArgs: [medicineId],
+      );
+      await txn.delete('medicines', where: 'id = ?', whereArgs: [medicineId]);
+    });
+  }
+
+  /// Restore medicine and all related records atomically.
+  Future<void> restoreMedicineGraph(MedicineDeletionSnapshot snapshot) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'medicines',
+        snapshot.medicine.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      for (final schedule in snapshot.schedules) {
+        await txn.insert(
+          'schedules',
+          schedule.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final log in snapshot.logs) {
+        await txn.insert(
+          'logs',
+          log.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+
+      for (final snooze in snapshot.snoozedDoses) {
+        await txn.insert(
+          'snoozed_doses',
+          snooze.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+    });
   }
 
   /// Decrement medicine stock by 1
@@ -399,6 +458,18 @@ class DatabaseHelper {
       'snoozed_doses',
       where: 'snoozed_until > ?',
       whereArgs: [now],
+    );
+    return result.map((map) => SnoozedDose.fromMap(map)).toList();
+  }
+
+  /// Get all snoozed doses for a medicine.
+  Future<List<SnoozedDose>> getSnoozedDosesForMedicine(int medicineId) async {
+    final db = await database;
+    final result = await db.query(
+      'snoozed_doses',
+      where: 'medicine_id = ?',
+      whereArgs: [medicineId],
+      orderBy: 'original_scheduled_time DESC',
     );
     return result.map((map) => SnoozedDose.fromMap(map)).toList();
   }

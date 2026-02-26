@@ -13,13 +13,13 @@ class AppCard extends StatelessWidget {
   final int shadowLevel;
 
   const AppCard({
-    Key? key,
+    super.key,
     required this.child,
     this.padding,
     this.onTap,
     this.color,
     this.shadowLevel = 1,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

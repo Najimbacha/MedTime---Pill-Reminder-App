@@ -42,7 +42,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF6366F1).withOpacity(0.4), // Indigo
+                color: const Color(0xFF6366F1).withValues(alpha: 0.4), // Indigo
               ),
             ),
           ),
@@ -54,14 +54,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFEC4899).withOpacity(0.3), // Pink
+                color: const Color(0xFFEC4899).withValues(alpha: 0.3), // Pink
               ),
             ),
           ),
           // Blur Overlay to soften orbs
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.3), // Tint
+              color: Colors.black.withValues(alpha: 0.3), // Tint
               child: const DecoratedBox(
                 decoration: BoxDecoration(
                   backgroundBlendMode: BlendMode.overlay,
@@ -89,7 +89,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           border: Border.all(color: Colors.white24),
                         ),
                         child: const Icon(
@@ -164,7 +164,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFD700).withOpacity(0.3),
+                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
                 blurRadius: 40,
                 spreadRadius: 10,
               ),
@@ -194,7 +194,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             'Master your health journey with advanced features and family connection.',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               height: 1.4,
               fontWeight: FontWeight.w500,
             ),
@@ -214,7 +214,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white10),
             ),
@@ -238,7 +238,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   subtitle,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     height: 1.3,
                   ),
                 ),
@@ -257,7 +257,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
         ),
       ),
       child: Consumer<SubscriptionProvider>(
@@ -309,7 +309,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: Text(
                     'Note: Displaying demo prices. Purchases will be available from the Play Store.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                     textAlign: TextAlign.center,
@@ -455,8 +455,8 @@ class _PricingCard extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFFFFD700).withOpacity(0.15)
-                  : Colors.white.withOpacity(0.05),
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.05),
               border: Border.all(
                 color: isSelected ? const Color(0xFFFFD700) : Colors.white12,
                 width: isSelected ? 2 : 1,
@@ -530,7 +530,7 @@ class _PricingCard extends StatelessWidget {
                     Text(
                       period,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -556,7 +556,7 @@ class _PricingCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.4),
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),

@@ -10,8 +10,7 @@ class SyncProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
 
   List<UserProfile> _linkedPatients = [];
-  Map<String, List<SharedAdherenceData>> _patientTodayLogs = {};
-  Map<String, Map<String, dynamic>> _patientStats = {};
+  final Map<String, Map<String, dynamic>> _patientStats = {};
   bool _isLoading = false;
 
   // Getters
