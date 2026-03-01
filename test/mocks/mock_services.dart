@@ -365,6 +365,18 @@ class MockNotificationService implements NotificationService {
   }
 
   @override
+  Future<NotificationSchedulingReadiness> checkSchedulingReadiness() async {
+    final canSchedule = _notificationsEnabled && _exactAlarmsEnabled;
+    return NotificationSchedulingReadiness(
+      canSchedule: canSchedule,
+      platformSupported: true,
+      notificationGranted: _notificationsEnabled,
+      exactAlarmGranted: _exactAlarmsEnabled,
+      reason: canSchedule ? 'Ready' : 'Permissions required',
+    );
+  }
+
+  @override
   Future<void> scheduleMedicineReminder({
     required int notificationId,
     required int medicineId,
@@ -416,6 +428,27 @@ class MockNotificationService implements NotificationService {
   Future<void> cancelAllNotifications() async {
     cancelledNotificationIds.addAll(scheduledNotificationIds);
     scheduledNotificationIds.clear();
+  }
+
+  @override
+  Future<void> cancelScheduleNotifications({
+    required int baseNotificationId,
+    FrequencyType? frequencyType,
+    List<int> specificDays = const [],
+  }) async {
+    cancelledNotificationIds.add(baseNotificationId);
+    scheduledNotificationIds.remove(baseNotificationId);
+
+    if (frequencyType == FrequencyType.specificDays) {
+      for (final day in specificDays) {
+        final derivedId = NotificationService.specificDayNotificationId(
+          baseNotificationId,
+          day,
+        );
+        cancelledNotificationIds.add(derivedId);
+        scheduledNotificationIds.remove(derivedId);
+      }
+    }
   }
 
   @override

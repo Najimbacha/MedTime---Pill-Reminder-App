@@ -5,6 +5,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'paywall_screen.dart';
 
@@ -18,10 +19,12 @@ import '../providers/schedule_provider.dart';
 import '../providers/snooze_provider.dart';
 import '../providers/statistics_provider.dart';
 import '../services/interaction_service.dart';
+import '../services/notification_service.dart';
 import '../utils/haptic_helper.dart';
 import '../utils/common_medicines.dart';
 import '../services/ad_service.dart';
 import '../providers/subscription_provider.dart';
+import 'notification_troubleshoot_screen.dart';
 
 /// Screen for adding or editing a medicine
 class AddEditMedicineScreen extends StatefulWidget {
@@ -1947,6 +1950,49 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     }
   }
 
+  bool get _wantsScheduledReminders =>
+      _frequencyType != FrequencyType.asNeeded && _reminderTimes.isNotEmpty;
+
+  Future<void> _showSchedulingBlockedDialog(
+    NotificationSchedulingReadiness readiness,
+  ) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reminder setup required'),
+          content: Text(readiness.reason),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationTroubleshootScreen(),
+                  ),
+                );
+              },
+              child: const Text('Fix Notifications'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _saveMedicine({bool ignoreInteractions = false}) async {
     if (!_formKey.currentState!.validate() || !_isFormValid()) return;
 
@@ -2071,6 +2117,22 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       }
     }
 
+    var skipScheduleCreation = false;
+    var showUnsupportedScheduleMessage = false;
+    if (_wantsScheduledReminders) {
+      final readiness = await NotificationService.instance
+          .checkSchedulingReadiness();
+      if (!readiness.canSchedule) {
+        if (!readiness.platformSupported && Platform.isWindows) {
+          skipScheduleCreation = true;
+          showUnsupportedScheduleMessage = true;
+        } else {
+          await _showSchedulingBlockedDialog(readiness);
+          return;
+        }
+      }
+    }
+
     setState(() => _isSaving = true);
 
     String dosageText = '';
@@ -2095,6 +2157,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
           : null,
     );
 
+    if (!mounted) return;
     final medicineProvider = context.read<MedicineProvider>();
     final scheduleProvider = context.read<ScheduleProvider>();
 
@@ -2131,7 +2194,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     if (savedMedicine != null && savedMedicine.id != null) {
       // 1. Delete ALL existing schedules for this medicine (Cleaner than update)
       // This also ensures we don't have duplicate alarms or ghost notifications
-      if (widget.medicine != null) {
+      if (!skipScheduleCreation && widget.medicine != null) {
         final existingSchedules = scheduleProvider.getSchedulesForMedicine(
           savedMedicine.id!,
         );
@@ -2141,7 +2204,8 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       }
 
       // 2. Add New Schedules
-      if (_frequencyType != FrequencyType.asNeeded &&
+      if (!skipScheduleCreation &&
+          _frequencyType != FrequencyType.asNeeded &&
           _reminderTimes.isNotEmpty) {
         final frequencyDays = _frequencyType == FrequencyType.specificDays
             ? (_selectedDays.toList()..sort())
@@ -2171,6 +2235,16 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         await HapticHelper.success();
         if (!mounted) return;
         setState(() => _isSaving = false);
+
+        if (showUnsupportedScheduleMessage) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Windows does not support scheduled reminders here yet. Medicine saved without reminders.',
+              ),
+            ),
+          );
+        }
 
         // Show Interstitial Ad for Free Users before popping
         AdService.instance.showInterstitialAd(

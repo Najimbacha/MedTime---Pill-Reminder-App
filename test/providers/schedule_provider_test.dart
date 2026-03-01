@@ -71,6 +71,27 @@ class MockNotificationService implements NotificationService {
     scheduledIds.clear();
   }
 
+  @override
+  Future<void> cancelScheduleNotifications({
+    required int baseNotificationId,
+    FrequencyType? frequencyType,
+    List<int> specificDays = const [],
+  }) async {
+    cancelledIds.add(baseNotificationId);
+    scheduledIds.remove(baseNotificationId);
+
+    if (frequencyType == FrequencyType.specificDays) {
+      for (final day in specificDays) {
+        final derivedId = NotificationService.specificDayNotificationId(
+          baseNotificationId,
+          day,
+        );
+        cancelledIds.add(derivedId);
+        scheduledIds.remove(derivedId);
+      }
+    }
+  }
+
   // Unimplemented methods required by interface
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -168,5 +189,56 @@ void main() {
       expect(med1Schedules.length, 1);
       expect(med1Schedules.first.medicineId, 1);
     });
+
+    test(
+      'specific-days schedule creates one reminder per selected weekday',
+      () async {
+        final specificDaysSchedule = Schedule(
+          medicineId: 1,
+          timeOfDay: '08:00',
+          frequencyType: FrequencyType.specificDays,
+          frequencyDays: '1,3,5',
+        );
+
+        await provider.addSchedule(specificDaysSchedule, testMedicine);
+        final created = provider.schedules.first;
+
+        expect(mockNotifications.scheduledIds.length, 3);
+        expect(
+          mockNotifications.scheduledIds,
+          containsAll([
+            NotificationService.specificDayNotificationId(created.id!, 1),
+            NotificationService.specificDayNotificationId(created.id!, 3),
+            NotificationService.specificDayNotificationId(created.id!, 5),
+          ]),
+        );
+      },
+    );
+
+    test(
+      'deleting specific-days schedule cancels all derived notifications',
+      () async {
+        final specificDaysSchedule = Schedule(
+          medicineId: 1,
+          timeOfDay: '08:00',
+          frequencyType: FrequencyType.specificDays,
+          frequencyDays: '2,4',
+        );
+
+        await provider.addSchedule(specificDaysSchedule, testMedicine);
+        final created = provider.schedules.first;
+
+        await provider.deleteSchedule(created.id!);
+
+        expect(
+          mockNotifications.cancelledIds,
+          containsAll([
+            created.id!,
+            NotificationService.specificDayNotificationId(created.id!, 2),
+            NotificationService.specificDayNotificationId(created.id!, 4),
+          ]),
+        );
+      },
+    );
   });
 }

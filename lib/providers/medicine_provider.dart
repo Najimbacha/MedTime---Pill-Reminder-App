@@ -302,6 +302,27 @@ class MedicineProvider with ChangeNotifier {
       final scheduleId = schedule.id;
       if (scheduleId == null) continue;
 
+      if (schedule.frequencyType == FrequencyType.specificDays &&
+          schedule.daysList.isNotEmpty) {
+        for (final weekday in schedule.daysList) {
+          final nextTime = _nextSpecificWeekdayTime(schedule, weekday);
+          if (nextTime == null) continue;
+
+          await _notifications.scheduleMedicineReminder(
+            notificationId: NotificationService.specificDayNotificationId(
+              scheduleId,
+              weekday,
+            ),
+            medicineId: medicineId,
+            medicineName: snapshot.medicine.name,
+            dosage: snapshot.medicine.dosage,
+            scheduledTime: nextTime,
+            frequencyType: FrequencyType.specificDays,
+          );
+        }
+        continue;
+      }
+
       final nextTime = schedule.getNextScheduledTime();
       if (nextTime == null) continue;
 
@@ -314,5 +335,27 @@ class MedicineProvider with ChangeNotifier {
         frequencyType: schedule.frequencyType,
       );
     }
+  }
+
+  DateTime? _nextSpecificWeekdayTime(Schedule schedule, int weekday) {
+    final now = DateTime.now();
+    final parts = schedule.timeOfDay.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+
+    for (var i = 0; i <= 370; i++) {
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(Duration(days: i));
+      if (date.weekday != weekday) continue;
+
+      final candidate = DateTime(date.year, date.month, date.day, hour, minute);
+      if (!candidate.isAfter(now)) continue;
+      if (!schedule.shouldTriggerOnDate(candidate)) continue;
+      return candidate;
+    }
+    return null;
   }
 }

@@ -51,6 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
         if (!mounted) return;
         debugPrint('🔄 Starting Self-Healing process...');
 
+        final settings = Provider.of<SettingsService>(context, listen: false);
         final medicineProvider = Provider.of<MedicineProvider>(
           context,
           listen: false,
@@ -59,6 +60,7 @@ class _SplashScreenState extends State<SplashScreen>
           context,
           listen: false,
         );
+        await settings.ensureInitialized();
 
         // Ensure fresh data
         await medicineProvider.loadMedicines();
@@ -85,8 +87,14 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final settings = Provider.of<SettingsService>(context, listen: false);
+    final navigator = Navigator.of(context);
+    try {
+      await settings.ensureInitialized();
+    } catch (e) {
+      debugPrint('⚠️ Settings initialization failed in splash route: $e');
+    }
 
-    Navigator.of(context).pushReplacement(
+    navigator.pushReplacement(
       MaterialPageRoute(
         builder: (_) => settings.onboardingCompleted
             ? const MainScreen()
@@ -161,9 +169,15 @@ class _SplashScreenState extends State<SplashScreen>
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Colors.white.withValues(alpha: 0.0),
-                                                Colors.white.withValues(alpha: 0.2),
-                                                Colors.white.withValues(alpha: 0.0),
+                                                Colors.white.withValues(
+                                                  alpha: 0.0,
+                                                ),
+                                                Colors.white.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                                Colors.white.withValues(
+                                                  alpha: 0.0,
+                                                ),
                                               ],
                                               stops: [
                                                 0.0,

@@ -1,15 +1,15 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
 import '../models/caregiver_invite.dart';
+import 'app_runtime_state.dart';
 import 'revenuecat_service.dart';
 
 /// Service for Firebase Authentication and user management
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // Singleton pattern
@@ -17,21 +17,63 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
+  FirebaseAuth? get _authOrNull {
+    if (!AppRuntimeState.instance.cloudAvailable) return null;
+    try {
+      return FirebaseAuth.instance;
+    } catch (e) {
+      debugPrint('⚠️ AuthService: FirebaseAuth unavailable: $e');
+      return null;
+    }
+  }
+
+  FirebaseFirestore? get _firestoreOrNull {
+    if (!AppRuntimeState.instance.cloudAvailable) return null;
+    try {
+      return FirebaseFirestore.instance;
+    } catch (e) {
+      debugPrint('⚠️ AuthService: FirebaseFirestore unavailable: $e');
+      return null;
+    }
+  }
+
+  FirebaseAuth _requireAuth() {
+    final auth = _authOrNull;
+    if (auth == null) {
+      throw AuthException(
+        'Cloud authentication is unavailable right now. Local mode is active.',
+      );
+    }
+    return auth;
+  }
+
+  FirebaseFirestore _requireFirestore() {
+    final firestore = _firestoreOrNull;
+    if (firestore == null) {
+      throw AuthException(
+        'Cloud sync is unavailable right now. Local mode is active.',
+      );
+    }
+    return firestore;
+  }
+
   /// Get current Firebase user
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => _authOrNull?.currentUser;
 
   /// Check if user is signed in
   bool get isSignedIn => currentUser != null;
 
   /// Stream of auth state changes
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges =>
+      _authOrNull?.authStateChanges() ?? Stream<User?>.value(null);
 
   /// Get current user profile from Firestore
   Future<UserProfile?> getCurrentUserProfile() async {
     final user = currentUser;
-    if (user == null) return null;
+    final firestore = _firestoreOrNull;
+    if (user == null || firestore == null) return null;
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final doc = await firestore.collection('users').doc(user.uid).get();
     if (!doc.exists) return null;
 
     return UserProfile.fromFirestore(doc);
@@ -40,7 +82,8 @@ class AuthService {
   /// Sign in with email and password
   Future<UserProfile?> signInWithEmail(String email, String password) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
+      final auth = _requireAuth();
+      final credential = await auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -63,7 +106,9 @@ class AuthService {
     String role = 'patient',
   }) async {
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final auth = _requireAuth();
+      final firestore = _requireFirestore();
+      final credential = await auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -85,7 +130,7 @@ class AuthService {
           shareEnabled: false,
         );
 
-        await _firestore
+        await firestore
             .collection('users')
             .doc(profile.id)
             .set(profile.toMap());
@@ -100,7 +145,8 @@ class AuthService {
   /// Sign in anonymously (for privacy-focused users)
   Future<UserProfile?> signInAnonymously() async {
     try {
-      final credential = await _auth.signInAnonymously();
+      final auth = _requireAuth();
+      final credential = await auth.signInAnonymously();
 
       if (credential.user != null) {
         await RevenueCatService().logIn(credential.user!.uid);
@@ -115,6 +161,7 @@ class AuthService {
   /// Sign in with Google
   Future<UserProfile?> signInWithGoogle() async {
     try {
+      final auth = _requireAuth();
       // Trigger the Google Sign-In flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
@@ -134,7 +181,7 @@ class AuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
         await RevenueCatService().logIn(userCredential.user!.uid);
@@ -152,17 +199,24 @@ class AuthService {
   Future<void> signOut() async {
     await RevenueCatService().logOut();
     await _googleSignIn.signOut();
-    await _auth.signOut();
+    final auth = _authOrNull;
+    if (auth != null) {
+      await auth.signOut();
+    }
   }
 
   /// Delete account permanently
   Future<void> deleteAccount() async {
     final user = currentUser;
+    final firestore = _firestoreOrNull;
     if (user == null) throw AuthException('Not signed in');
+    if (firestore == null) {
+      throw AuthException('Cloud features unavailable in local mode.');
+    }
 
     try {
       // 1. Delete user data from Firestore
-      await _firestore.collection('users').doc(user.uid).delete();
+      await firestore.collection('users').doc(user.uid).delete();
 
       // 2. Delete from Firebase Auth
       await user.delete();
@@ -180,7 +234,8 @@ class AuthService {
 
   /// Get or create user profile
   Future<UserProfile> _getOrCreateUserProfile(User user) async {
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final firestore = _requireFirestore();
+    final doc = await firestore.collection('users').doc(user.uid).get();
 
     if (doc.exists) {
       return UserProfile.fromFirestore(doc);
@@ -195,13 +250,16 @@ class AuthService {
       shareEnabled: false,
     );
 
-    await _firestore.collection('users').doc(profile.id).set(profile.toMap());
+    await firestore.collection('users').doc(profile.id).set(profile.toMap());
     return profile;
   }
 
   /// Update user profile
   Future<void> updateUserProfile(UserProfile profile) async {
-    await _firestore.collection('users').doc(profile.id).update({
+    final firestore = _firestoreOrNull;
+    if (firestore == null) return;
+
+    await firestore.collection('users').doc(profile.id).update({
       ...profile.toMap(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -210,9 +268,11 @@ class AuthService {
   /// Update FCM token for push notifications
   Future<void> updateFcmToken(String token) async {
     final user = currentUser;
+    final firestore = _firestoreOrNull;
     if (user == null) return;
+    if (firestore == null) return;
 
-    await _firestore.collection('users').doc(user.uid).update({
+    await firestore.collection('users').doc(user.uid).update({
       'fcmToken': token,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -221,9 +281,11 @@ class AuthService {
   /// Toggle sharing enabled
   Future<void> setShareEnabled(bool enabled) async {
     final user = currentUser;
+    final firestore = _firestoreOrNull;
     if (user == null) return;
+    if (firestore == null) return;
 
-    await _firestore.collection('users').doc(user.uid).update({
+    await firestore.collection('users').doc(user.uid).update({
       'shareEnabled': enabled,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -232,13 +294,15 @@ class AuthService {
   /// Update display name
   Future<void> updateDisplayName(String name) async {
     final user = currentUser;
+    final firestore = _firestoreOrNull;
     if (user == null) return;
+    if (firestore == null) return;
 
     // Update Firebase Auth profile
     await user.updateDisplayName(name);
 
     // Update Firestore profile
-    await _firestore.collection('users').doc(user.uid).update({
+    await firestore.collection('users').doc(user.uid).update({
       'displayName': name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -248,6 +312,7 @@ class AuthService {
 
   /// Generate a unique 6-digit invite code
   Future<CaregiverInvite> generateInviteCode({String? patientName}) async {
+    final firestore = _requireFirestore();
     final user = currentUser;
     if (user == null) throw AuthException('Not signed in');
 
@@ -259,7 +324,7 @@ class AuthService {
     // Ensure unique code
     do {
       code = (100000 + random.nextInt(900000)).toString();
-      final doc = await _firestore.collection('invites').doc(code).get();
+      final doc = await firestore.collection('invites').doc(code).get();
       exists = doc.exists;
     } while (exists);
 
@@ -270,16 +335,17 @@ class AuthService {
       expiresAt: DateTime.now().add(const Duration(hours: 24)),
     );
 
-    await _firestore.collection('invites').doc(code).set(invite.toMap());
+    await firestore.collection('invites').doc(code).set(invite.toMap());
     return invite;
   }
 
   /// Validate and accept an invite code
   Future<CaregiverInvite?> acceptInviteCode(String code) async {
+    final firestore = _requireFirestore();
     final user = currentUser;
     if (user == null) throw AuthException('Not signed in');
 
-    final doc = await _firestore.collection('invites').doc(code).get();
+    final doc = await firestore.collection('invites').doc(code).get();
     if (!doc.exists) throw AuthException('Invalid invite code');
 
     final invite = CaregiverInvite.fromFirestore(doc);
@@ -297,7 +363,7 @@ class AuthService {
     }
 
     // Update invite status
-    await _firestore.collection('invites').doc(code).update({
+    await firestore.collection('invites').doc(code).update({
       'status': 'accepted',
     });
 
@@ -312,16 +378,17 @@ class AuthService {
     String patientId,
     String caregiverId,
   ) async {
-    final batch = _firestore.batch();
+    final firestore = _requireFirestore();
+    final batch = firestore.batch();
 
     // Add caregiver to patient's list
-    batch.update(_firestore.collection('users').doc(patientId), {
+    batch.update(firestore.collection('users').doc(patientId), {
       'linkedCaregiverIds': FieldValue.arrayUnion([caregiverId]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
     // Add patient to caregiver's list and set role to include caregiver
-    batch.update(_firestore.collection('users').doc(caregiverId), {
+    batch.update(firestore.collection('users').doc(caregiverId), {
       'linkedPatientIds': FieldValue.arrayUnion([patientId]),
       'role': 'both', // Enable caregiver mode
       'updatedAt': FieldValue.serverTimestamp(),
@@ -332,19 +399,20 @@ class AuthService {
 
   /// Unlink a caregiver from patient
   Future<void> unlinkCaregiver(String caregiverId) async {
+    final firestore = _requireFirestore();
     final user = currentUser;
     if (user == null) throw AuthException('Not signed in');
 
-    final batch = _firestore.batch();
+    final batch = firestore.batch();
 
     // Remove caregiver from patient's list
-    batch.update(_firestore.collection('users').doc(user.uid), {
+    batch.update(firestore.collection('users').doc(user.uid), {
       'linkedCaregiverIds': FieldValue.arrayRemove([caregiverId]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
     // Remove patient from caregiver's list
-    batch.update(_firestore.collection('users').doc(caregiverId), {
+    batch.update(firestore.collection('users').doc(caregiverId), {
       'linkedPatientIds': FieldValue.arrayRemove([user.uid]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -354,15 +422,16 @@ class AuthService {
 
   /// Get list of linked caregivers for current patient
   Future<List<UserProfile>> getLinkedCaregivers() async {
+    final firestore = _firestoreOrNull;
     final user = currentUser;
-    if (user == null) return [];
+    if (user == null || firestore == null) return [];
 
     final profile = await getCurrentUserProfile();
     if (profile == null || profile.linkedCaregiverIds.isEmpty) return [];
 
     final caregivers = <UserProfile>[];
     for (final id in profile.linkedCaregiverIds) {
-      final doc = await _firestore.collection('users').doc(id).get();
+      final doc = await firestore.collection('users').doc(id).get();
       if (doc.exists) {
         caregivers.add(UserProfile.fromFirestore(doc));
       }
@@ -373,15 +442,16 @@ class AuthService {
 
   /// Get list of linked patients for current caregiver
   Future<List<UserProfile>> getLinkedPatients() async {
+    final firestore = _firestoreOrNull;
     final user = currentUser;
-    if (user == null) return [];
+    if (user == null || firestore == null) return [];
 
     final profile = await getCurrentUserProfile();
     if (profile == null || profile.linkedPatientIds.isEmpty) return [];
 
     final patients = <UserProfile>[];
     for (final id in profile.linkedPatientIds) {
-      final doc = await _firestore.collection('users').doc(id).get();
+      final doc = await firestore.collection('users').doc(id).get();
       if (doc.exists) {
         patients.add(UserProfile.fromFirestore(doc));
       }

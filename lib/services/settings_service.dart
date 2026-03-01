@@ -7,6 +7,8 @@ class SettingsService extends ChangeNotifier {
   static final SettingsService instance = SettingsService._init();
 
   SharedPreferences? _prefs;
+  Future<void>? _initializationFuture;
+  bool _isInitialized = false;
 
   // Settings keys
   static const String _themeModeKey = 'theme_mode';
@@ -36,6 +38,7 @@ class SettingsService extends ChangeNotifier {
   bool get onboardingCompleted => _onboardingCompleted;
   Caregiver? get caregiver => _caregiver;
   bool get persistentNotificationEnabled => _persistentNotificationEnabled;
+  bool get isInitialized => _isInitialized;
 
   bool get isDarkMode => _themeMode == ThemeMode.dark;
   bool get isSystemMode => _themeMode == ThemeMode.system;
@@ -43,8 +46,17 @@ class SettingsService extends ChangeNotifier {
 
   /// Initialize settings service
   Future<void> initialize() async {
+    if (_isInitialized) return;
     _prefs = await SharedPreferences.getInstance();
     await _loadSettings();
+    _isInitialized = true;
+  }
+
+  /// Ensure settings are initialized once and wait on in-flight initialization.
+  Future<void> ensureInitialized() {
+    if (_isInitialized) return Future.value();
+    _initializationFuture ??= initialize();
+    return _initializationFuture!;
   }
 
   /// Publicly accessible reload settings

@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'database_helper.dart';
 import '../models/log.dart';
 import '../models/schedule.dart';
@@ -152,10 +153,28 @@ void notificationTapBackground(
   }
 }
 
+class NotificationSchedulingReadiness {
+  final bool canSchedule;
+  final bool platformSupported;
+  final bool notificationGranted;
+  final bool exactAlarmGranted;
+  final String reason;
+
+  const NotificationSchedulingReadiness({
+    required this.canSchedule,
+    required this.platformSupported,
+    required this.notificationGranted,
+    required this.exactAlarmGranted,
+    required this.reason,
+  });
+}
+
 /// Singleton service for managing local notifications
 /// Handles scheduling, actionable notifications, and callbacks
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
+
+  static const int _specificDayIdOffset = 800000000;
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -194,6 +213,10 @@ class NotificationService {
   bool get exactAlarmsPermissionGranted => _exactAlarmsPermissionGranted;
   bool get allPermissionsGranted =>
       _notificationsPermissionGranted && _exactAlarmsPermissionGranted;
+
+  static int specificDayNotificationId(int baseNotificationId, int weekday) {
+    return _specificDayIdOffset + (baseNotificationId * 10) + weekday;
+  }
 
   /// Initialize notification service
   Future<void> initialize() async {
@@ -263,8 +286,20 @@ class NotificationService {
 
   /// Request notification permissions (Android 13+)
   Future<bool> _requestNotificationsPermission() async {
+    if (Platform.isIOS) {
+      final iosPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      final granted = await iosPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return granted ?? false;
+    }
+
     if (!Platform.isAndroid) {
-      // iOS permissions are handled during initialization
       return true;
     }
 
@@ -324,6 +359,66 @@ class NotificationService {
       }
     }
     return true;
+  }
+
+  Future<bool> _hasNotificationPermission() async {
+    try {
+      final status = await Permission.notification.status;
+      return status.isGranted;
+    } catch (_) {
+      // Fallback for platforms where permission_handler may not expose this.
+      return await areNotificationsEnabled();
+    }
+  }
+
+  bool get _platformSupportsScheduledReminders =>
+      Platform.isAndroid || Platform.isIOS;
+
+  Future<NotificationSchedulingReadiness> checkSchedulingReadiness() async {
+    if (!_platformSupportsScheduledReminders) {
+      return const NotificationSchedulingReadiness(
+        canSchedule: false,
+        platformSupported: false,
+        notificationGranted: false,
+        exactAlarmGranted: false,
+        reason:
+            'Scheduled reminders are not supported on this platform. You can still save medicines.',
+      );
+    }
+
+    final notificationGranted = await _hasNotificationPermission();
+    if (!notificationGranted) {
+      return const NotificationSchedulingReadiness(
+        canSchedule: false,
+        platformSupported: true,
+        notificationGranted: false,
+        exactAlarmGranted: false,
+        reason: 'Notification permission is required to schedule reminders.',
+      );
+    }
+
+    var exactAlarmGranted = true;
+    if (Platform.isAndroid) {
+      exactAlarmGranted = await canScheduleExactAlarms();
+      if (!exactAlarmGranted) {
+        return const NotificationSchedulingReadiness(
+          canSchedule: false,
+          platformSupported: true,
+          notificationGranted: true,
+          exactAlarmGranted: false,
+          reason:
+              'Exact alarm permission is required for precise reminder timing.',
+        );
+      }
+    }
+
+    return NotificationSchedulingReadiness(
+      canSchedule: true,
+      platformSupported: true,
+      notificationGranted: true,
+      exactAlarmGranted: exactAlarmGranted,
+      reason: 'Ready',
+    );
   }
 
   /// Handle notification tap
@@ -553,6 +648,22 @@ class NotificationService {
   /// Cancel a specific notification
   Future<void> cancelNotification(int notificationId) async {
     await _notifications.cancel(notificationId);
+  }
+
+  Future<void> cancelScheduleNotifications({
+    required int baseNotificationId,
+    FrequencyType? frequencyType,
+    List<int> specificDays = const [],
+  }) async {
+    await _notifications.cancel(baseNotificationId);
+
+    if (frequencyType == FrequencyType.specificDays) {
+      for (final weekday in specificDays) {
+        await _notifications.cancel(
+          specificDayNotificationId(baseNotificationId, weekday),
+        );
+      }
+    }
   }
 
   /// Cancel all notifications

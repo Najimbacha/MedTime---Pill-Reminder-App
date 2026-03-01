@@ -8,10 +8,12 @@ class NotificationTroubleshootScreen extends StatefulWidget {
   const NotificationTroubleshootScreen({super.key});
 
   @override
-  State<NotificationTroubleshootScreen> createState() => _NotificationTroubleshootScreenState();
+  State<NotificationTroubleshootScreen> createState() =>
+      _NotificationTroubleshootScreenState();
 }
 
-class _NotificationTroubleshootScreenState extends State<NotificationTroubleshootScreen> {
+class _NotificationTroubleshootScreenState
+    extends State<NotificationTroubleshootScreen> {
   bool _notificationPermission = false;
   bool _exactAlarmPermission = false;
   bool _isIgnoringBatteryOptimizations = false;
@@ -26,18 +28,31 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
 
   Future<void> _checkStatus() async {
     setState(() => _isLoading = true);
-    
-    // Check permissions
-    final notif = await Permission.notification.status;
-    final alarm = await Permission.scheduleExactAlarm.status;
-    
-    // ignoreBatteryOptimizations status logic is tricky with permission_handler headers.
-    // It's better to use isIgnoringBatteryOptimizations() directly if available or check status.
-    // "Granted" means we are ignoring optimizations (which is GOOD).
-    // Actually, "Permission.ignoreBatteryOptimizations.status" checks if we CAN request it or if it's granted.
-    // Let's use the status for now. 
-    
-    final isIgnoring = await Permission.ignoreBatteryOptimizations.isGranted;
+
+    var notifGranted = false;
+    var exactAlarmGranted = true;
+    var isIgnoring = true;
+
+    try {
+      notifGranted = (await Permission.notification.status).isGranted;
+    } catch (_) {
+      notifGranted = true;
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        exactAlarmGranted =
+            (await Permission.scheduleExactAlarm.status).isGranted;
+      } catch (_) {
+        exactAlarmGranted = false;
+      }
+
+      try {
+        isIgnoring = await Permission.ignoreBatteryOptimizations.isGranted;
+      } catch (_) {
+        isIgnoring = false;
+      }
+    }
 
     // Check manufacturer
     if (Platform.isAndroid) {
@@ -48,8 +63,8 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
 
     if (mounted) {
       setState(() {
-        _notificationPermission = notif.isGranted;
-        _exactAlarmPermission = alarm.isGranted;
+        _notificationPermission = notifGranted;
+        _exactAlarmPermission = exactAlarmGranted;
         _isIgnoringBatteryOptimizations = isIgnoring;
         _isLoading = false;
       });
@@ -67,11 +82,15 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
     final m = _manufacturer?.toLowerCase() ?? '';
     if (m.contains('samsung')) {
       return '1. Go to Settings > Apps > MedTime\n2. Tap "Battery"\n3. Select "Unrestricted"';
-    } else if (m.contains('xiaomi') || m.contains('redmi') || m.contains('poco')) {
+    } else if (m.contains('xiaomi') ||
+        m.contains('redmi') ||
+        m.contains('poco')) {
       return '1. Go to Settings > Apps > MedTime\n2. Tap "Battery Saver"\n3. Select "No restrictions"\n4. Enable "Autostart"';
     } else if (m.contains('huawei')) {
       return '1. Go to Settings > Battery > App Launch\n2. Find MedTime\n3. Turn "Manage automatically" OFF\n4. Enable "Auto-launch" & "Run in background"';
-    } else if (m.contains('oppo') || m.contains('realme') || m.contains('oneplus')) {
+    } else if (m.contains('oppo') ||
+        m.contains('realme') ||
+        m.contains('oneplus')) {
       return '1. Long press MedTime icon > App Info\n2. Tap "Battery usage" > "Allow background activity"\n3. Enable "Allow auto launch"';
     }
     return 'Go to Settings > Apps > MedTime > Battery and verify "Background usage" is allowed and "Battery optimization" is NOT optimized.';
@@ -80,9 +99,7 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fix Notifications'),
-      ),
+      appBar: AppBar(title: const Text('Fix Notifications')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -96,18 +113,18 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
                 ],
                 _buildInstructionsCard(),
                 const SizedBox(height: 32),
-                 Center(
+                Center(
                   child: TextButton.icon(
                     onPressed: () {
-                        NotificationService.instance.showImmediateNotification(
-                          notificationId: 99999,
-                          medicineId: 99999,
-                          medicineName: 'Test Reminder', 
-                          dosage: 'Test',
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Test notification sent')),
-                        );
+                      NotificationService.instance.showImmediateNotification(
+                        notificationId: 99999,
+                        medicineId: 99999,
+                        medicineName: 'Test Reminder',
+                        dosage: 'Test',
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Test notification sent')),
+                      );
                     },
                     icon: const Icon(Icons.notifications_active),
                     label: const Text('Send Test Notification'),
@@ -121,10 +138,14 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
   Widget _buildStatusCard() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: Theme.of(
+        context,
+      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+        side: BorderSide(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -135,7 +156,7 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
             _buildCheckItem('Exact Alarm Permission', _exactAlarmPermission),
             const Divider(),
             _buildCheckItem(
-              'Battery Exempt (Unrestricted)', 
+              'Battery Exempt (Unrestricted)',
               _isIgnoringBatteryOptimizations,
               isCritical: !_isIgnoringBatteryOptimizations,
             ),
@@ -151,8 +172,12 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
       child: Row(
         children: [
           Icon(
-            isOk ? Icons.check_circle : (isCritical ? Icons.error : Icons.cancel),
-            color: isOk ? Colors.green : (isCritical ? Colors.red : Colors.orange),
+            isOk
+                ? Icons.check_circle
+                : (isCritical ? Icons.error : Icons.cancel),
+            color: isOk
+                ? Colors.green
+                : (isCritical ? Colors.red : Colors.orange),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -226,23 +251,23 @@ class _NotificationTroubleshootScreenState extends State<NotificationTroubleshoo
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-         Padding(
-           padding: const EdgeInsets.only(left: 4, bottom: 8),
-           child: Text(
-            'Instructions for ${_manufacturer!.toUpperCase()}', 
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Instructions for ${_manufacturer!.toUpperCase()}',
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
               color: Colors.grey,
             ),
-           ),
-         ),
+          ),
+        ),
         Card(
           elevation: 0,
           color: Colors.grey.shade50,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),

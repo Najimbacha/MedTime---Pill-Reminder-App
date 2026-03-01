@@ -17,6 +17,7 @@ import 'paywall_screen.dart';
 import 'auth_screen.dart';
 import 'invite_caregiver_screen.dart';
 import 'caregiver_dashboard_screen.dart';
+import 'notification_troubleshoot_screen.dart';
 
 import 'statistics_screen.dart';
 
@@ -405,7 +406,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (context.mounted) {
         messenger.showSnackBar(
-            SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -740,6 +742,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         subtitle:
                             'Warn at ${settings.lowStockThreshold} doses remaining',
                         onTap: () => _showLowStockDialog(context, settings),
+                      ),
+                      SettingsTile(
+                        icon: Icons.notifications_active_rounded,
+                        iconColor: const Color(0xFF22C55E),
+                        title: 'Fix Notifications',
+                        subtitle:
+                            'Check reminders, exact alarm, and battery setup',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const NotificationTroubleshootScreen(),
+                            ),
+                          );
+                        },
                       ),
                       SettingsTile(
                         icon: Icons.cloud_upload_rounded,
@@ -1218,7 +1236,9 @@ class _BackupOption extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: isDark ? Colors.white24 : Colors.black.withValues(alpha: 0.2),
+              color: isDark
+                  ? Colors.white24
+                  : Colors.black.withValues(alpha: 0.2),
               size: 20,
             ),
           ],

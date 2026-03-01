@@ -4,6 +4,7 @@ import '../models/shared_adherence_data.dart';
 import '../models/user_profile.dart';
 import '../models/log.dart';
 import '../models/medicine.dart';
+import 'app_runtime_state.dart';
 import 'auth_service.dart';
 import 'database_helper.dart';
 import 'caregiver_notification_service.dart';
@@ -11,14 +12,23 @@ import 'caregiver_notification_service.dart';
 /// Service for syncing adherence data to Firestore
 /// Enables real-time sharing with caregivers
 class SyncService extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AuthService _authService = AuthService();
   final DatabaseHelper _db = DatabaseHelper.instance;
+
+  FirebaseFirestore? get _firestoreOrNull {
+    if (!AppRuntimeState.instance.cloudAvailable) return null;
+    try {
+      return FirebaseFirestore.instance;
+    } catch (e) {
+      debugPrint('⚠️ SyncService: Firestore unavailable: $e');
+      return null;
+    }
+  }
 
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
   String? _syncError;
-  
+
   // Pending sync queue for offline support
   final List<SharedAdherenceData> _pendingUploads = [];
 
@@ -37,10 +47,17 @@ class SyncService extends ChangeNotifier {
   }) async {
     try {
       debugPrint('🔵 SyncService.uploadAdherenceLog: Starting...');
-      
+      final firestore = _firestoreOrNull;
+      if (firestore == null) {
+        debugPrint('⚠️ SyncService.uploadAdherenceLog: Cloud unavailable');
+        return;
+      }
+
       final user = _authService.currentUser;
       if (user == null) {
-        debugPrint('⚠️ SyncService.uploadAdherenceLog: No user signed in, skipping sync');
+        debugPrint(
+          '⚠️ SyncService.uploadAdherenceLog: No user signed in, skipping sync',
+        );
         return;
       }
 
@@ -49,12 +66,16 @@ class SyncService extends ChangeNotifier {
       try {
         profile = await _authService.getCurrentUserProfile();
       } catch (e) {
-        debugPrint('⚠️ SyncService.uploadAdherenceLog: Could not get profile, skipping sync: $e');
+        debugPrint(
+          '⚠️ SyncService.uploadAdherenceLog: Could not get profile, skipping sync: $e',
+        );
         return;
       }
-      
+
       if (profile == null || !profile.shareEnabled) {
-        debugPrint('⚠️ SyncService.uploadAdherenceLog: Sharing disabled, skipping sync');
+        debugPrint(
+          '⚠️ SyncService.uploadAdherenceLog: Sharing disabled, skipping sync',
+        );
         return;
       }
 
@@ -83,7 +104,7 @@ class SyncService extends ChangeNotifier {
       _isSyncing = true;
       notifyListeners();
 
-      await _firestore
+      await firestore
           .collection('users')
           .doc(user.uid)
           .collection('adherenceLogs')
@@ -91,17 +112,18 @@ class SyncService extends ChangeNotifier {
 
       _lastSyncTime = DateTime.now();
       _syncError = null;
-      
+
       // TRIGGER NOTIFICATION IF MISSED
-      if (log.status == LogStatus.missed && profile.linkedCaregiverIds.isNotEmpty) {
+      if (log.status == LogStatus.missed &&
+          profile.linkedCaregiverIds.isNotEmpty) {
         debugPrint('🔵 SyncService: Missed dose detected, sending alerts...');
         await CaregiverNotificationService().sendMissedDoseAlert(
-          patientName: profile.displayName ?? 'Patient', 
+          patientName: profile.displayName ?? 'Patient',
           medicineName: '${medicine.name} ${medicine.dosage}',
           caregiverIds: profile.linkedCaregiverIds,
         );
       }
-      
+
       debugPrint('✅ SyncService.uploadAdherenceLog: Successfully synced');
     } catch (e) {
       debugPrint('⚠️ SyncService.uploadAdherenceLog: Error (non-fatal): $e');
@@ -116,6 +138,8 @@ class SyncService extends ChangeNotifier {
   /// Retry pending uploads
   Future<void> retryPendingUploads() async {
     if (_pendingUploads.isEmpty) return;
+    final firestore = _firestoreOrNull;
+    if (firestore == null) return;
 
     final user = _authService.currentUser;
     if (user == null) return;
@@ -127,7 +151,7 @@ class SyncService extends ChangeNotifier {
 
     for (final data in _pendingUploads) {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(user.uid)
             .collection('adherenceLogs')
@@ -146,36 +170,52 @@ class SyncService extends ChangeNotifier {
 
   /// Get adherence logs stream for a patient (used by caregivers)
   Stream<List<SharedAdherenceData>> getPatientAdherenceLogs(String patientId) {
-    return _firestore
+    final firestore = _firestoreOrNull;
+    if (firestore == null) {
+      return Stream<List<SharedAdherenceData>>.value(const []);
+    }
+
+    return firestore
         .collection('users')
         .doc(patientId)
         .collection('adherenceLogs')
         .orderBy('scheduledTime', descending: true)
         .limit(100)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => SharedAdherenceData.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => SharedAdherenceData.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Get today's adherence logs stream for a patient
   Stream<List<SharedAdherenceData>> getPatientTodayLogs(String patientId) {
+    final firestore = _firestoreOrNull;
+    if (firestore == null) {
+      return Stream<List<SharedAdherenceData>>.value(const []);
+    }
+
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    return _firestore
+    return firestore
         .collection('users')
         .doc(patientId)
         .collection('adherenceLogs')
-        .where('scheduledTime',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where(
+          'scheduledTime',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+        )
         .where('scheduledTime', isLessThan: Timestamp.fromDate(endOfDay))
         .orderBy('scheduledTime', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => SharedAdherenceData.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => SharedAdherenceData.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Get adherence stats for a patient
@@ -183,15 +223,20 @@ class SyncService extends ChangeNotifier {
     String patientId, {
     int days = 7,
   }) async {
+    final firestore = _firestoreOrNull;
+    if (firestore == null) return {};
+
     final now = DateTime.now();
     final startDate = now.subtract(Duration(days: days));
 
-    final snapshot = await _firestore
+    final snapshot = await firestore
         .collection('users')
         .doc(patientId)
         .collection('adherenceLogs')
-        .where('scheduledTime',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+        .where(
+          'scheduledTime',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+        )
         .get();
 
     final logs = snapshot.docs
@@ -214,6 +259,9 @@ class SyncService extends ChangeNotifier {
 
   /// Sync all today's logs to cloud (for initial sync or catch-up)
   Future<void> syncTodayLogs() async {
+    final firestore = _firestoreOrNull;
+    if (firestore == null) return;
+
     final user = _authService.currentUser;
     if (user == null) return;
 
@@ -256,17 +304,19 @@ class SyncService extends ChangeNotifier {
         );
 
         // Check if already synced
-        final existing = await _firestore
+        final existing = await firestore
             .collection('users')
             .doc(user.uid)
             .collection('adherenceLogs')
             .where('odMedicineId', isEqualTo: data.odMedicineId)
-            .where('scheduledTime',
-                isEqualTo: Timestamp.fromDate(data.scheduledTime))
+            .where(
+              'scheduledTime',
+              isEqualTo: Timestamp.fromDate(data.scheduledTime),
+            )
             .get();
 
         if (existing.docs.isEmpty) {
-          await _firestore
+          await firestore
               .collection('users')
               .doc(user.uid)
               .collection('adherenceLogs')

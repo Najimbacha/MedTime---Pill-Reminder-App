@@ -1,94 +1,109 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // For PlatformDispatcher
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
+
+import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
+import 'providers/log_provider.dart';
 import 'providers/medicine_provider.dart';
 import 'providers/schedule_provider.dart';
-import 'providers/log_provider.dart';
-import 'providers/auth_provider.dart';
+import 'providers/snooze_provider.dart';
+import 'providers/statistics_provider.dart';
+import 'providers/subscription_provider.dart';
 import 'providers/sync_provider.dart';
+import 'screens/splash_screen.dart';
+import 'services/ad_service.dart';
+import 'services/app_runtime_state.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/streak_service.dart';
-import 'services/ad_service.dart';
-import 'providers/subscription_provider.dart';
-import 'providers/statistics_provider.dart';
-import 'providers/snooze_provider.dart';
-import 'core/theme/app_theme.dart';
-import 'screens/splash_screen.dart';
 import 'widgets/notification_handler.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('🚀 App Starting...');
 
+  var status = const BootstrapStatus.initial();
+
+  // 1) Firebase (optional for local mode)
   try {
-    // Initialize Firebase
     debugPrint('🔥 Initializing Firebase...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        debugPrint(
-          '⚠️ Firebase init timed out - continuing without cloud features',
-        );
-        throw TimeoutException('Firebase init timed out');
-      },
-    );
+    ).timeout(const Duration(seconds: 10));
+    status = status.copyWith(firebaseInitialized: true);
     debugPrint('✅ Firebase Initialized');
+  } catch (e) {
+    status = status.copyWith(firebaseError: e.toString());
+    debugPrint('⚠️ Firebase unavailable. Continuing in local mode. Error: $e');
+  }
 
-    // Initialize Crashlytics
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // 2) Crashlytics only if Firebase is available.
+  if (status.firebaseInitialized) {
+    try {
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+      status = status.copyWith(crashlyticsConfigured: true);
+      debugPrint('📊 Crashlytics Initialized');
+    } catch (e) {
+      debugPrint('⚠️ Crashlytics init skipped: $e');
+    }
+  }
 
-    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-    debugPrint('📊 Crashlytics Initialized');
-
-    // Initialize services
+  // 3) Local/core services should always attempt initialization.
+  try {
     debugPrint('🔔 Initializing NotificationService...');
     await NotificationService.instance.initialize().timeout(
       const Duration(seconds: 10),
-      onTimeout: () => debugPrint('⚠️ NotificationService init timed out'),
     );
+    status = status.copyWith(notificationServiceInitialized: true);
     debugPrint('✅ NotificationService Initialized');
+  } catch (e) {
+    debugPrint('⚠️ NotificationService init failed: $e');
+  }
 
+  try {
     debugPrint('⚙️ Initializing SettingsService...');
-    await SettingsService.instance.initialize().timeout(
+    await SettingsService.instance.ensureInitialized().timeout(
       const Duration(seconds: 5),
-      onTimeout: () => debugPrint('⚠️ SettingsService init timed out'),
     );
+    status = status.copyWith(settingsServiceInitialized: true);
     debugPrint('✅ SettingsService Initialized');
+  } catch (e) {
+    debugPrint('⚠️ SettingsService init failed: $e');
+  }
 
+  try {
     debugPrint('🏆 Initializing StreakService...');
     await StreakService.instance.initialize().timeout(
       const Duration(seconds: 5),
-      onTimeout: () => debugPrint('⚠️ StreakService init timed out'),
     );
+    status = status.copyWith(streakServiceInitialized: true);
     debugPrint('✅ StreakService Initialized');
-
-    debugPrint('💰 Initializing AdService...');
-    await AdService.instance.initialize();
-    debugPrint('✅ AdService Initialized');
-
-    runApp(const PrivacyMedsApp());
-  } catch (e, stack) {
-    debugPrint('🔴 Application Init Error: $e');
-    debugPrint(stack.toString());
-    // Run app anyway - Firebase features will be unavailable
-    runApp(const PrivacyMedsApp());
+  } catch (e) {
+    debugPrint('⚠️ StreakService init failed: $e');
   }
-}
 
-/// Custom timeout exception
-class TimeoutException implements Exception {
-  final String message;
-  TimeoutException(this.message);
+  try {
+    debugPrint('💰 Initializing AdService...');
+    await AdService.instance.initialize().timeout(const Duration(seconds: 5));
+    status = status.copyWith(adServiceInitialized: true);
+    debugPrint('✅ AdService Initialized');
+  } catch (e) {
+    debugPrint('⚠️ AdService init failed: $e');
+  }
+
+  AppRuntimeState.instance.updateBootstrapStatus(status);
+  runApp(const PrivacyMedsApp());
 }
 
 class PrivacyMedsApp extends StatelessWidget {

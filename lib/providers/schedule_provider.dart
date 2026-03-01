@@ -66,10 +66,18 @@ class ScheduleProvider with ChangeNotifier {
   /// Update an existing schedule
   Future<bool> updateSchedule(Schedule schedule, Medicine medicine) async {
     try {
+      final previousSchedule = _schedules.firstWhere(
+        (s) => s.id == schedule.id,
+        orElse: () => schedule,
+      );
+
       await _db.updateSchedule(schedule);
       final index = _schedules.indexWhere((s) => s.id == schedule.id);
       if (index != -1) {
         _schedules[index] = schedule;
+
+        // Cancel before re-scheduling to avoid ghost notifications.
+        await _cancelNotificationForSchedule(previousSchedule);
 
         // Reschedule notification
         await _scheduleNotification(schedule, medicine);
@@ -86,11 +94,20 @@ class ScheduleProvider with ChangeNotifier {
   /// Delete a schedule
   Future<bool> deleteSchedule(int id) async {
     try {
+      final schedule = _schedules.firstWhere(
+        (s) => s.id == id,
+        orElse: () => Schedule(
+          id: id,
+          medicineId: -1,
+          timeOfDay: '00:00',
+          frequencyType: FrequencyType.daily,
+        ),
+      );
       await _db.deleteSchedule(id);
       _schedules.removeWhere((s) => s.id == id);
 
       // Cancel notification
-      await _notifications.cancelNotification(id);
+      await _cancelNotificationForSchedule(schedule);
 
       notifyListeners();
       return true;
@@ -105,10 +122,33 @@ class ScheduleProvider with ChangeNotifier {
     Schedule schedule,
     Medicine medicine,
   ) async {
-    final scheduledTime = schedule.getNextScheduledTime();
-    if (scheduledTime == null || schedule.id == null) return;
+    if (schedule.id == null || medicine.id == null) return;
 
     try {
+      if (schedule.frequencyType == FrequencyType.specificDays &&
+          schedule.daysList.isNotEmpty) {
+        for (final weekday in schedule.daysList) {
+          final nextTime = _nextSpecificWeekdayTime(schedule, weekday);
+          if (nextTime == null) continue;
+
+          await _notifications.scheduleMedicineReminder(
+            notificationId: NotificationService.specificDayNotificationId(
+              schedule.id!,
+              weekday,
+            ),
+            medicineId: medicine.id!,
+            medicineName: medicine.name,
+            dosage: medicine.dosage,
+            scheduledTime: nextTime,
+            frequencyType: FrequencyType.specificDays,
+          );
+        }
+        return;
+      }
+
+      final scheduledTime = schedule.getNextScheduledTime();
+      if (scheduledTime == null) return;
+
       await _notifications.scheduleMedicineReminder(
         notificationId: schedule.id!,
         medicineId: medicine.id!,
@@ -120,6 +160,38 @@ class ScheduleProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
     }
+  }
+
+  Future<void> _cancelNotificationForSchedule(Schedule schedule) async {
+    if (schedule.id == null) return;
+    await _notifications.cancelScheduleNotifications(
+      baseNotificationId: schedule.id!,
+      frequencyType: schedule.frequencyType,
+      specificDays: schedule.daysList,
+    );
+  }
+
+  DateTime? _nextSpecificWeekdayTime(Schedule schedule, int weekday) {
+    final now = DateTime.now();
+    final parts = schedule.timeOfDay.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+
+    for (var i = 0; i <= 370; i++) {
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(Duration(days: i));
+      if (date.weekday != weekday) continue;
+
+      final candidate = DateTime(date.year, date.month, date.day, hour, minute);
+      if (!candidate.isAfter(now)) continue;
+      if (!schedule.shouldTriggerOnDate(candidate)) continue;
+      return candidate;
+    }
+
+    return null;
   }
 
   /// Reschedule all notifications (useful after app restart)
