@@ -114,13 +114,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         // Features List
                         _buildFeatureRow(
                           Icons.all_inclusive_rounded,
-                          'Unlimited Medications',
-                          'Track unlimited prescriptions with zero restrictions.',
+                          'Unlimited Routines',
+                          'Create as many recurring reminders as you need.',
                         ),
                         _buildFeatureRow(
-                          Icons.family_restroom_rounded,
-                          'Caregiver Access',
-                          'Keep family in the loop with real-time monitoring.',
+                          Icons.repeat_rounded,
+                          'Smart Repeats',
+                          'Use weekdays, weekends, specific days, and intervals.',
                         ),
                         _buildFeatureRow(
                           Icons.cloud_upload_rounded,
@@ -129,8 +129,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                         _buildFeatureRow(
                           Icons.bar_chart_rounded,
-                          'Advanced Analytics',
-                          'Deep insights into adherence trends.',
+                          'Simple History',
+                          'See what you completed without heavy habit tracking.',
                         ),
 
                         const SizedBox(height: 48),
@@ -178,7 +178,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         ),
         const SizedBox(height: 32),
         const Text(
-          'MedTime Premium',
+          'RoutineTime Premium',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w900,
@@ -191,7 +191,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'Master your health journey with advanced features and family connection.',
+            'Create unlimited routines and keep your reminders simple.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.white.withValues(alpha: 0.8),
@@ -286,7 +286,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 title: 'Lifetime Access',
                 price: lifetime?.storeProduct.priceString ?? '\$30.00',
                 period: 'One-time',
-                subtitle: 'Unlock Everything Forever',
+                subtitle: 'Unlimited routines forever',
                 isBestValue: true,
                 isSelected: _selectedIndex == 0,
                 onTap: () => setState(() => _selectedIndex = 0),

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/models/log.dart';
-import 'package:privacy_meds/models/schedule.dart';
+import 'package:routine_time/models/log.dart';
+import 'package:routine_time/models/schedule.dart';
 import '../mocks/mock_services.dart';
 import '../fixtures/test_fixtures.dart';
 

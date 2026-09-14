@@ -19,7 +19,7 @@ class CabinetScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(
-          'Medicine Cabinet',
+          'Routines',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 28,
@@ -41,8 +41,8 @@ class CabinetScreen extends StatelessWidget {
               child: EmptyStateWidget(
                 imageAsset: 'assets/icons/medicine/check_badge.png',
                 title: 'Cabinet Empty',
-                message: 'Add your medicines to track inventory',
-                buttonText: 'Add First Medicine',
+                message: 'Add a recurring reminder to get started',
+                buttonText: 'Add First Routine',
                 onButtonPressed: () => _navigateToAddMedicine(context),
               ),
             );
@@ -77,7 +77,7 @@ class CabinetScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           label: const Text(
-            'Add Medicine',
+            'Add Routine',
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -284,7 +284,7 @@ class _AppleMedicineCard extends StatelessWidget {
                           // Get prediction
                           final scheduleProvider = context
                               .watch<ScheduleProvider>();
-                          final refillDate = scheduleProvider
+                          final restockDate = scheduleProvider
                               .getEstimatedRefillDate(
                                 medicine.id!,
                                 medicine.currentStock,
@@ -295,8 +295,8 @@ class _AppleMedicineCard extends StatelessWidget {
                               ? Colors.white38
                               : Colors.grey.shade500;
 
-                          if (refillDate != null) {
-                            final daysUntil = refillDate
+                          if (restockDate != null) {
+                            final daysUntil = restockDate
                                 .difference(DateTime.now())
                                 .inDays;
 
@@ -305,11 +305,11 @@ class _AppleMedicineCard extends StatelessWidget {
                               stockColor = Colors.red;
                             } else if (daysUntil < 7) {
                               stockText =
-                                  'Empty by ${_getWeekday(refillDate)}'; // "Empty by Tue"
+                                  'Empty by ${_getWeekday(restockDate)}'; // "Empty by Tue"
                               stockColor = Colors.orange.shade700;
                             } else if (daysUntil < 30) {
                               stockText =
-                                  'Lasts until ${_getMonthDay(refillDate)}'; // "Lasts until Feb 12"
+                                  'Lasts until ${_getMonthDay(restockDate)}'; // "Lasts until Feb 12"
                               stockColor = isDark
                                   ? Colors.white60
                                   : Colors.grey.shade700;
@@ -324,8 +324,8 @@ class _AppleMedicineCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight:
-                                  (refillDate != null &&
-                                          refillDate
+                                  (restockDate != null &&
+                                          restockDate
                                                   .difference(DateTime.now())
                                                   .inDays <
                                               7) ||
@@ -389,7 +389,7 @@ class _AppleMedicineCard extends StatelessWidget {
   IconData _getTypeIcon(int typeIcon) {
     switch (typeIcon) {
       case 1:
-        return Icons.medication_rounded;
+        return Icons.notifications_active_rounded;
       case 2:
         return Icons.liquor_rounded; // Syrup
       case 3:
@@ -397,14 +397,14 @@ class _AppleMedicineCard extends StatelessWidget {
       case 4:
         return Icons.water_drop_rounded; // Drops/Bottle
       default:
-        return Icons.medication_rounded;
+        return Icons.notifications_active_rounded;
     }
   }
 
   String _getTypeName(int typeIcon) {
     switch (typeIcon) {
       case 1:
-        return 'Pill';
+        return 'Routine';
       case 2:
         return 'Syrup';
       case 3:
@@ -412,14 +412,14 @@ class _AppleMedicineCard extends StatelessWidget {
       case 4:
         return 'Liquid';
       default:
-        return 'Medicine';
+        return 'Routine';
     }
   }
 
   String _get3DAssetPath(int typeIcon) {
     switch (typeIcon) {
       case 1:
-        return 'assets/icons/medicine/3d/tablet.png'; // Pill
+        return 'assets/icons/medicine/3d/tablet.png'; // Routine
       case 2:
         return 'assets/icons/medicine/3d/liquid.png'; // Syrup
       case 3:

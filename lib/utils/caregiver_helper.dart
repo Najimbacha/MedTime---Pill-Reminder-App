@@ -3,13 +3,23 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/caregiver.dart';
 
 class CaregiverHelper {
-  static Future<void> sendMissedDoseAlert(Caregiver caregiver, String medicineName, String time) async {
-    final message = 'Hi ${caregiver.name}, just letting you know I missed my dose of $medicineName at $time. - Sent from MedTime app';
+  static Future<void> sendMissedDoseAlert(
+    Caregiver caregiver,
+    String medicineName,
+    String time,
+  ) async {
+    final message =
+        'Hi ${caregiver.name}, just letting you know I missed $medicineName at $time. - Sent from RoutineTime';
     await _sendSms(caregiver.phoneNumber, message);
   }
 
-  static Future<void> sendLowStockAlert(Caregiver caregiver, String medicineName, int remaining) async {
-    final message = 'Hi ${caregiver.name}, my $medicineName is running low (only $remaining left). Can you help me refill it? - Sent from MedTime app';
+  static Future<void> sendLowStockAlert(
+    Caregiver caregiver,
+    String medicineName,
+    int remaining,
+  ) async {
+    final message =
+        'Hi ${caregiver.name}, reminder supplies for $medicineName are running low ($remaining left). - Sent from RoutineTime';
     await _sendSms(caregiver.phoneNumber, message);
   }
 
@@ -17,9 +27,7 @@ class CaregiverHelper {
     final Uri smsLaunchUri = Uri(
       scheme: 'sms',
       path: phone,
-      queryParameters: <String, String>{
-        'body': message,
-      },
+      queryParameters: <String, String>{'body': message},
     );
 
     try {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/models/caregiver.dart';
+import 'package:routine_time/models/caregiver.dart';
 import 'dart:convert';
 
 void main() {

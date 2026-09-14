@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/models/snoozed_dose.dart';
+import 'package:routine_time/models/snoozed_dose.dart';
 import '../mocks/mock_services.dart';
 
 /// A testable version of SnoozeProvider that accepts injected dependencies

@@ -1,12 +1,12 @@
 // Test fixtures for creating test data
 // Provides factory methods for creating Medicine, Schedule, Log, and other models
 
-import 'package:privacy_meds/models/medicine.dart';
-import 'package:privacy_meds/models/schedule.dart';
-import 'package:privacy_meds/models/log.dart';
-import 'package:privacy_meds/models/snoozed_dose.dart';
-import 'package:privacy_meds/models/emergency_info.dart';
-import 'package:privacy_meds/models/caregiver.dart';
+import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/schedule.dart';
+import 'package:routine_time/models/log.dart';
+import 'package:routine_time/models/snoozed_dose.dart';
+import 'package:routine_time/models/emergency_info.dart';
+import 'package:routine_time/models/caregiver.dart';
 
 // Factory for creating test Medicine objects
 class MedicineFixtures {

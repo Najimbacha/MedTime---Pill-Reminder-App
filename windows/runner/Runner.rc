@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.privacymeds" "\0"
-            VALUE "FileDescription", "privacy_meds" "\0"
+            VALUE "CompanyName", "com.routinetime" "\0"
+            VALUE "FileDescription", "RoutineTime" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "privacy_meds" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.privacymeds. All rights reserved." "\0"
-            VALUE "OriginalFilename", "privacy_meds.exe" "\0"
-            VALUE "ProductName", "privacy_meds" "\0"
+            VALUE "InternalName", "routine_time" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.routinetime. All rights reserved." "\0"
+            VALUE "OriginalFilename", "routine_time.exe" "\0"
+            VALUE "ProductName", "RoutineTime" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

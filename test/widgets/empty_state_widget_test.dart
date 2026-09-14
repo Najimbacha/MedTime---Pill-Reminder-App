@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/widgets/empty_state_widget.dart';
+import 'package:routine_time/widgets/empty_state_widget.dart';
 
 void main() {
   group('EmptyStateWidget Tests', () {

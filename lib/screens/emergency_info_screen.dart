@@ -20,7 +20,7 @@ class EmergencyInfoScreen extends StatefulWidget {
 class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final _screenshotController = ScreenshotController();
-  
+
   late TextEditingController _bloodController;
   late TextEditingController _allergiesController;
   late TextEditingController _conditionsController;
@@ -98,7 +98,10 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✓ Emergency information saved', style: TextStyle(fontSize: 18)),
+          content: Text(
+            '✓ Emergency information saved',
+            style: TextStyle(fontSize: 18),
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -125,7 +128,9 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Wallpaper Saved'),
-            content: Text('The emergency QR code has been saved to:\n\n$imagePath\n\nYou can now set it as your lock screen wallpaper from your gallery.'),
+            content: Text(
+              'The emergency QR code has been saved to:\n\n$imagePath\n\nYou can now set it as your lock screen wallpaper from your gallery.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -224,9 +229,7 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Emergency QR Code'),
-      ),
+      appBar: AppBar(title: const Text('Emergency QR Code')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -253,10 +256,30 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildField(_bloodController, 'Blood Group', Icons.bloodtype, 'e.g. A+'),
-              _buildField(_allergiesController, 'Allergies', Icons.warning_amber, 'e.g. Penicillin, Peanuts'),
-              _buildField(_conditionsController, 'Chronic Conditions', Icons.history, 'e.g. Diabetes, Asthma'),
-              _buildField(_medsController, 'Current Medications', Icons.medication, 'e.g. Insulin, Aspirin'),
+              _buildField(
+                _bloodController,
+                'Blood Group',
+                Icons.bloodtype,
+                'e.g. A+',
+              ),
+              _buildField(
+                _allergiesController,
+                'Allergies',
+                Icons.warning_amber,
+                'e.g. Penicillin, Peanuts',
+              ),
+              _buildField(
+                _conditionsController,
+                'Chronic Conditions',
+                Icons.history,
+                'e.g. Diabetes, Asthma',
+              ),
+              _buildField(
+                _medsController,
+                'Current Routines',
+                Icons.notifications_active_outlined,
+                'e.g. Read, walk, call home',
+              ),
               const Divider(height: 48),
               const Text(
                 'Emergency Contact',
@@ -264,12 +287,21 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
               ),
               const SizedBox(height: 16),
               _buildField(_contactNameController, 'Contact Name', Icons.person),
-              _buildField(_contactPhoneController, 'Contact Phone', Icons.phone, null, TextInputType.phone),
+              _buildField(
+                _contactPhoneController,
+                'Contact Phone',
+                Icons.phone,
+                null,
+                TextInputType.phone,
+              ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: _saveEmergencyInfo,
                 icon: const Icon(Icons.save),
-                label: const Text('Save Information', style: TextStyle(fontSize: 18)),
+                label: const Text(
+                  'Save Information',
+                  style: TextStyle(fontSize: 18),
+                ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor: Colors.blue,
@@ -277,7 +309,8 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (_info.bloodGroup.isNotEmpty || _info.emergencyContactPhone.isNotEmpty) ...[
+              if (_info.bloodGroup.isNotEmpty ||
+                  _info.emergencyContactPhone.isNotEmpty) ...[
                 const Divider(height: 48),
                 const Text(
                   'Generated QR Code',
@@ -310,7 +343,10 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen> {
                 ElevatedButton.icon(
                   onPressed: _saveAsWallpaper,
                   icon: const Icon(Icons.wallpaper),
-                  label: const Text('Save as Wallpaper', style: TextStyle(fontSize: 18)),
+                  label: const Text(
+                    'Save as Wallpaper',
+                    style: TextStyle(fontSize: 18),
+                  ),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.indigo,

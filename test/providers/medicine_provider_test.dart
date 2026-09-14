@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/models/medicine.dart';
+import 'package:routine_time/models/medicine.dart';
 import '../mocks/mock_services.dart';
 import '../fixtures/test_fixtures.dart';
 

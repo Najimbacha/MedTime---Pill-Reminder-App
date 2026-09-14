@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/widgets/progress_ring.dart';
+import 'package:routine_time/widgets/progress_ring.dart';
 
 void main() {
   group('ProgressRing Tests', () {

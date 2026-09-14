@@ -81,19 +81,19 @@ class _NotificationTroubleshootScreenState
   String _getManufacturerAdvice() {
     final m = _manufacturer?.toLowerCase() ?? '';
     if (m.contains('samsung')) {
-      return '1. Go to Settings > Apps > MedTime\n2. Tap "Battery"\n3. Select "Unrestricted"';
+      return '1. Go to Settings > Apps > RoutineTime\n2. Tap "Battery"\n3. Select "Unrestricted"';
     } else if (m.contains('xiaomi') ||
         m.contains('redmi') ||
         m.contains('poco')) {
-      return '1. Go to Settings > Apps > MedTime\n2. Tap "Battery Saver"\n3. Select "No restrictions"\n4. Enable "Autostart"';
+      return '1. Go to Settings > Apps > RoutineTime\n2. Tap "Battery Saver"\n3. Select "No restrictions"\n4. Enable "Autostart"';
     } else if (m.contains('huawei')) {
-      return '1. Go to Settings > Battery > App Launch\n2. Find MedTime\n3. Turn "Manage automatically" OFF\n4. Enable "Auto-launch" & "Run in background"';
+      return '1. Go to Settings > Battery > App Launch\n2. Find RoutineTime\n3. Turn "Manage automatically" OFF\n4. Enable "Auto-launch" & "Run in background"';
     } else if (m.contains('oppo') ||
         m.contains('realme') ||
         m.contains('oneplus')) {
-      return '1. Long press MedTime icon > App Info\n2. Tap "Battery usage" > "Allow background activity"\n3. Enable "Allow auto launch"';
+      return '1. Long press RoutineTime icon > App Info\n2. Tap "Battery usage" > "Allow background activity"\n3. Enable "Allow auto launch"';
     }
-    return 'Go to Settings > Apps > MedTime > Battery and verify "Background usage" is allowed and "Battery optimization" is NOT optimized.';
+    return 'Go to Settings > Apps > RoutineTime > Battery and verify "Background usage" is allowed and "Battery optimization" is NOT optimized.';
   }
 
   @override
@@ -224,7 +224,7 @@ class _NotificationTroubleshootScreenState
           ),
           const SizedBox(height: 12),
           Text(
-            'Your phone may kill MedTime to save power, preventing reminders. Please disable optimization for this app.',
+            'Your phone may kill RoutineTime to save power, preventing reminders. Please disable optimization for this app.',
             style: TextStyle(color: Colors.red.shade800),
           ),
           const SizedBox(height: 20),

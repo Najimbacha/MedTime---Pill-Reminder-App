@@ -37,9 +37,7 @@ void notificationTapBackground(
           android: androidSettings,
           iOS: iosSettings,
         );
-        await flutterLocalNotificationsPlugin.initialize(
-          settings: initSettings,
-        );
+        await flutterLocalNotificationsPlugin.initialize(initSettings);
 
         final now = DateTime.now();
         final scheduledTime = now.add(
@@ -53,7 +51,7 @@ void notificationTapBackground(
 
         // Re-schedule snooze with clean styling
         final androidDetails = AndroidNotificationDetails(
-          'critical_medicine_channel',
+          'critical_routine_channel',
           'Important Reminders',
           channelDescription: 'High priority routine reminders',
           importance: Importance.max,
@@ -90,11 +88,11 @@ void notificationTapBackground(
         );
 
         await flutterLocalNotificationsPlugin.zonedSchedule(
-          id: medicineId,
-          title: 'Time to take $name',
-          body: "It's time.",
-          scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
-          notificationDetails: details,
+          medicineId,
+          name,
+          "It's time.",
+          tz.TZDateTime.from(scheduledTime, tz.local),
+          details,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: payload,
         );
@@ -141,7 +139,7 @@ void notificationTapBackground(
 
         final flutterLocalNotificationsPlugin =
             FlutterLocalNotificationsPlugin();
-        await flutterLocalNotificationsPlugin.cancel(id: medicineId);
+        await flutterLocalNotificationsPlugin.cancel(medicineId);
       }
     }
   }
@@ -244,7 +242,7 @@ class NotificationService {
 
     // Initialize with callback for notification taps
     await _notifications.initialize(
-      settings: initSettings,
+      initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
@@ -259,7 +257,7 @@ class NotificationService {
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(
           const AndroidNotificationChannel(
-            'critical_medicine_channel',
+            'critical_routine_channel',
             'Important Reminders',
             description: 'High priority wellness reminders',
             importance: Importance.max,
@@ -478,7 +476,7 @@ class NotificationService {
 
     // Create notification details with clean, modern styling.
     final androidDetails = AndroidNotificationDetails(
-      'critical_medicine_channel',
+      'critical_routine_channel',
       'Important Reminders',
       channelDescription: 'High priority routine reminders',
       importance: Importance.max,
@@ -508,7 +506,7 @@ class NotificationService {
     );
 
     const iosDetails = DarwinNotificationDetails(
-      categoryIdentifier: 'medicine_reminder',
+      categoryIdentifier: 'routine_reminder',
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
@@ -521,11 +519,11 @@ class NotificationService {
 
     // Schedule notification
     await _notifications.zonedSchedule(
-      id: notificationId,
-      title: medicineName,
-      body: "It's time.",
-      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails: notificationDetails,
+      notificationId,
+      medicineName,
+      "It's time.",
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: matchComponents,
       payload:
@@ -546,7 +544,7 @@ class NotificationService {
     required String dosage,
   }) async {
     final androidDetails = AndroidNotificationDetails(
-      'medicine_reminders',
+      'routine_reminders',
       'Routine Reminders',
       channelDescription: 'Notifications for routine reminders',
       importance: Importance.max,
@@ -571,7 +569,7 @@ class NotificationService {
     );
 
     const iosDetails = DarwinNotificationDetails(
-      categoryIdentifier: 'medicine_reminder',
+      categoryIdentifier: 'routine_reminder',
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
@@ -584,10 +582,10 @@ class NotificationService {
     );
 
     await _notifications.show(
-      id: notificationId,
-      title: medicineName,
-      body: "It's time.",
-      notificationDetails: notificationDetails,
+      notificationId,
+      medicineName,
+      "It's time.",
+      notificationDetails,
       payload:
           '$medicineId|$medicineName|$dosage|${DateTime.now().toIso8601String()}',
     );
@@ -637,7 +635,7 @@ class NotificationService {
 
   /// Cancel a specific notification
   Future<void> cancelNotification(int notificationId) async {
-    await _notifications.cancel(id: notificationId);
+    await _notifications.cancel(notificationId);
   }
 
   Future<void> cancelScheduleNotifications({
@@ -645,12 +643,12 @@ class NotificationService {
     FrequencyType? frequencyType,
     List<int> specificDays = const [],
   }) async {
-    await _notifications.cancel(id: baseNotificationId);
+    await _notifications.cancel(baseNotificationId);
 
     if (frequencyType == FrequencyType.specificDays) {
       for (final weekday in specificDays) {
         await _notifications.cancel(
-          id: specificDayNotificationId(baseNotificationId, weekday),
+          specificDayNotificationId(baseNotificationId, weekday),
         );
       }
     }
@@ -667,13 +665,13 @@ class NotificationService {
     List<int> scheduleIds = const [],
   }) async {
     // Explicit fixed-offset IDs used by this app.
-    await _notifications.cancel(id: medicineId); // direct reminder ID fallback
-    await _notifications.cancel(id: medicineId + 10000); // low stock alert
-    await _notifications.cancel(id: medicineId + 20000); // refill reminder
-    await _notifications.cancel(id: medicineId + 30000); // low stock warning
+    await _notifications.cancel(medicineId); // direct reminder ID fallback
+    await _notifications.cancel(medicineId + 10000); // supply alert
+    await _notifications.cancel(medicineId + 20000); // restock reminder
+    await _notifications.cancel(medicineId + 30000); // supply warning
 
     for (final scheduleId in scheduleIds) {
-      await _notifications.cancel(id: scheduleId);
+      await _notifications.cancel(scheduleId);
     }
 
     // Payload-based cleanup catches snooze/derived IDs and custom IDs.
@@ -681,7 +679,7 @@ class NotificationService {
     for (final request in pending) {
       final payload = request.payload;
       if (payload != null && payload.startsWith('$medicineId|')) {
-        await _notifications.cancel(id: request.id);
+        await _notifications.cancel(request.id);
       }
     }
   }
@@ -691,15 +689,15 @@ class NotificationService {
     return await _notifications.pendingNotificationRequests();
   }
 
-  /// Show low stock alert
+  /// Legacy supply alert, retained only for old data paths.
   Future<void> showLowStockAlert({
     required int medicineId,
     required String medicineName,
     required int currentStock,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'low_stock_alerts',
-      'Low Stock Alerts',
+      'routine_supply_alerts',
+      'Supply Alerts',
       channelDescription: 'Alerts when supply is low',
       importance: Importance.high,
       priority: Priority.high,
@@ -720,15 +718,14 @@ class NotificationService {
     );
 
     await _notifications.show(
-      id: medicineId + 10000, // Offset to avoid conflicts with reminder IDs
-      title: 'Low Stock: $medicineName',
-      body:
-          'Only $currentStock ${currentStock == 1 ? 'item' : 'items'} remaining. Time to refill!',
-      notificationDetails: notificationDetails,
+      medicineId + 10000,
+      'Supply Reminder: $medicineName',
+      'Only $currentStock ${currentStock == 1 ? 'item' : 'items'} remaining.',
+      notificationDetails,
     );
   }
 
-  /// Schedule a low stock warning for a few days before running out
+  /// Legacy supply warning, retained only for old data paths.
   Future<void> scheduleLowStockWarning({
     required int medicineId,
     required String medicineName,
@@ -736,8 +733,8 @@ class NotificationService {
     required int daysLeft,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'refill_warning',
-      'Refill Warnings',
+      'routine_supply_warning',
+      'Supply Warnings',
       channelDescription: 'Early warning when supply is running low',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
@@ -768,24 +765,24 @@ class NotificationService {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     await _notifications.zonedSchedule(
-      id: medicineId + 30000, // Offset for warnings
-      title: 'Low Stock Warning: $medicineName',
-      body: 'You will run out in about $daysLeft days. Time to order a refill.',
-      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails: notificationDetails,
+      medicineId + 30000,
+      'Supply Warning: $medicineName',
+      'You may run out in about $daysLeft days.',
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
-  /// Schedule a refill reminder for a future date (Day Zero)
+  /// Legacy restock reminder, retained only for old data paths.
   Future<void> scheduleRefillReminder({
     required int medicineId,
     required String medicineName,
     required DateTime refillDate,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'refill_reminders',
-      'Refill Reminders',
+      'routine_restock_reminders',
+      'Restock Reminders',
       channelDescription: 'Reminders when it is time to restock',
       importance: Importance.high,
       priority: Priority.high,
@@ -816,12 +813,11 @@ class NotificationService {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     await _notifications.zonedSchedule(
-      id: medicineId + 20000, // Different offset for refill reminders
-      title: 'Refill Reminder: $medicineName',
-      body:
-          'You are estimated to run out of $medicineName today. Time for a refill!',
-      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails: notificationDetails,
+      medicineId + 20000,
+      'Restock Reminder: $medicineName',
+      'You may be out of $medicineName today.',
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }

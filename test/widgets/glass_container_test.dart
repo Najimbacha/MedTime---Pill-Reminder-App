@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/widgets/glass_container.dart';
+import 'package:routine_time/widgets/glass_container.dart';
 
 void main() {
   group('GlassContainer Tests', () {

@@ -1,5 +1,5 @@
-name: privacy_meds
-description: "MedTime - Offline-first medicine reminder app that respects your privacy"
+name: routine_time
+description: "RoutineTime - Private, offline daily routine reminders"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -41,7 +41,7 @@ dependencies:
   # State management
   provider: ^6.1.1
   
-  # Local notifications for medicine reminders
+  # Local notifications for routine reminders
   flutter_local_notifications: ^19.5.0
   
   # Date and time formatting
@@ -61,7 +61,7 @@ dependencies:
   # Get device's local timezone name for correct notification scheduling
   flutter_timezone: ^5.0.1
   
-  # Image picker for medication photos
+  # Image picker support
   image_picker: ^1.0.7
   
   # Animations
@@ -70,7 +70,7 @@ dependencies:
   # Persistent storage for settings
   shared_preferences: ^2.2.2
   
-  # Charts for adherence tracking
+  # Charts for legacy reports
   fl_chart: ^0.66.0
   
   # URL launcher for external links
@@ -89,7 +89,7 @@ dependencies:
   # Screenshot utility for generating wallpaper
   screenshot: ^3.0.0
 
-  # AI Text Recognition for scanning medicine bottles
+  # AI text recognition support
   google_mlkit_text_recognition: ^0.15.0
 
   # Camera support for live scanning
@@ -100,7 +100,7 @@ dependencies:
   file_picker: ^10.3.8
   encrypt: ^5.0.3
 
-  # Firebase for cloud sync and caregiver sharing
+  # Firebase for optional cloud sync
   firebase_core: ^3.9.0
   firebase_auth: ^5.5.0
   cloud_firestore: ^5.6.0

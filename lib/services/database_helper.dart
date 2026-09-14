@@ -17,7 +17,7 @@ class DatabaseHelper {
   /// Get database instance, creating it if it doesn't exist
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('privacy_meds.db');
+    _database = await _initDB('routine_time.db');
     return _database!;
   }
 

@@ -1,30 +1,31 @@
-# Privacy Policy for MedTime
+# Privacy Policy for RoutineTime
 
-**Last Updated: February 02, 2026**
+**Last Updated: September 14, 2026**
 
-MedTime ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and share information when you use our mobile application.
+RoutineTime is a private, offline-first daily routine reminder app.
 
-## 1. Information We Collect
-MedTime is designed to be offline-first, but some data is collected for specific features:
-*   **Firebase Authentication**: If you use cloud sync or caregiver features, we collect your email address and basic profile info.
-*   **Firestore**: Your medication data is stored locally by default, but synced to encrypted cloud storage only if you choose to enable sync.
-*   **AdMob**: We show ads to free users. Google may collect your device's advertising ID to serve personalized ads.
-*   **RevenueCat**: To manage your Premium subscription, RevenueCat tracks your purchase history and subscription status. It does *not* see your credit card details (those are handled by Google Play).
+## Information Stored
 
-## 2. Permissions We Use
-*   **Exact Alarm**: Used to provide precise medication reminders. This is critical for patient adherence.
-*   **Camera & Storage**: Used only if you choose to take photos of your medication bottles.
+RoutineTime stores your routines, schedules, completion history, and settings on
+your device by default.
 
-## 3. Data Safety
-*   We do not sell your personal medication data to third parties.
-*   All cloud-synced data is handled through secure Google Firebase servers.
+Optional features may use third-party services:
 
-## 4. Third-Party Services
-Our app uses the following third-party services:
-*   [Google Play Services](https://www.google.com/policies/privacy/)
-*   [AdMob](https://support.google.com/admob/answer/6128543?hl=en)
-*   [Firebase (Crashlytics & Analytics)](https://firebase.google.com/support/privacy)
-*   [RevenueCat](https://www.revenuecat.com/privacy)
+- Firebase Authentication and Firestore, if you choose cloud sync or sharing
+- AdMob, if ads are enabled for free users
+- RevenueCat, if premium purchases are enabled
 
-## 5. Contact Us
-If you have any questions about this Privacy Policy, please contact us at: [INSERT_YOUR_EMAIL_HERE]
+## Permissions
+
+- Notifications and exact alarms: used to send routine reminders on time
+- Storage or file access: used only when you create or restore a backup
+
+## Data Safety
+
+We do not sell your routine data. Local routine data stays on your device unless
+you explicitly enable a cloud or sharing feature.
+
+## Contact
+
+For privacy questions, contact the app owner through the support channel listed
+in the app store listing.

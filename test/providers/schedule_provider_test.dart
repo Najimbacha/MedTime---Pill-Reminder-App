@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/providers/schedule_provider.dart';
-import 'package:privacy_meds/models/schedule.dart';
-import 'package:privacy_meds/models/medicine.dart';
-import 'package:privacy_meds/services/database_helper.dart';
-import 'package:privacy_meds/services/notification_service.dart';
+import 'package:routine_time/providers/schedule_provider.dart';
+import 'package:routine_time/models/schedule.dart';
+import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/services/database_helper.dart';
+import 'package:routine_time/services/notification_service.dart';
 
 // ==================== MOCKS ====================
 

@@ -47,10 +47,10 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
 
     try {
       final profile = authProvider.userProfile;
-      
+
       // Auto-enable sharing when inviting a caregiver
       if (profile != null && !profile.shareEnabled) {
-         await authProvider.setShareEnabled(true);
+        await authProvider.setShareEnabled(true);
       }
 
       _invite = await _authService.generateInviteCode(
@@ -90,11 +90,11 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
     await SharePlus.instance.share(
       ShareParams(
         text:
-            'Join me on MedTime to help track my medication!\n\n'
-            'Download the MedTime app and use this invite code:\n\n'
+            'Join me on RoutineTime to help track my routine!\n\n'
+            'Download the RoutineTime app and use this invite code:\n\n'
             '${_invite!.code}\n\n'
             'This code expires in 24 hours.',
-        subject: 'MedTime Caregiver Invite',
+        subject: 'RoutineTime Caregiver Invite',
       ),
     );
   }
@@ -122,24 +122,21 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(
-          'Invite Caregiver',
-          style: theme.textTheme.headlineMedium,
-        ),
+        title: Text('Invite Caregiver', style: theme.textTheme.headlineMedium),
         backgroundColor: Colors.transparent,
       ),
       body: Container(
         decoration: BoxDecoration(
-           gradient: theme.brightness == Brightness.dark 
-              ? AppColors.surfaceGradientDark 
+          gradient: theme.brightness == Brightness.dark
+              ? AppColors.surfaceGradientDark
               : AppColors.surfaceGradientLight,
         ),
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? _buildErrorView()
-                  : _buildInviteView(colorScheme),
+              ? _buildErrorView()
+              : _buildInviteView(colorScheme),
         ),
       ),
     );
@@ -219,7 +216,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'Share this code with your caregiver so they can monitor your medication adherence.',
+                    'Share this code with your caregiver so they can monitor your routine completion.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       height: 1.5,
                       color: theme.colorScheme.onSurface,
@@ -266,10 +263,10 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           Text(
             'INVITE CODE',
             style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
           ),
           const SizedBox(height: 12),
           GestureDetector(
@@ -277,7 +274,9 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: colorScheme.primary.withValues(alpha: 0.2),
@@ -290,10 +289,10 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                   Text(
                     _invite?.code ?? '------',
                     style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 6,
-                          color: colorScheme.primary,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 6,
+                      color: colorScheme.primary,
+                    ),
                   ),
                   const SizedBox(width: 24),
                   Icon(
@@ -309,9 +308,9 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           Text(
             _formatTimeRemaining(),
             style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: colorScheme.error,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 40),
 
@@ -322,15 +321,15 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
               width: double.infinity,
               height: 56,
               decoration: BoxDecoration(
-                 color: colorScheme.primary,
-                 borderRadius: BorderRadius.circular(16),
-                 boxShadow: [
-                   BoxShadow(
-                     color: colorScheme.primary.withValues(alpha: 0.3),
-                     blurRadius: 12,
-                     offset: const Offset(0, 6),
-                   ),
-                 ],
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -340,7 +339,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                   Text(
                     'Share Invite',
                     style: TextStyle(
-                      fontSize: 16, 
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: colorScheme.onPrimary,
                     ),
@@ -379,9 +378,9 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildStep('1', 'Share the code with your caregiver'),
-                _buildStep('2', 'They enter the code in their MedTime app'),
-                _buildStep('3', 'They can view your medication schedule'),
-                _buildStep('4', 'They receive alerts if you miss a dose'),
+                _buildStep('2', 'They enter the code in their RoutineTime app'),
+                _buildStep('3', 'They can view your routine schedule'),
+                _buildStep('4', 'They receive alerts if you miss a routine'),
               ],
             ),
           ),
@@ -409,10 +408,7 @@ class _InviteCaregiverScreenState extends State<InviteCaregiverScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),

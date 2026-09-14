@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Represents a medicine/medication in the system
+/// Represents a medicine/routine in the system
 class Medicine {
   final int? id;
   final String name;
   final String dosage;
-  final int typeIcon; // 1=Pill, 2=Syrup, 3=Injection, 4=Drops
+  final int typeIcon; // 1=Routine, 2=Syrup, 3=Injection, 4=Drops
   final int currentStock;
   final int lowStockThreshold;
   final int color; // Color value for visual identification
@@ -45,7 +45,7 @@ class Medicine {
     return (currentStock / dailyDoses).floor();
   }
 
-  /// Get estimated refill date
+  /// Get estimated restock date
   DateTime getEstimatedRefillDate(int dailyDoses) {
     final days = getDaysRemaining(dailyDoses);
     final now = DateTime.now();

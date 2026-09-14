@@ -94,7 +94,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MedTime',
+                    'RoutineTime',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.92),
                       fontWeight: FontWeight.w700,
@@ -113,7 +113,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Private-first medication tracking with on-time reminders and zero clutter.',
+                    'Private-first routine reminders with zero clutter.',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: Colors.white70,
                       height: 1.4,
@@ -130,7 +130,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   const _FeatureRow(
                     icon: Icons.calendar_today_outlined,
-                    text: 'Simple timeline and adherence logs',
+                    text: 'Simple Today view and completion history',
                   ),
                   const Spacer(),
                   ClipRRect(

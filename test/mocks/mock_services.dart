@@ -2,12 +2,12 @@
 // Provides mock versions of DatabaseHelper and NotificationService
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:privacy_meds/models/medicine.dart';
-import 'package:privacy_meds/models/schedule.dart';
-import 'package:privacy_meds/models/log.dart';
-import 'package:privacy_meds/models/snoozed_dose.dart';
-import 'package:privacy_meds/services/database_helper.dart';
-import 'package:privacy_meds/services/notification_service.dart';
+import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/schedule.dart';
+import 'package:routine_time/models/log.dart';
+import 'package:routine_time/models/snoozed_dose.dart';
+import 'package:routine_time/services/database_helper.dart';
+import 'package:routine_time/services/notification_service.dart';
 
 // Mock implementation of DatabaseHelper for testing
 class MockDatabaseHelper implements DatabaseHelper {

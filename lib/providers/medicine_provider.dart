@@ -8,13 +8,13 @@ import '../services/auth_service.dart';
 import '../services/caregiver_notification_service.dart';
 import 'subscription_provider.dart';
 
-/// Exception thrown when a free user tries to add more than the allowed medicines
+/// Exception thrown when a free user tries to add more than the allowed routines.
 class PremiumLimitException implements Exception {
   final String message;
   PremiumLimitException([this.message = 'Free limit reached']);
 }
 
-/// Provider for managing medicines
+/// Provider for managing routines.
 class MedicineProvider with ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notifications = NotificationService.instance;
@@ -28,7 +28,7 @@ class MedicineProvider with ChangeNotifier {
   List<Medicine> get medicines => _medicines;
   bool get isLoading => _isLoading;
 
-  /// Get low stock medicines
+  /// Legacy stock support is disabled in the simplified RoutineTime UI.
   List<Medicine> get lowStockMedicines =>
       _medicines.where((m) => m.isLowStock).toList();
 
@@ -39,7 +39,7 @@ class MedicineProvider with ChangeNotifier {
     _subscriptionProvider = subscription;
   }
 
-  /// Load all medicines from database
+  /// Load all routines from database.
   Future<void> loadMedicines() async {
     _isLoading = true;
     notifyListeners();
@@ -47,14 +47,14 @@ class MedicineProvider with ChangeNotifier {
     try {
       _medicines = await _db.getAllMedicines();
     } catch (e) {
-      debugPrint('Error loading medicines: $e');
+      debugPrint('Error loading routines: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Add a new medicine
+  /// Add a new routine.
   Future<Medicine?> addMedicine(Medicine medicine) async {
     // 1. Check Limits
     final isPremium = _subscriptionProvider?.isPremium ?? false;
@@ -71,12 +71,12 @@ class MedicineProvider with ChangeNotifier {
       notifyListeners();
       return newMedicine;
     } catch (e) {
-      debugPrint('Error adding medicine: $e');
+      debugPrint('Error adding routine: $e');
       return null;
     }
   }
 
-  /// Update an existing medicine
+  /// Update an existing routine.
   Future<bool> updateMedicine(Medicine medicine) async {
     try {
       await _db.updateMedicine(medicine);
@@ -88,12 +88,12 @@ class MedicineProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
-      debugPrint('Error updating medicine: $e');
+      debugPrint('Error updating routine: $e');
       return false;
     }
   }
 
-  /// Delete a medicine
+  /// Delete a routine.
   Future<bool> deleteMedicine(int id) async {
     try {
       await _db.deleteMedicine(id);
@@ -101,12 +101,12 @@ class MedicineProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Error deleting medicine: $e');
+      debugPrint('Error deleting routine: $e');
       return false;
     }
   }
 
-  /// Delete a medicine and return snapshot for undo.
+  /// Delete a routine and return snapshot for undo.
   Future<MedicineDeletionSnapshot?> deleteMedicineWithSnapshot(
     int medicineId,
   ) async {
@@ -136,12 +136,12 @@ class MedicineProvider with ChangeNotifier {
 
       return snapshot;
     } catch (e) {
-      debugPrint('Error deleting medicine with snapshot: $e');
+      debugPrint('Error deleting routine with snapshot: $e');
       return null;
     }
   }
 
-  /// Restore previously deleted medicine data graph.
+  /// Restore previously deleted routine data graph.
   Future<bool> restoreDeletedMedicine(MedicineDeletionSnapshot snapshot) async {
     try {
       await _db.restoreMedicineGraph(snapshot);
@@ -152,12 +152,12 @@ class MedicineProvider with ChangeNotifier {
 
       return true;
     } catch (e) {
-      debugPrint('Error restoring deleted medicine: $e');
+      debugPrint('Error restoring deleted routine: $e');
       return false;
     }
   }
 
-  /// Decrement stock when medicine is taken
+  /// Legacy inventory hook. The simplified RoutineTime flow does not call this.
   Future<void> decrementStock(int medicineId) async {
     try {
       await _db.decrementStock(medicineId);
@@ -227,7 +227,7 @@ class MedicineProvider with ChangeNotifier {
     }
   }
 
-  /// Get medicine by ID
+  /// Get routine by ID.
   Medicine? getMedicineById(int id) {
     try {
       return _medicines.firstWhere((m) => m.id == id);
@@ -236,62 +236,14 @@ class MedicineProvider with ChangeNotifier {
     }
   }
 
-  /// Refresh medicines from database
+  /// Refresh routines from database.
   Future<void> refresh() async {
     await loadMedicines();
   }
 
-  /// Update refill reminder based on current stock and schedule
-  Future<void> _updateRefillReminder(Medicine medicine) async {
-    if (medicine.id == null) return;
-
-    final schedules = await _db.getSchedulesForMedicine(medicine.id!);
-    if (schedules.isEmpty) return;
-
-    // Calculate daily doses with precise logic
-    double dailyDoses = 0.0;
-    for (final s in schedules) {
-      if (s.frequencyType == FrequencyType.daily) {
-        dailyDoses += 1.0;
-      } else if (s.frequencyType == FrequencyType.specificDays) {
-        // Average doses per day (e.g., 3 days a week = 3/7 per day)
-        if (s.frequencyDays != null) {
-          final daysCount = s.frequencyDays!.split(',').length;
-          dailyDoses += (daysCount / 7.0);
-        }
-      } else if (s.frequencyType == FrequencyType.interval) {
-        if (s.intervalDays != null && s.intervalDays! > 0) {
-          dailyDoses += (1.0 / s.intervalDays!);
-        }
-      } else if (s.frequencyType == FrequencyType.once) {
-        // One-time routines do not need refill forecasting.
-      }
-    }
-
-    if (dailyDoses > 0) {
-      final daysRemaining = medicine.currentStock / dailyDoses;
-      final refillDate = DateTime.now().add(
-        Duration(days: daysRemaining.floor()),
-      );
-
-      // 1. Critical Alert (Day Zero)
-      await _notifications.scheduleRefillReminder(
-        medicineId: medicine.id!,
-        medicineName: medicine.name,
-        refillDate: refillDate,
-      );
-
-      // 2. Warning Alert (3 Days Before)
-      if (daysRemaining > 4) {
-        final warningDate = refillDate.subtract(const Duration(days: 3));
-        await _notifications.scheduleLowStockWarning(
-          medicineId: medicine.id!,
-          medicineName: medicine.name,
-          warningDate: warningDate,
-          daysLeft: 3,
-        );
-      }
-    }
+  /// Refill reminders are intentionally disabled for routines.
+  Future<void> _updateRefillReminder(Medicine _) async {
+    return;
   }
 
   Future<void> _rescheduleSnapshotSchedules(

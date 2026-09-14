@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Colored pill capsule icon for use as notification largeIcon.
+  Colored routine capsule icon for use as notification largeIcon.
   Unlike the small icon, the large icon CAN have colors.
-  Design: upright capsule, white upper half, indigo-blue lower half — matching MedTime branding.
+  Design: upright capsule, white upper half, indigo-blue lower half — matching RoutineTime branding.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
@@ -10,12 +10,12 @@
     android:viewportWidth="48"
     android:viewportHeight="48">
 
-  <!-- Indigo-blue lower half of pill -->
+  <!-- Indigo-blue lower half of routine -->
   <path
       android:fillColor="#5B5BD6"
       android:pathData="M14,24 L14,36 C14,41.523 18.477,46 24,46 C29.523,46 34,41.523 34,36 L34,24 Z"/>
 
-  <!-- White upper half of pill -->
+  <!-- White upper half of routine -->
   <path
       android:fillColor="#F0F4FF"
       android:pathData="M34,24 L34,12 C34,6.477 29.523,2 24,2 C18.477,2 14,6.477 14,12 L14,24 Z"/>

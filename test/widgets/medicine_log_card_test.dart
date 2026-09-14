@@ -3,8 +3,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/widgets/medicine_log_card.dart';
-import 'package:privacy_meds/models/log.dart';
+import 'package:routine_time/widgets/medicine_log_card.dart';
+import 'package:routine_time/models/log.dart';
 
 void main() {
   group('MedicineLogCard Tests', () {

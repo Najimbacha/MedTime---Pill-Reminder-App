@@ -103,11 +103,11 @@ Future<void> main() async {
   }
 
   AppRuntimeState.instance.updateBootstrapStatus(status);
-  runApp(const PrivacyMedsApp());
+  runApp(const RoutineTimeApp());
 }
 
-class PrivacyMedsApp extends StatelessWidget {
-  const PrivacyMedsApp({super.key});
+class RoutineTimeApp extends StatelessWidget {
+  const RoutineTimeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -122,8 +122,7 @@ class PrivacyMedsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SnoozeProvider()..initialize()),
         ChangeNotifierProvider.value(value: SettingsService.instance),
 
-        // ProxyProvider to inject SubscriptionProvider into MedicineProvider
-        // ProxyProvider to inject SubscriptionProvider into MedicineProvider
+        // Legacy provider name kept so existing local routine data can migrate cleanly.
         ChangeNotifierProxyProvider<SubscriptionProvider, MedicineProvider>(
           create: (context) => MedicineProvider()..loadMedicines(),
           update: (context, subscription, medicineProvider) =>
@@ -134,7 +133,7 @@ class PrivacyMedsApp extends StatelessWidget {
       child: Consumer<SettingsService>(
         builder: (context, settings, _) {
           return MaterialApp(
-            title: 'MedTime - Pill Reminder',
+            title: 'RoutineTime',
             debugShowCheckedModeBanner: false,
             themeMode: settings.themeMode,
             theme: AppTheme.lightTheme,

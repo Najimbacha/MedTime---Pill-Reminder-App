@@ -19,7 +19,7 @@ class BackupService {
 
   // Use a reliable key generation strategy in real app, here we use a fixed key for simplicity in MVP
   // WARN: In production, user should provide a password to derive this key
-  static final _key = enc.Key.fromUtf8('MedTimeSecureBackupKey2026!!!!');
+  static final _key = enc.Key.fromUtf8('RoutineTimeSecureBackupKey2026!!!!');
   static final _iv = enc.IV.fromLength(16);
 
   Future<void> createEncryptedBackup() async {
@@ -30,7 +30,7 @@ class BackupService {
       final encrypted = _encrypt(jsonString);
       
       final now = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final fileName = 'medtime_backup_$now.meds';
+      final fileName = 'routinetime_backup_$now.routine';
       
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$fileName');
@@ -39,7 +39,7 @@ class BackupService {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: 'MedTime Encrypted Backup',
+          text: 'RoutineTime Encrypted Backup',
         ),
       );
     } catch (e) {

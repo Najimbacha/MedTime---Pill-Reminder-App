@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:privacy_meds/models/medicine.dart';
+import 'package:routine_time/models/medicine.dart';
 
 void main() {
   group('Medicine Model', () {
