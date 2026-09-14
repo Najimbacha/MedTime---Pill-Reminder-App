@@ -30,14 +30,16 @@ void notificationTapBackground(
 
         // Initialize the plugin in background isolate
         const androidSettings = AndroidInitializationSettings(
-          '@mipmap/ic_launcher',
+          'ic_notification',
         );
         const iosSettings = DarwinInitializationSettings();
-        const initSettings = InitializationSettings(
+        final initSettings = InitializationSettings(
           android: androidSettings,
           iOS: iosSettings,
         );
-        await flutterLocalNotificationsPlugin.initialize(initSettings);
+        await flutterLocalNotificationsPlugin.initialize(
+          settings: initSettings,
+        );
 
         final now = DateTime.now();
         final scheduledTime = now.add(
@@ -47,43 +49,30 @@ void notificationTapBackground(
         // Need timezone initialization here since it's a background isolate
         tz.initializeTimeZones();
 
-        String? name = parts.length > 1 ? parts[1] : 'Medicine';
-        String? dosage = parts.length > 2 ? parts[2] : '';
+        final name = parts.length > 1 ? parts[1] : 'Routine';
 
-        // Re-schedule snooze with premium styling
+        // Re-schedule snooze with clean styling
         final androidDetails = AndroidNotificationDetails(
           'critical_medicine_channel',
-          'Critical Medicine Alerts',
-          channelDescription: 'High priority alerts for medication reminders',
+          'Important Reminders',
+          channelDescription: 'High priority routine reminders',
           importance: Importance.max,
           priority: Priority.max,
-          largeIcon: const DrawableResourceAndroidBitmap(
-            '@mipmap/launcher_icon',
-          ),
+          icon: 'ic_notification',
+          largeIcon: const DrawableResourceAndroidBitmap('ic_notification'),
           color: const Color(0xFF5B5BD6),
-          colorized: false,
+          colorized: true,
           playSound: true,
           enableVibration: true,
-          fullScreenIntent: true,
           category: AndroidNotificationCategory.alarm,
           visibility: NotificationVisibility.public,
           audioAttributesUsage: AudioAttributesUsage.alarm,
-          styleInformation: BigTextStyleInformation(
-            '⏰ Snoozed — Dosage: $dosage',
-            contentTitle: '💊 Time to take $name',
-            summaryText: 'MedTime Reminder',
-            htmlFormatContent: false,
-            htmlFormatTitle: false,
-          ),
+          subText: 'Snoozed',
           actions: [
-            AndroidNotificationAction(
-              'take',
-              '✅ Take Now',
-              showsUserInterface: true,
-            ),
+            AndroidNotificationAction('take', 'Done', showsUserInterface: true),
             AndroidNotificationAction(
               'snooze',
-              '⏰ Snooze Again',
+              'Snooze Again',
               showsUserInterface: false,
             ),
           ],
@@ -101,13 +90,13 @@ void notificationTapBackground(
         );
 
         await flutterLocalNotificationsPlugin.zonedSchedule(
-          medicineId, // Reuse ID
-          'Time to take $name (Snoozed)',
-          'Dosage: $dosage',
-          tz.TZDateTime.from(scheduledTime, tz.local),
-          details,
+          id: medicineId,
+          title: 'Time to take $name',
+          body: "It's time.",
+          scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+          notificationDetails: details,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          payload: payload, // Keep same payload
+          payload: payload,
         );
 
         debugPrint('✅ Snooze scheduled for $scheduledTime in background');
@@ -118,12 +107,27 @@ void notificationTapBackground(
         if (parts.length > 3) {
           final scheduledTimeStr = parts[3];
           try {
-            final scheduledTime = DateTime.parse(scheduledTimeStr);
+            final originalTime = DateTime.parse(scheduledTimeStr);
+
+            // Standardize repeating payloads to "today" but keep the hour/minute
+            // This prevents daily repeating alarms from logging against the past scheduling date.
+            final now = DateTime.now();
+            // If the user clicks right after midnight for an 11:50 PM alarm, keep yesterday's date
+            var scheduledTime = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              originalTime.hour,
+              originalTime.minute,
+            );
+            if (now.hour < 4 && originalTime.hour > 20) {
+              scheduledTime = scheduledTime.subtract(const Duration(days: 1));
+            }
 
             final log = Log(
               medicineId: medicineId,
               scheduledTime: scheduledTime,
-              actualTime: DateTime.now(),
+              actualTime: now,
               status: LogStatus.take,
             );
             await db.createLog(log);
@@ -135,19 +139,9 @@ void notificationTapBackground(
           debugPrint('⚠️ No scheduled time in payload, cannot create log.');
         }
 
-        // 2. Decrement stock
-        final medicine = await db.getMedicine(medicineId);
-        if (medicine != null) {
-          final newStock = medicine.currentStock - 1;
-          await db.updateMedicine(
-            medicine.copyWith(currentStock: newStock >= 0 ? newStock : 0),
-          );
-
-          // Cancel notification
-          final flutterLocalNotificationsPlugin =
-              FlutterLocalNotificationsPlugin();
-          await flutterLocalNotificationsPlugin.cancel(medicineId);
-        }
+        final flutterLocalNotificationsPlugin =
+            FlutterLocalNotificationsPlugin();
+        await flutterLocalNotificationsPlugin.cancel(id: medicineId);
       }
     }
   }
@@ -230,9 +224,7 @@ class NotificationService {
     }
 
     // Android initialization settings — use app icon for status bar
-    const androidSettings = AndroidInitializationSettings(
-      '@drawable/ic_notification',
-    );
+    const androidSettings = AndroidInitializationSettings('ic_notification');
 
     // iOS initialization settings
     const iosSettings = DarwinInitializationSettings(
@@ -246,9 +238,13 @@ class NotificationService {
       iOS: iosSettings,
     );
 
+    // Check if the app was launched from a notification (MUST be done before initialize)
+    final launchDetails = await _notifications
+        .getNotificationAppLaunchDetails();
+
     // Initialize with callback for notification taps
     await _notifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
@@ -264,8 +260,8 @@ class NotificationService {
         await androidPlugin.createNotificationChannel(
           const AndroidNotificationChannel(
             'critical_medicine_channel',
-            'Critical Medicine Alerts',
-            description: 'High priority alerts for medication reminders',
+            'Important Reminders',
+            description: 'High priority wellness reminders',
             importance: Importance.max,
             playSound: true,
             enableVibration: true,
@@ -274,7 +270,17 @@ class NotificationService {
       }
     }
 
-    // Permissions should be requested from UI, not during initialization
+    // Process launch details after initialization channels are created
+
+    if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
+      final response = launchDetails.notificationResponse;
+      if (response != null) {
+        // Delay slightly to ensure listeners have time to register in main isolate
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _onNotificationTapped(response);
+        });
+      }
+    }
   }
 
   /// Request all required permissions
@@ -382,7 +388,7 @@ class NotificationService {
         notificationGranted: false,
         exactAlarmGranted: false,
         reason:
-            'Scheduled reminders are not supported on this platform. You can still save medicines.',
+            'Scheduled reminders are not supported on this platform. You can still save routines.',
       );
     }
 
@@ -449,7 +455,7 @@ class NotificationService {
     }
   }
 
-  /// Schedule a medicine reminder notification
+  /// Schedule a routine reminder notification
   /// [frequencyType] controls repeat behaviour:
   ///  - daily   → fires every day at same time (no manual reschedule needed)
   ///  - specificDays → fires every week on that same day+time
@@ -470,48 +476,32 @@ class NotificationService {
       matchComponents = DateTimeComponents.dayOfWeekAndTime;
     }
 
-    // Build smart body text — don't show empty dosage
-    final hasDosage = dosage.trim().isNotEmpty;
-    final collapsedBody = hasDosage
-        ? '$dosage • Tap to confirm or snooze'
-        : 'Tap “Take Now” to confirm or snooze for 10 min';
-    final expandedBody = hasDosage
-        ? 'Dosage: $dosage\n\nTap “Take Now” to log this dose, or snooze for 10 minutes.'
-        : 'Tap “Take Now” to log this dose, or snooze for 10 minutes.';
-
-    // Create notification details with a pill capsule icon and clear text
+    // Create notification details with clean, modern styling.
     final androidDetails = AndroidNotificationDetails(
       'critical_medicine_channel',
-      'Critical Medicine Alerts',
-      channelDescription: 'High priority alerts for medication reminders',
+      'Important Reminders',
+      channelDescription: 'High priority routine reminders',
       importance: Importance.max,
       priority: Priority.max,
-      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+      icon: 'ic_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('ic_notification'),
       color: const Color(0xFF5B5BD6),
-      colorized: false,
+      colorized: true,
       playSound: true,
       enableVibration: true,
-      fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
       audioAttributesUsage: AudioAttributesUsage.alarm,
-      // Rich expanded notification
-      styleInformation: BigTextStyleInformation(
-        expandedBody,
-        contentTitle: '💊 $medicineName — Time to take it!',
-        summaryText: 'MedTime • Reminder',
-        htmlFormatContent: false,
-        htmlFormatTitle: false,
-      ),
+      subText: 'RoutineTime',
       actions: [
         const AndroidNotificationAction(
           'take',
-          '✅ Take Now',
+          'Done',
           showsUserInterface: true,
         ),
         const AndroidNotificationAction(
           'snooze',
-          '⏰ Snooze 10 min',
+          'Snooze 10m',
           showsUserInterface: false,
         ),
       ],
@@ -531,11 +521,11 @@ class NotificationService {
 
     // Schedule notification
     await _notifications.zonedSchedule(
-      notificationId,
-      '💊 $medicineName',
-      collapsedBody,
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
+      id: notificationId,
+      title: medicineName,
+      body: "It's time.",
+      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails: notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: matchComponents,
       payload:
@@ -557,24 +547,24 @@ class NotificationService {
   }) async {
     final androidDetails = AndroidNotificationDetails(
       'medicine_reminders',
-      'Medicine Reminders',
-      channelDescription: 'Notifications for medicine reminders',
+      'Routine Reminders',
+      channelDescription: 'Notifications for routine reminders',
       importance: Importance.max,
       priority: Priority.max,
+      icon: 'ic_notification',
       playSound: true,
       enableVibration: true,
-      fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
       actions: [
         const AndroidNotificationAction(
           'take',
-          'Take',
+          'Done',
           showsUserInterface: true,
         ),
         const AndroidNotificationAction(
           'snooze',
-          'Snooze 10min',
+          'Snooze 10m',
           showsUserInterface: false,
         ),
       ],
@@ -594,10 +584,10 @@ class NotificationService {
     );
 
     await _notifications.show(
-      notificationId,
-      'Time to take $medicineName',
-      'Dosage: $dosage',
-      notificationDetails,
+      id: notificationId,
+      title: medicineName,
+      body: "It's time.",
+      notificationDetails: notificationDetails,
       payload:
           '$medicineId|$medicineName|$dosage|${DateTime.now().toIso8601String()}',
     );
@@ -647,7 +637,7 @@ class NotificationService {
 
   /// Cancel a specific notification
   Future<void> cancelNotification(int notificationId) async {
-    await _notifications.cancel(notificationId);
+    await _notifications.cancel(id: notificationId);
   }
 
   Future<void> cancelScheduleNotifications({
@@ -655,12 +645,12 @@ class NotificationService {
     FrequencyType? frequencyType,
     List<int> specificDays = const [],
   }) async {
-    await _notifications.cancel(baseNotificationId);
+    await _notifications.cancel(id: baseNotificationId);
 
     if (frequencyType == FrequencyType.specificDays) {
       for (final weekday in specificDays) {
         await _notifications.cancel(
-          specificDayNotificationId(baseNotificationId, weekday),
+          id: specificDayNotificationId(baseNotificationId, weekday),
         );
       }
     }
@@ -677,13 +667,13 @@ class NotificationService {
     List<int> scheduleIds = const [],
   }) async {
     // Explicit fixed-offset IDs used by this app.
-    await _notifications.cancel(medicineId); // direct reminder ID fallback
-    await _notifications.cancel(medicineId + 10000); // low stock alert
-    await _notifications.cancel(medicineId + 20000); // refill reminder
-    await _notifications.cancel(medicineId + 30000); // low stock warning
+    await _notifications.cancel(id: medicineId); // direct reminder ID fallback
+    await _notifications.cancel(id: medicineId + 10000); // low stock alert
+    await _notifications.cancel(id: medicineId + 20000); // refill reminder
+    await _notifications.cancel(id: medicineId + 30000); // low stock warning
 
     for (final scheduleId in scheduleIds) {
-      await _notifications.cancel(scheduleId);
+      await _notifications.cancel(id: scheduleId);
     }
 
     // Payload-based cleanup catches snooze/derived IDs and custom IDs.
@@ -691,7 +681,7 @@ class NotificationService {
     for (final request in pending) {
       final payload = request.payload;
       if (payload != null && payload.startsWith('$medicineId|')) {
-        await _notifications.cancel(request.id);
+        await _notifications.cancel(id: request.id);
       }
     }
   }
@@ -710,9 +700,10 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'low_stock_alerts',
       'Low Stock Alerts',
-      channelDescription: 'Alerts when medicine stock is low',
+      channelDescription: 'Alerts when supply is low',
       importance: Importance.high,
       priority: Priority.high,
+      icon: 'ic_notification',
       playSound: true,
       enableVibration: true,
     );
@@ -729,10 +720,11 @@ class NotificationService {
     );
 
     await _notifications.show(
-      medicineId + 10000, // Offset to avoid conflicts with reminder IDs
-      'Low Stock: $medicineName',
-      'Only $currentStock ${currentStock == 1 ? 'dose' : 'doses'} remaining. Time to refill!',
-      notificationDetails,
+      id: medicineId + 10000, // Offset to avoid conflicts with reminder IDs
+      title: 'Low Stock: $medicineName',
+      body:
+          'Only $currentStock ${currentStock == 1 ? 'item' : 'items'} remaining. Time to refill!',
+      notificationDetails: notificationDetails,
     );
   }
 
@@ -746,9 +738,10 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'refill_warning',
       'Refill Warnings',
-      channelDescription: 'Early warning when medicine is running low',
+      channelDescription: 'Early warning when supply is running low',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
+      icon: 'ic_notification',
       playSound: true,
     );
 
@@ -775,11 +768,11 @@ class NotificationService {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     await _notifications.zonedSchedule(
-      medicineId + 30000, // Offset for warnings
-      'Low Stock Warning: $medicineName',
-      'You will run out in about $daysLeft days. Time to order a refill.',
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
+      id: medicineId + 30000, // Offset for warnings
+      title: 'Low Stock Warning: $medicineName',
+      body: 'You will run out in about $daysLeft days. Time to order a refill.',
+      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails: notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
@@ -793,7 +786,7 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'refill_reminders',
       'Refill Reminders',
-      channelDescription: 'Reminders when it is time to refill medicine',
+      channelDescription: 'Reminders when it is time to restock',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
@@ -823,11 +816,12 @@ class NotificationService {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
     await _notifications.zonedSchedule(
-      medicineId + 20000, // Different offset for refill reminders
-      'Refill Reminder: $medicineName',
-      'You are estimated to run out of $medicineName today. Time for a refill!',
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
+      id: medicineId + 20000, // Different offset for refill reminders
+      title: 'Refill Reminder: $medicineName',
+      body:
+          'You are estimated to run out of $medicineName today. Time for a refill!',
+      scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+      notificationDetails: notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }

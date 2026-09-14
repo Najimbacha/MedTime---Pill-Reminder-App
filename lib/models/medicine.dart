@@ -56,15 +56,19 @@ class Medicine {
   IconData get icon {
     switch (typeIcon) {
       case 1:
-        return Icons.medication; // Pill
+        return Icons.water_drop_rounded;
       case 2:
-        return Icons.local_drink; // Syrup
+        return Icons.menu_book_rounded;
       case 3:
-        return Icons.vaccines; // Injection
+        return Icons.directions_walk_rounded;
       case 4:
-        return Icons.water_drop; // Drops
+        return Icons.spa_rounded;
+      case 5:
+        return Icons.bedtime_rounded;
+      case 6:
+        return Icons.home_rounded;
       default:
-        return Icons.medication;
+        return Icons.task_alt_rounded;
     }
   }
 

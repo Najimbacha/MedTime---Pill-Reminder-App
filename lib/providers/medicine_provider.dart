@@ -60,7 +60,7 @@ class MedicineProvider with ChangeNotifier {
     final isPremium = _subscriptionProvider?.isPremium ?? false;
     if (!isPremium && _medicines.length >= 3) {
       throw PremiumLimitException(
-        "You have reached the free limit of 3 medicines.",
+        "You have reached the free limit of 3 routines.",
       );
     }
 
@@ -263,6 +263,8 @@ class MedicineProvider with ChangeNotifier {
         if (s.intervalDays != null && s.intervalDays! > 0) {
           dailyDoses += (1.0 / s.intervalDays!);
         }
+      } else if (s.frequencyType == FrequencyType.once) {
+        // One-time routines do not need refill forecasting.
       }
     }
 

@@ -1,9 +1,5 @@
 /// Status of a medicine log entry
-enum LogStatus {
-  take,
-  skip,
-  missed,
-}
+enum LogStatus { take, skip, missed }
 
 /// Represents a log entry for medicine adherence tracking
 class Log {
@@ -38,7 +34,7 @@ class Log {
   String get statusText {
     switch (status) {
       case LogStatus.take:
-        return 'Taken';
+        return 'Done';
       case LogStatus.skip:
         return 'Skipped';
       case LogStatus.missed:

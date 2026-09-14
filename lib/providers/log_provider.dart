@@ -18,12 +18,15 @@ class LogProvider with ChangeNotifier {
 
   /// Get today's logs
   List<Log> get todayLogs {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
+    return getLogsForDate(DateTime.now());
+  }
+
+  /// Get logs for a specific date
+  List<Log> getLogsForDate(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    
+
     return _logs.where((log) {
-      // Use >= for start to include logs at exactly midnight
       return !log.scheduledTime.isBefore(startOfDay) &&
           log.scheduledTime.isBefore(endOfDay);
     }).toList();
@@ -41,6 +44,25 @@ class LogProvider with ChangeNotifier {
     return await _db.getLogsByDateRange(startOfDay, endOfDay);
   }
 
+  /// Find the most recent log for a specific medicine time slot (hour/minute)
+  Log? getLatestLogForSlot(int medicineId, DateTime slotTime) {
+    // Filter by medicine and hour/minute matching
+    final matching = _logs
+        .where(
+          (l) =>
+              l.medicineId == medicineId &&
+              l.scheduledTime.hour == slotTime.hour &&
+              l.scheduledTime.minute == slotTime.minute,
+        )
+        .toList();
+
+    if (matching.isEmpty) return null;
+
+    // Return latest by ID (most recent DB entry)
+    matching.sort((a, b) => (b.id ?? 0).compareTo(a.id ?? 0));
+    return matching.first;
+  }
+
   /// Load all logs from database
   Future<void> loadLogs() async {
     _isLoading = true;
@@ -48,7 +70,7 @@ class LogProvider with ChangeNotifier {
 
     try {
       // Load last 30 days of logs
-      // IMPORTANT: Use end of today, not DateTime.now(), to include logs 
+      // IMPORTANT: Use end of today, not DateTime.now(), to include logs
       // with scheduled times later today (e.g., 6 PM when it's currently 1 PM)
       final now = DateTime.now();
       final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
@@ -65,12 +87,16 @@ class LogProvider with ChangeNotifier {
 
   /// Add a new log entry
   Future<Log?> addLog(Log log) async {
-    debugPrint('🔵 LogProvider.addLog: Adding log for medicineId=${log.medicineId}, status=${log.status.name}');
+    debugPrint(
+      '🔵 LogProvider.addLog: Adding log for medicineId=${log.medicineId}, status=${log.status.name}',
+    );
     try {
       final newLog = await _db.createLog(log);
       debugPrint('✅ LogProvider.addLog: Created log with id=${newLog.id}');
       _logs.insert(0, newLog); // Add to beginning for chronological order
-      debugPrint('✅ LogProvider.addLog: Added to local list, notifying listeners');
+      debugPrint(
+        '✅ LogProvider.addLog: Added to local list, notifying listeners',
+      );
       notifyListeners();
       return newLog;
     } catch (e, stackTrace) {
@@ -82,21 +108,34 @@ class LogProvider with ChangeNotifier {
 
   /// Add a log and sync to cloud
   Future<Log?> addLogWithSync(Log log, Medicine medicine) async {
-    debugPrint('🔵 LogProvider.addLogWithSync: Adding log for ${medicine.name} (id=${log.medicineId})');
+    debugPrint(
+      '🔵 LogProvider.addLogWithSync: Adding log for ${medicine.name} (id=${log.medicineId})',
+    );
     try {
       final newLog = await _db.createLog(log);
-      debugPrint('✅ LogProvider.addLogWithSync: Created log with id=${newLog.id}');
+      debugPrint(
+        '✅ LogProvider.addLogWithSync: Created log with id=${newLog.id}',
+      );
       _logs.insert(0, newLog);
-      debugPrint('✅ LogProvider.addLogWithSync: Added to local list, notifying listeners');
+      debugPrint(
+        '✅ LogProvider.addLogWithSync: Added to local list, notifying listeners',
+      );
       notifyListeners();
 
       // Sync to cloud (fire and forget, don't block UI)
-      debugPrint('🔵 LogProvider.addLogWithSync: Starting cloud sync (async)...');
-      _syncService.uploadAdherenceLog(log: newLog, medicine: medicine).then((_) {
-        debugPrint('✅ LogProvider.addLogWithSync: Cloud sync completed');
-      }).catchError((e) {
-        debugPrint('⚠️ LogProvider.addLogWithSync: Cloud sync failed (non-blocking): $e');
-      });
+      debugPrint(
+        '🔵 LogProvider.addLogWithSync: Starting cloud sync (async)...',
+      );
+      _syncService
+          .uploadAdherenceLog(log: newLog, medicine: medicine)
+          .then((_) {
+            debugPrint('✅ LogProvider.addLogWithSync: Cloud sync completed');
+          })
+          .catchError((e) {
+            debugPrint(
+              '⚠️ LogProvider.addLogWithSync: Cloud sync failed (non-blocking): $e',
+            );
+          });
 
       return newLog;
     } catch (e, stackTrace) {
@@ -136,14 +175,18 @@ class LogProvider with ChangeNotifier {
   }
 
   /// Mark medicine as taken
-  Future<Log> markAsTaken(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsTaken(
+    int medicineId,
+    DateTime scheduledTime, {
+    Medicine? medicine,
+  }) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.take,
     );
-    
+
     if (medicine != null) {
       return await addLogWithSync(log, medicine) as Log;
     } else {
@@ -152,14 +195,18 @@ class LogProvider with ChangeNotifier {
   }
 
   /// Mark medicine as skipped
-  Future<Log> markAsSkipped(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsSkipped(
+    int medicineId,
+    DateTime scheduledTime, {
+    Medicine? medicine,
+  }) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.skip,
     );
-    
+
     if (medicine != null) {
       return await addLogWithSync(log, medicine) as Log;
     } else {
@@ -168,14 +215,18 @@ class LogProvider with ChangeNotifier {
   }
 
   /// Mark medicine as missed
-  Future<Log> markAsMissed(int medicineId, DateTime scheduledTime, {Medicine? medicine}) async {
+  Future<Log> markAsMissed(
+    int medicineId,
+    DateTime scheduledTime, {
+    Medicine? medicine,
+  }) async {
     final log = Log(
       medicineId: medicineId,
       scheduledTime: scheduledTime,
       actualTime: null,
       status: LogStatus.missed,
     );
-    
+
     if (medicine != null) {
       return await addLogWithSync(log, medicine) as Log;
     } else {
@@ -185,7 +236,9 @@ class LogProvider with ChangeNotifier {
 
   /// Get adherence statistics for a date range
   Future<Map<String, dynamic>> getAdherenceStats(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     try {
       return await _db.getAdherenceStats(start, end);
     } catch (e) {
@@ -205,73 +258,84 @@ class LogProvider with ChangeNotifier {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    
+
     final stats = await getAdherenceStats(startOfDay, endOfDay);
     final total = stats['total'] as int;
     final taken = stats['taken'] as int;
-    
+
     if (total == 0) return 0.0;
     return (taken / total) * 100;
   }
 
   /// Calculate daily progress for Dashboard
-  Map<String, dynamic> calculateDailyProgress(DateTime date, List<Schedule> schedules) {
+  Map<String, dynamic> calculateDailyProgress(
+    DateTime date,
+    List<Schedule> schedules,
+  ) {
     int total = 0;
     int taken = 0;
-    
+
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    
+
     // Get logs for this date
-    final logsForDate = _logs.where((l) => 
-      l.scheduledTime.isAfter(startOfDay) && l.scheduledTime.isBefore(endOfDay)
-    ).toList();
-    
+    final logsForDate = _logs
+        .where(
+          (l) =>
+              l.scheduledTime.isAfter(startOfDay) &&
+              l.scheduledTime.isBefore(endOfDay),
+        )
+        .toList();
+
     for (var schedule in schedules) {
-       // Skip PRN meds for progress calculation
-       if (schedule.frequencyType == FrequencyType.asNeeded) continue;
-       
-       // Check if scheduled for this date
-       bool isScheduled = _isScheduledForDate(schedule, date);
-       
-       if (isScheduled) {
-         total++;
-         
-         // Check if taken
-         // We match basically if there is any 'take' log for this medicine today
-         // Ideally we match exact time, but for MVP/Simplicity if multiple doses exist, 
-         // we might need more robust matching.
-         // Let's match by medicineId and time if possible, or just count logs.
-         
-         // Construct expected time to match log's scheduledTime
-         final parts = schedule.timeOfDay.split(':');
-         final scheduledDateTime = DateTime(
-           date.year, date.month, date.day, 
-           int.parse(parts[0]), int.parse(parts[1])
-         );
-         
-         final hasTakenLog = logsForDate.any((l) => 
-           l.medicineId == schedule.medicineId && 
-           l.status == LogStatus.take &&
-           // Fuzzy match time (within a minute tolerance or exact?)
-           // DateTime is precise. Let's compare minutes?
-           // Actually Log.scheduledTime should match exactly how it was created from schedule.
-           // But let's be safe and check if medicine ID matches and status is take.
-           // But what if same med twice a day?
-           // We need to match the specific slot.
-           l.scheduledTime.year == scheduledDateTime.year &&
-           l.scheduledTime.month == scheduledDateTime.month &&
-           l.scheduledTime.day == scheduledDateTime.day &&
-           l.scheduledTime.hour == scheduledDateTime.hour &&
-           l.scheduledTime.minute == scheduledDateTime.minute
-         );
-         
-         if (hasTakenLog) {
-           taken++;
-         }
-       }
+      // Skip PRN meds for progress calculation
+      if (schedule.frequencyType == FrequencyType.asNeeded) continue;
+
+      // Check if scheduled for this date
+      bool isScheduled = _isScheduledForDate(schedule, date);
+
+      if (isScheduled) {
+        total++;
+
+        // Check if taken
+        // We match basically if there is any 'take' log for this medicine today
+        // Ideally we match exact time, but for MVP/Simplicity if multiple doses exist,
+        // we might need more robust matching.
+        // Let's match by medicineId and time if possible, or just count logs.
+
+        // Construct expected time to match log's scheduledTime
+        final parts = schedule.timeOfDay.split(':');
+        final scheduledDateTime = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+
+        final hasTakenLog = logsForDate.any(
+          (l) =>
+              l.medicineId == schedule.medicineId &&
+              l.status == LogStatus.take &&
+              // Fuzzy match time (within a minute tolerance or exact?)
+              // DateTime is precise. Let's compare minutes?
+              // Actually Log.scheduledTime should match exactly how it was created from schedule.
+              // But let's be safe and check if medicine ID matches and status is take.
+              // But what if same med twice a day?
+              // We need to match the specific slot.
+              l.scheduledTime.year == scheduledDateTime.year &&
+              l.scheduledTime.month == scheduledDateTime.month &&
+              l.scheduledTime.day == scheduledDateTime.day &&
+              l.scheduledTime.hour == scheduledDateTime.hour &&
+              l.scheduledTime.minute == scheduledDateTime.minute,
+        );
+
+        if (hasTakenLog) {
+          taken++;
+        }
+      }
     }
-    
+
     return {
       'total': total,
       'taken': taken,
@@ -281,7 +345,7 @@ class LogProvider with ChangeNotifier {
 
   bool _isScheduledForDate(Schedule schedule, DateTime date) {
     final dayDate = DateTime(date.year, date.month, date.day);
-    
+
     // Check date range
     if (schedule.startDate != null) {
       final start = DateTime.parse(schedule.startDate!);
@@ -298,10 +362,18 @@ class LogProvider with ChangeNotifier {
       case FrequencyType.specificDays:
         return schedule.daysList.contains(date.weekday);
       case FrequencyType.interval:
-        if (schedule.intervalDays == null || schedule.startDate == null) return true;
+        if (schedule.intervalDays == null || schedule.startDate == null) {
+          return true;
+        }
         final start = DateTime.parse(schedule.startDate!);
         final diff = dayDate.difference(start).inDays;
         return diff % schedule.intervalDays! == 0;
+      case FrequencyType.once:
+        if (schedule.startDate == null) return false;
+        final start = DateTime.parse(schedule.startDate!);
+        return dayDate.year == start.year &&
+            dayDate.month == start.month &&
+            dayDate.day == start.day;
       case FrequencyType.asNeeded:
         return false; // Shouldn't happen here as we filter before
     }
@@ -311,6 +383,7 @@ class LogProvider with ChangeNotifier {
   Future<void> refresh() async {
     await loadLogs();
   }
+
   /// Clear all logs (Reset Data)
   Future<void> clearAllLogs() async {
     try {

@@ -1,5 +1,5 @@
-/// Frequency types for medicine schedules
-enum FrequencyType { daily, specificDays, interval, asNeeded }
+/// Frequency types for routine schedules.
+enum FrequencyType { daily, specificDays, interval, once, asNeeded }
 
 /// Represents a schedule for taking a medicine
 class Schedule {
@@ -57,8 +57,15 @@ class Schedule {
         final startDateOnly = DateTime(start.year, start.month, start.day);
         final diff = checkDate.difference(startDateOnly).inDays;
         return diff % intervalDays! == 0;
+      case FrequencyType.once:
+        final target = startDate != null
+            ? DateTime.parse(startDate!)
+            : DateTime.now();
+        return checkDate.year == target.year &&
+            checkDate.month == target.month &&
+            checkDate.day == target.day;
       case FrequencyType.asNeeded:
-        return true;
+        return false;
     }
   }
 
@@ -96,8 +103,9 @@ class Schedule {
           // Find next interval day
           scheduledTime = _getNextIntervalDay(scheduledTime);
           break;
+        case FrequencyType.once:
+          return null;
         case FrequencyType.asNeeded:
-          // As needed schedules don't auto-schedule
           return null;
       }
     } else {
@@ -110,6 +118,8 @@ class Schedule {
           case FrequencyType.interval:
             scheduledTime = _getNextIntervalDay(scheduledTime);
             break;
+          case FrequencyType.once:
+            return null;
           default:
             break;
         }
@@ -174,8 +184,10 @@ class Schedule {
         return days;
       case FrequencyType.interval:
         return 'Every $intervalDays days';
+      case FrequencyType.once:
+        return 'Once';
       case FrequencyType.asNeeded:
-        return 'As needed (PRN)';
+        return 'As needed';
     }
   }
 

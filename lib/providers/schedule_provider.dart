@@ -28,7 +28,12 @@ class ScheduleProvider with ChangeNotifier {
 
   /// Get today's active schedules
   List<Schedule> get todaySchedules {
-    return _schedules.where((s) => s.shouldTriggerToday()).toList();
+    return getSchedulesForDate(DateTime.now());
+  }
+
+  /// Get schedules for a specific date
+  List<Schedule> getSchedulesForDate(DateTime date) {
+    return _schedules.where((s) => s.shouldTriggerOnDate(date)).toList();
   }
 
   /// Load all schedules from database
@@ -114,6 +119,38 @@ class ScheduleProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error deleting schedule: $e');
       return false;
+    }
+  }
+
+  /// Replace all schedules for a medicine with a new set (Batch Operation)
+  Future<void> replaceSchedulesForMedicine(
+    int medicineId,
+    List<Schedule> newSchedules,
+    Medicine medicine,
+  ) async {
+    try {
+      // 1. Get existing schedules to cancel notifications
+      final existingSchedules = getSchedulesForMedicine(medicineId);
+      for (final s in existingSchedules) {
+        await _cancelNotificationForSchedule(s);
+      }
+
+      // 2. Delete from DB
+      await _db.deleteSchedulesForMedicine(medicineId);
+      _schedules.removeWhere((s) => s.medicineId == medicineId);
+
+      // 3. Create and add new schedules
+      for (var schedule in newSchedules) {
+        final created = await _db.createSchedule(schedule);
+        _schedules.add(created);
+
+        // 4. Schedule new notification
+        await _scheduleNotification(created, medicine);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error replacing schedules: $e');
     }
   }
 
@@ -261,6 +298,8 @@ class ScheduleProvider with ChangeNotifier {
           if (schedule.intervalDays != null && schedule.intervalDays! > 0) {
             dailyCount += (1.0 / schedule.intervalDays!);
           }
+          break;
+        case FrequencyType.once:
           break;
         case FrequencyType.asNeeded:
           // Cannot predict

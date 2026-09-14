@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../providers/medicine_provider.dart';
 import '../providers/schedule_provider.dart';
+import '../providers/log_provider.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
-import '../widgets/mesh_gradient_background.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,27 +17,42 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _floatAnimation;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
-    )..repeat(reverse: true);
-
-    // Floating effect (up and down)
-    _floatAnimation = Tween<double>(begin: 0, end: -20).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
 
-    // Breathing effect (slight scale)
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    // M3 Staggered Animations
+    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOutBack),
+      ),
     );
 
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.6, curve: Curves.easeIn),
+      ),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.3, 0.7, curve: Curves.easeOutCubic),
+          ),
+        );
+
+    _controller.forward();
     _navigateToNext();
   }
 
@@ -60,11 +75,15 @@ class _SplashScreenState extends State<SplashScreen>
           context,
           listen: false,
         );
+        final logProvider = Provider.of<LogProvider>(context, listen: false);
         await settings.ensureInitialized();
 
         // Ensure fresh data
-        await medicineProvider.loadMedicines();
-        await scheduleProvider.loadSchedules();
+        await Future.wait([
+          medicineProvider.loadMedicines(),
+          scheduleProvider.loadSchedules(),
+          logProvider.loadLogs(),
+        ]);
 
         // Reschedule all notifications
         if (medicineProvider.medicines.isNotEmpty) {
@@ -73,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
           );
           debugPrint('✅ Self-Healing complete: All notifications rescheduled');
         } else {
-          debugPrint('ℹ️ No medicines to reschedule');
+          debugPrint('No routines to reschedule');
         }
       } catch (e) {
         debugPrint('⚠️ Self-Healing failed: $e');
@@ -111,134 +130,93 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      body: MeshGradientBackground(
-        colors: const [
-          Color(0xFF020617), // Deep Slate/Black
-          Color(0xFF1E293B), // Slate 800
-          Color(0xFF4F46E5), // Indigo 600
-          Color(0xFF6366F1), // Indigo 500
-        ],
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(0, _floatAnimation.value),
-                    child: Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // 3D Icon Container with Shimmer
-                          Container(
-                            width: 180,
-                            height: 180,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(40),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF6366F1,
-                                  ).withValues(alpha: 0.3),
-                                  blurRadius: 40,
-                                  spreadRadius: 5,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(40),
-                              child: Stack(
-                                children: [
-                                  Image.asset(
-                                    'assets/images/splash_icon.png',
-                                    fit: BoxFit.cover,
-                                  ),
-                                  // Shimmering reflection
-                                  Positioned.fill(
-                                    child: AnimatedBuilder(
-                                      animation: _controller,
-                                      builder: (context, child) {
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                Colors.white.withValues(
-                                                  alpha: 0.0,
-                                                ),
-                                                Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                ),
-                                                Colors.white.withValues(
-                                                  alpha: 0.0,
-                                                ),
-                                              ],
-                                              stops: [
-                                                0.0,
-                                                _controller.value,
-                                                1.0,
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+      backgroundColor: colorScheme.surface,
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Animated Icon
+                Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: FadeTransition(
+                    opacity: _scaleAnimation,
+                    child: Container(
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(36),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withOpacity(0.15),
+                            blurRadius: 30,
+                            spreadRadius: 8,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 60),
-              // Premium Typography
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(seconds: 1),
-                curve: Curves.easeOut,
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Column(
-                  children: [
-                    Text(
-                      'MedTime',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(36),
+                        child: Hero(
+                          tag: 'splash_icon',
+                          child: Image.asset(
+                            'assets/images/splash_icon.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'SMART • SECURE • PRIVATE',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        letterSpacing: 4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 48),
+                // Animated Typography
+                FadeTransition(
+                  opacity: _opacityAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Column(
+                      children: [
+                        Text(
+                          'RoutineTime',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Simple recurring reminders',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+                        SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            strokeCap: StrokeCap.round,
+                            color: colorScheme.primary,
+                            backgroundColor: colorScheme.surfaceContainerHigh,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
