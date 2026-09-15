@@ -186,8 +186,8 @@ class _SplashScreenState extends State<SplashScreen>
                           'RoutineTime',
                           style: theme.textTheme.displaySmall?.copyWith(
                             color: colorScheme.primary,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -195,8 +195,8 @@ class _SplashScreenState extends State<SplashScreen>
                           'Simple recurring reminders',
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
                           ),
                         ),
                         const SizedBox(height: 48),
