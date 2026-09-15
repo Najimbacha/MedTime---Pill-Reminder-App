@@ -36,12 +36,27 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   bool _isSaving = false;
 
   static const _iconOptions = [
-    _RoutineIconOption(1, Icons.water_drop_rounded, 0xFF0EA5E9),
-    _RoutineIconOption(2, Icons.menu_book_rounded, 0xFF4F46E5),
-    _RoutineIconOption(3, Icons.directions_walk_rounded, 0xFF16A34A),
-    _RoutineIconOption(4, Icons.spa_rounded, 0xFFDB2777),
-    _RoutineIconOption(5, Icons.bedtime_rounded, 0xFF7C3AED),
-    _RoutineIconOption(6, Icons.home_rounded, 0xFFF97316),
+    _RoutineIconOption(1, Icons.water_drop_rounded, 0xFF0EA5E9, 'Water'),
+    _RoutineIconOption(2, Icons.menu_book_rounded, 0xFF4F46E5, 'Read'),
+    _RoutineIconOption(3, Icons.directions_walk_rounded, 0xFF16A34A, 'Walk'),
+    _RoutineIconOption(4, Icons.spa_rounded, 0xFFDB2777, 'Care'),
+    _RoutineIconOption(5, Icons.bedtime_rounded, 0xFF7C3AED, 'Sleep'),
+    _RoutineIconOption(6, Icons.home_rounded, 0xFFF97316, 'Home'),
+    _RoutineIconOption(7, Icons.fitness_center_rounded, 0xFFDC2626, 'Move'),
+    _RoutineIconOption(8, Icons.self_improvement_rounded, 0xFF0891B2, 'Calm'),
+  ];
+
+  static const _repeatOptions = [
+    _RepeatOption('daily', 'Every day', Icons.event_repeat_rounded),
+    _RepeatOption('weekdays', 'Weekdays', Icons.work_history_rounded),
+    _RepeatOption('weekends', 'Weekends', Icons.weekend_rounded),
+    _RepeatOption(
+      'specific',
+      'Specific days',
+      Icons.calendar_view_week_rounded,
+    ),
+    _RepeatOption('interval', 'Every X days', Icons.timelapse_rounded),
+    _RepeatOption('once', 'Once', Icons.event_available_rounded),
   ];
 
   @override
@@ -98,10 +113,56 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     return true;
   }
 
+  Color get _accent => Color(_selectedColor);
+
+  _RoutineIconOption get _selectedOption => _iconOptions.firstWhere(
+    (option) => option.value == _selectedIcon,
+    orElse: () => _iconOptions[1],
+  );
+
+  String get _repeatLabel {
+    if (_repeat == 'specific') {
+      if (_selectedDays.isEmpty) return 'Choose days';
+      return (_selectedDays.toList()..sort()).map(_shortDayName).join(', ');
+    }
+    if (_repeat == 'interval') {
+      final days = int.tryParse(_intervalController.text) ?? 7;
+      return 'Every $days ${days == 1 ? 'day' : 'days'}';
+    }
+    return _repeatOptions.firstWhere((option) => option.value == _repeat).label;
+  }
+
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            timePickerTheme: TimePickerThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
     if (picked == null) return;
     setState(() => _time = picked);
+    HapticHelper.selection();
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+    );
+    if (picked == null) return;
+    setState(() => _startDate = picked);
     HapticHelper.selection();
   }
 
@@ -319,15 +380,17 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isEditing = widget.medicine != null;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Routine' : 'Add Routine'),
+        title: Text(isEditing ? 'Edit routine' : 'New routine'),
         actions: [
           if (isEditing)
             IconButton(
-              tooltip: 'Delete',
+              tooltip: 'Delete routine',
               onPressed: _deleteRoutine,
               icon: const Icon(Icons.delete_outline_rounded),
             ),
@@ -336,63 +399,103 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          children: [
-            TextFormField(
-              controller: _nameController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Routine name',
-                hintText: 'Read 20 minutes',
-                prefixIcon: Icon(Icons.edit_note_rounded),
-              ),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Name required'
-                  : null,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            _FieldTile(
-              icon: Icons.schedule_rounded,
-              label: 'Time',
-              value: _time.format(context),
-              onTap: _pickTime,
-            ),
-            const SizedBox(height: 16),
-            _RepeatCard(
-              repeat: _repeat,
-              selectedDays: _selectedDays,
-              intervalController: _intervalController,
-              onRepeatChanged: (value) => setState(() => _repeat = value),
-              onDayToggled: (day) {
-                setState(() {
-                  if (_selectedDays.contains(day)) {
-                    _selectedDays.remove(day);
-                  } else {
-                    _selectedDays.add(day);
-                  }
-                });
-              },
-              onIntervalChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Icon',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final option in _iconOptions)
-                  _IconChoice(
-                    option: option,
-                    selected: _selectedIcon == option.value,
-                    onTap: () {
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 132),
+              sliver: SliverList.list(
+                children: [
+                  _RoutinePreview(
+                    accent: _accent,
+                    icon: _selectedOption.icon,
+                    name: _nameController.text.trim().isEmpty
+                        ? 'Read 20 minutes'
+                        : _nameController.text.trim(),
+                    time: _time.format(context),
+                    repeat: _repeatLabel,
+                  ),
+                  const SizedBox(height: 22),
+                  TextFormField(
+                    controller: _nameController,
+                    textInputAction: TextInputAction.done,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Routine name',
+                      hintText: 'Read 20 minutes',
+                      prefixIcon: Icon(Icons.edit_note_rounded),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Name required'
+                        : null,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 18),
+                  _TimePanel(
+                    accent: _accent,
+                    time: _time.format(context),
+                    onTap: _pickTime,
+                  ),
+                  const SizedBox(height: 24),
+                  _SectionLabel(
+                    icon: Icons.repeat_rounded,
+                    text: 'Repeat',
+                    color: _accent,
+                  ),
+                  const SizedBox(height: 12),
+                  _RepeatSelector(
+                    repeat: _repeat,
+                    options: _repeatOptions,
+                    onChanged: (value) {
+                      setState(() => _repeat = value);
+                      HapticHelper.selection();
+                    },
+                  ),
+                  if (_repeat == 'specific') ...[
+                    const SizedBox(height: 14),
+                    _DaySelector(
+                      selectedDays: _selectedDays,
+                      accent: _accent,
+                      onDayToggled: (day) {
+                        setState(() {
+                          if (_selectedDays.contains(day)) {
+                            _selectedDays.remove(day);
+                          } else {
+                            _selectedDays.add(day);
+                          }
+                        });
+                        HapticHelper.selection();
+                      },
+                    ),
+                  ],
+                  if (_repeat == 'interval') ...[
+                    const SizedBox(height: 14),
+                    _IntervalPanel(
+                      controller: _intervalController,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                  if (_repeat == 'interval' || _repeat == 'once') ...[
+                    const SizedBox(height: 14),
+                    _DatePanel(
+                      date: _formatDate(_startDate),
+                      label: _repeat == 'once' ? 'Date' : 'Start date',
+                      onTap: _pickStartDate,
+                    ),
+                  ],
+                  const SizedBox(height: 26),
+                  _SectionLabel(
+                    icon: Icons.interests_rounded,
+                    text: 'Icon',
+                    color: _accent,
+                  ),
+                  const SizedBox(height: 12),
+                  _IconGrid(
+                    options: _iconOptions,
+                    selectedValue: _selectedIcon,
+                    onSelected: (option) {
                       setState(() {
                         _selectedIcon = option.value;
                         _selectedColor = option.colorValue;
@@ -400,244 +503,543 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
                       HapticHelper.selection();
                     },
                   ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-        child: FilledButton(
-          onPressed: _isSaving || !_isValid ? null : _saveRoutine,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-
-  const _FieldTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.primary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              value,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RepeatCard extends StatelessWidget {
-  final String repeat;
-  final Set<int> selectedDays;
-  final TextEditingController intervalController;
-  final ValueChanged<String> onRepeatChanged;
-  final ValueChanged<int> onDayToggled;
-  final ValueChanged<String> onIntervalChanged;
-
-  const _RepeatCard({
-    required this.repeat,
-    required this.selectedDays,
-    required this.intervalController,
-    required this.onRepeatChanged,
-    required this.onDayToggled,
-    required this.onIntervalChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.repeat_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  'Repeat',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              DropdownButton<String>(
-                value: repeat,
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: 'daily', child: Text('Every day')),
-                  DropdownMenuItem(value: 'weekdays', child: Text('Weekdays')),
-                  DropdownMenuItem(value: 'weekends', child: Text('Weekends')),
-                  DropdownMenuItem(
-                    value: 'specific',
-                    child: Text('Specific days'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'interval',
-                    child: Text('Every X days'),
-                  ),
-                  DropdownMenuItem(value: 'once', child: Text('Once')),
                 ],
-                onChanged: (value) {
-                  if (value != null) onRepeatChanged(value);
-                },
               ),
-            ],
-          ),
-          if (repeat == 'specific') ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final day in const [
-                  _DayOption(1, 'M'),
-                  _DayOption(2, 'T'),
-                  _DayOption(3, 'W'),
-                  _DayOption(4, 'T'),
-                  _DayOption(5, 'F'),
-                  _DayOption(6, 'S'),
-                  _DayOption(7, 'S'),
-                ])
-                  FilterChip(
-                    selected: selectedDays.contains(day.value),
-                    label: Text(day.label),
-                    onSelected: (_) => onDayToggled(day.value),
-                  ),
-              ],
             ),
           ],
-          if (repeat == 'interval') ...[
-            const SizedBox(height: 14),
-            Row(
+        ),
+      ),
+      bottomNavigationBar: _BottomActionBar(
+        isSaving: _isSaving,
+        isEnabled: _isValid,
+        onSave: _saveRoutine,
+      ),
+    );
+  }
+
+  static String _shortDayName(int day) {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return names[day - 1];
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+}
+
+class _RoutinePreview extends StatelessWidget {
+  final Color accent;
+  final IconData icon;
+  final String name;
+  final String time;
+  final String repeat;
+
+  const _RoutinePreview({
+    required this.accent,
+    required this.icon,
+    required this.name,
+    required this.time,
+    required this.repeat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(alpha: 0.08),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: accent, size: 31),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Every', style: theme.textTheme.bodyMedium),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 82,
-                  child: TextFormField(
-                    controller: intervalController,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                    ),
-                    validator: (_) {
-                      if (repeat != 'interval') return null;
-                      final days = int.tryParse(intervalController.text);
-                      if (days == null || days < 1 || days > 365) {
-                        return '1-365';
-                      }
-                      return null;
-                    },
-                    onChanged: onIntervalChanged,
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Text('days', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 7),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniPill(icon: Icons.schedule_rounded, label: time),
+                    _MiniPill(icon: Icons.repeat_rounded, label: repeat),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _IconChoice extends StatelessWidget {
-  final _RoutineIconOption option;
-  final bool selected;
+class _MiniPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MiniPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimePanel extends StatelessWidget {
+  final Color accent;
+  final String time;
   final VoidCallback onTap;
 
-  const _IconChoice({
-    required this.option,
-    required this.selected,
+  const _TimePanel({
+    required this.accent,
+    required this.time,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(option.colorValue);
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        width: 52,
-        height: 52,
+      borderRadius: BorderRadius.circular(28),
+      child: Ink(
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: selected ? 0.18 : 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? color : Colors.transparent,
-            width: 2,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.48,
+          ),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.alarm_rounded, color: accent, size: 30),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Time',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    time,
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.expand_more_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _SectionLabel({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 21),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w900,
           ),
         ),
-        child: Icon(option.icon, color: color),
+      ],
+    );
+  }
+}
+
+class _RepeatSelector extends StatelessWidget {
+  final String repeat;
+  final List<_RepeatOption> options;
+  final ValueChanged<String> onChanged;
+
+  const _RepeatSelector({
+    required this.repeat,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final option in options)
+          ChoiceChip(
+            selected: repeat == option.value,
+            avatar: Icon(option.icon, size: 18),
+            label: Text(option.label),
+            onSelected: (_) => onChanged(option.value),
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          ),
+      ],
+    );
+  }
+}
+
+class _DaySelector extends StatelessWidget {
+  final Set<int> selectedDays;
+  final Color accent;
+  final ValueChanged<int> onDayToggled;
+
+  const _DaySelector({
+    required this.selectedDays,
+    required this.accent,
+    required this.onDayToggled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const days = [
+      _DayOption(1, 'M'),
+      _DayOption(2, 'T'),
+      _DayOption(3, 'W'),
+      _DayOption(4, 'T'),
+      _DayOption(5, 'F'),
+      _DayOption(6, 'S'),
+      _DayOption(7, 'S'),
+    ];
+
+    return Row(
+      children: [
+        for (final day in days) ...[
+          Expanded(
+            child: Tooltip(
+              message: _weekdayName(day.value),
+              child: InkWell(
+                onTap: () => onDayToggled(day.value),
+                borderRadius: BorderRadius.circular(18),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 170),
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selectedDays.contains(day.value)
+                        ? accent
+                        : Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    day.label,
+                    style: TextStyle(
+                      color: selectedDays.contains(day.value)
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (day.value != 7) const SizedBox(width: 7),
+        ],
+      ],
+    );
+  }
+
+  static String _weekdayName(int value) {
+    const names = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return names[value - 1];
+  }
+}
+
+class _IntervalPanel extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _IntervalPanel({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Every',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 92,
+            child: TextFormField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+              ),
+              validator: (_) {
+                final days = int.tryParse(controller.text);
+                if (days == null || days < 1 || days > 365) return '1-365';
+                return null;
+              },
+              onChanged: onChanged,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'days',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DatePanel extends StatelessWidget {
+  final String label;
+  final String date;
+  final VoidCallback onTap;
+
+  const _DatePanel({
+    required this.label,
+    required this.date,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      tileColor: theme.colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      leading: const Icon(Icons.event_rounded),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            date,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconGrid extends StatelessWidget {
+  final List<_RoutineIconOption> options;
+  final int selectedValue;
+  final ValueChanged<_RoutineIconOption> onSelected;
+
+  const _IconGrid({
+    required this.options,
+    required this.selectedValue,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: options.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.9,
+      ),
+      itemBuilder: (context, index) {
+        final option = options[index];
+        final selected = option.value == selectedValue;
+        final color = Color(option.colorValue);
+        return Tooltip(
+          message: option.label,
+          child: InkWell(
+            onTap: () => onSelected(option),
+            borderRadius: BorderRadius.circular(24),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? color.withValues(alpha: 0.18)
+                    : Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: selected
+                      ? color
+                      : Theme.of(context).colorScheme.outlineVariant,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(option.icon, color: color, size: 28),
+                  const SizedBox(height: 7),
+                  Text(
+                    option.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BottomActionBar extends StatelessWidget {
+  final bool isSaving;
+  final bool isEnabled;
+  final VoidCallback onSave;
+
+  const _BottomActionBar({
+    required this.isSaving,
+    required this.isEnabled,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: FilledButton.icon(
+        onPressed: isSaving || !isEnabled ? null : onSave,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(58),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        icon: isSaving
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.check_rounded),
+        label: Text(isSaving ? 'Saving' : 'Save routine'),
       ),
     );
   }
@@ -647,8 +1049,17 @@ class _RoutineIconOption {
   final int value;
   final IconData icon;
   final int colorValue;
+  final String label;
 
-  const _RoutineIconOption(this.value, this.icon, this.colorValue);
+  const _RoutineIconOption(this.value, this.icon, this.colorValue, this.label);
+}
+
+class _RepeatOption {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const _RepeatOption(this.value, this.label, this.icon);
 }
 
 class _DayOption {
