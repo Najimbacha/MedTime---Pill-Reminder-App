@@ -97,8 +97,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,19 +141,30 @@ class _DashboardScreenState extends State<DashboardScreen>
 
             if (entries.isEmpty) {
               return ListView(
-                padding: const EdgeInsets.fromLTRB(24, 96, 24, 120),
+                padding: const EdgeInsets.fromLTRB(24, 88, 24, 120),
                 children: [
-                  Icon(
-                    Icons.notifications_active_outlined,
-                    size: 56,
-                    color: theme.colorScheme.primary,
+                  Center(
+                    child: Container(
+                      width: 86,
+                      height: 86,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.notifications_active_outlined,
+                        size: 40,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   Text(
                     'No routines yet',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -159,7 +172,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     'Create a simple recurring reminder for something you do every day.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.45,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -183,6 +197,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
               children: [
+                _TodaySummary(
+                  total: entries.length,
+                  completed: completed.length,
+                ),
+                const SizedBox(height: 24),
                 ..._section('Morning', pending, 0, 12),
                 ..._section('Afternoon', pending, 12, 18),
                 ..._section('Tonight', pending, 18, 24),
@@ -205,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Add routine',
         onPressed: () => _openRoutine(),
         child: const Icon(Icons.add_rounded),
       ),
@@ -292,6 +312,68 @@ class _DashboardScreenState extends State<DashboardScreen>
       '${entry.medicine.id}-${entry.scheduledDateTime.toIso8601String()}';
 }
 
+class _TodaySummary extends StatelessWidget {
+  final int total;
+  final int completed;
+
+  const _TodaySummary({required this.total, required this.completed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final remaining = total - completed;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              remaining == 0
+                  ? Icons.check_circle_rounded
+                  : Icons.timelapse_rounded,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  remaining == 0 ? 'All done today' : '$remaining remaining',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$completed of $total completed',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
@@ -314,6 +396,7 @@ class _SectionHeader extends StatelessWidget {
           '$count',
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
@@ -355,11 +438,11 @@ class _RoutineTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: routine.colorValue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(routine.icon, color: routine.colorValue),
                 ),
@@ -400,9 +483,9 @@ class _RoutineTile extends StatelessWidget {
                   FilledButton(
                     onPressed: onDone,
                     style: FilledButton.styleFrom(
-                      minimumSize: const Size(76, 40),
+                      minimumSize: const Size(78, 42),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                     child: const Text('Done'),

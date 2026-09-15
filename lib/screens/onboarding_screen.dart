@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,8 +25,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       if (!mounted) return;
-      final settings = context.read<SettingsService>();
-      await settings.setOnboardingCompleted(true);
+      await context.read<SettingsService>().setOnboardingCompleted(true);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -38,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 400),
+          transitionDuration: const Duration(milliseconds: 320),
         ),
       );
     } catch (e) {
@@ -53,146 +50,83 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0B1220),
-                  Color(0xFF111827),
-                  Color(0xFF1F2937),
-                ],
+      backgroundColor: colorScheme.surface,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Image.asset(
+                  'assets/images/splash_icon.png',
+                  width: 128,
+                  height: 128,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-          ),
-          Positioned(
-            top: -120,
-            right: -80,
-            child: _GlowOrb(
-              color: const Color(0xFF38BDF8).withValues(alpha: 0.24),
-              size: 260,
-            ),
-          ),
-          Positioned(
-            bottom: -140,
-            left: -60,
-            child: _GlowOrb(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.22),
-              size: 300,
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'RoutineTime',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Minimal,\nreliable reminders.',
-                    style: theme.textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      height: 1.05,
-                      letterSpacing: -1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Private-first routine reminders with zero clutter.',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: Colors.white70,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  const _FeatureRow(
-                    icon: Icons.privacy_tip_outlined,
-                    text: 'Offline-first and privacy-focused',
-                  ),
-                  const _FeatureRow(
-                    icon: Icons.notifications_active_outlined,
-                    text: 'Precise scheduled reminders',
-                  ),
-                  const _FeatureRow(
-                    icon: Icons.calendar_today_outlined,
-                    text: 'Simple Today view and completion history',
-                  ),
-                  const Spacer(),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: _isCompleting
-                                    ? null
-                                    : () => _finishOnboarding(
-                                        requestPermissions: true,
-                                      ),
-                                icon: const Icon(Icons.notifications_outlined),
-                                label: const Text('Enable Reminders'),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  backgroundColor: const Color(0xFF0EA5E9),
-                                  foregroundColor: Colors.white,
-                                  textStyle: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: TextButton(
-                                onPressed: _isCompleting
-                                    ? null
-                                    : () => _finishOnboarding(
-                                        requestPermissions: false,
-                                      ),
-                                child: const Text('Continue'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 38),
+              Text(
+                'RoutineTime',
+                style: theme.textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                'Simple reminders for the small things you do every day.',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const _FeatureRow(
+                icon: Icons.lock_outline_rounded,
+                title: 'Private by default',
+                subtitle: 'Your routines stay local unless you choose backup.',
+              ),
+              const _FeatureRow(
+                icon: Icons.notifications_active_outlined,
+                title: 'Act from the notification',
+                subtitle: 'Done or snooze without opening the app.',
+              ),
+              const _FeatureRow(
+                icon: Icons.repeat_rounded,
+                title: 'Smart repeat schedules',
+                subtitle:
+                    'Daily, weekdays, weekends, custom days, or intervals.',
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _isCompleting
+                    ? null
+                    : () => _finishOnboarding(requestPermissions: true),
+                icon: const Icon(Icons.notifications_outlined),
+                label: const Text('Enable reminders'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(58),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: _isCompleting
+                      ? null
+                      : () => _finishOnboarding(requestPermissions: false),
+                  child: const Text('Continue for now'),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -200,48 +134,63 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
 class _FeatureRow extends StatelessWidget {
   final IconData icon;
-  final String text;
+  final String title;
+  final String subtitle;
 
-  const _FeatureRow({required this.icon, required this.text});
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white70, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: colorScheme.onPrimaryContainer),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  final Color color;
-  final double size;
-
-  const _GlowOrb({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color, blurRadius: 120, spreadRadius: 30)],
+          ],
+        ),
       ),
     );
   }

@@ -746,18 +746,42 @@ class _RepeatSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
         for (final option in options)
-          ChoiceChip(
-            selected: repeat == option.value,
-            avatar: Icon(option.icon, size: 18),
-            label: Text(option.label),
-            onSelected: (_) => onChanged(option.value),
-            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          Builder(
+            builder: (context) {
+              final selected = repeat == option.value;
+              return ChoiceChip(
+                selected: selected,
+                avatar: Icon(
+                  option.icon,
+                  size: 18,
+                  color: selected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.primary,
+                ),
+                label: Text(option.label),
+                onSelected: (_) => onChanged(option.value),
+                selectedColor: colorScheme.primaryContainer,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                side: BorderSide(
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.outlineVariant,
+                ),
+                labelStyle: TextStyle(
+                  color: selected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              );
+            },
           ),
       ],
     );

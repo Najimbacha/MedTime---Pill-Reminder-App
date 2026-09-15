@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+
 import '../providers/subscription_provider.dart';
 
 class PaywallScreen extends StatefulWidget {
@@ -11,382 +12,150 @@ class PaywallScreen extends StatefulWidget {
 }
 
 class _PaywallScreenState extends State<PaywallScreen> {
-  // Track selection by index: 0 = Lifetime, 1 = Monthly
   int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Premium Mesh Gradient Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1A2E), // Deep Night Blue
-                  Color(0xFF16213E), // Dark Blue
-                  Color(0xFF321F28), // Deep Purple/Brown hint
-                ],
-              ),
-            ),
-          ),
-          // Gradient Orbs (Pseudo-mesh effect)
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF6366F1).withValues(alpha: 0.4), // Indigo
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFEC4899).withValues(alpha: 0.3), // Pink
-              ),
-            ),
-          ),
-          // Blur Overlay to soften orbs
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.3), // Tint
-              child: const DecoratedBox(
-                decoration: BoxDecoration(
-                  backgroundBlendMode: BlendMode.overlay,
-                  gradient: LinearGradient(
-                    colors: [Colors.transparent, Colors.black54],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-          ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-          SafeArea(
-            child: Column(
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('RoutineTime Premium'),
+        actions: [
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Consumer<SubscriptionProvider>(
+          builder: (context, subscription, _) {
+            if (subscription.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final offerings = subscription.offerings;
+            final hasRealOfferings =
+                offerings != null && offerings.current != null;
+            final monthly = hasRealOfferings
+                ? offerings.current!.monthly
+                : null;
+            final lifetime = hasRealOfferings
+                ? offerings.current!.lifetime
+                : null;
+            final selectedPackage = _selectedIndex == 0 ? lifetime : monthly;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               children: [
-                // Close Button
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.1),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 24,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.workspace_premium_rounded,
+                        color: colorScheme.onTertiaryContainer,
+                        size: 42,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Unlimited simple reminders',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Create every routine you need while keeping the app calm, private, and focused.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onTertiaryContainer.withValues(
+                            alpha: 0.75,
+                          ),
+                          height: 1.4,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        // Premium Header
-                        _buildPremiumHeader(),
-                        const SizedBox(height: 32),
-
-                        // Features List
-                        _buildFeatureRow(
-                          Icons.all_inclusive_rounded,
-                          'Unlimited Routines',
-                          'Create as many recurring reminders as you need.',
-                        ),
-                        _buildFeatureRow(
-                          Icons.repeat_rounded,
-                          'Smart Repeats',
-                          'Use weekdays, weekends, specific days, and intervals.',
-                        ),
-                        _buildFeatureRow(
-                          Icons.cloud_upload_rounded,
-                          'Secure Cloud Backup',
-                          'Never lose your history. Backup & Sync instantly.',
-                        ),
-                        _buildFeatureRow(
-                          Icons.bar_chart_rounded,
-                          'Simple History',
-                          'See what you completed without heavy habit tracking.',
-                        ),
-
-                        const SizedBox(height: 48),
-                      ],
-                    ),
-                  ),
+                const SizedBox(height: 22),
+                const _FeatureRow(
+                  icon: Icons.all_inclusive_rounded,
+                  title: 'Unlimited routines',
+                  subtitle: 'No free-plan cap on recurring reminders.',
                 ),
-
-                // Pricing Section
-                _buildPricingSection(context),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPremiumHeader() {
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFD700), Color(0xFFFFA500)], // Gold to Orange
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                blurRadius: 40,
-                spreadRadius: 10,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.workspace_premium_rounded,
-            size: 56,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 32),
-        const Text(
-          'RoutineTime Premium',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: -1,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Create unlimited routines and keep your reminders simple.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white.withValues(alpha: 0.8),
-              height: 1.4,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Icon(icon, color: const Color(0xFFFFD700), size: 22),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 17,
-                    color: Colors.white,
-                  ),
+                const _FeatureRow(
+                  icon: Icons.repeat_rounded,
+                  title: 'Smart repeats',
+                  subtitle: 'Weekdays, weekends, specific days, intervals.',
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.6),
-                    height: 1.3,
-                  ),
+                const _FeatureRow(
+                  icon: Icons.backup_outlined,
+                  title: 'Secure backup',
+                  subtitle:
+                      'Keep routines and history available when you move phones.',
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPricingSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
-        ),
-      ),
-      child: Consumer<SubscriptionProvider>(
-        builder: (context, subscription, _) {
-          if (subscription.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFD700)),
-            );
-          }
-
-          final offerings = subscription.offerings;
-
-          // Check if we have real offerings
-          final hasRealOfferings =
-              offerings != null && offerings.current != null;
-
-          final monthly = hasRealOfferings ? offerings.current!.monthly : null;
-          final lifetime = hasRealOfferings
-              ? offerings.current!.lifetime
-              : null;
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PricingCard(
-                title: 'Lifetime Access',
-                price: lifetime?.storeProduct.priceString ?? '\$30.00',
-                period: 'One-time',
-                subtitle: 'Unlimited routines forever',
-                isBestValue: true,
-                isSelected: _selectedIndex == 0,
-                onTap: () => setState(() => _selectedIndex = 0),
-              ),
-              const SizedBox(height: 12),
-
-              _PricingCard(
-                title: 'Monthly Plan',
-                price: monthly?.storeProduct.priceString ?? '\$1.99',
-                period: '/ month',
-                isSelected: _selectedIndex == 1,
-                onTap: () => setState(() => _selectedIndex = 1),
-              ),
-
-              const SizedBox(height: 24),
-
-              if (!hasRealOfferings)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'Note: Displaying demo prices. Purchases will be available from the Play Store.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 11,
-                    ),
+                const SizedBox(height: 18),
+                _PricingCard(
+                  title: 'Lifetime Access',
+                  price: lifetime?.storeProduct.priceString ?? '\$30.00',
+                  period: 'One-time',
+                  subtitle: 'Unlimited routines forever',
+                  isBestValue: true,
+                  isSelected: _selectedIndex == 0,
+                  onTap: () => setState(() => _selectedIndex = 0),
+                ),
+                const SizedBox(height: 12),
+                _PricingCard(
+                  title: 'Monthly Plan',
+                  price: monthly?.storeProduct.priceString ?? '\$1.99',
+                  period: 'per month',
+                  subtitle: 'Flexible access',
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
+                if (!hasRealOfferings) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Demo prices shown. Purchases become available from the store build.',
                     textAlign: TextAlign.center,
-                  ),
-                ),
-
-              // Purchase Button — always enabled
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => _handlePurchase(
-                    context,
-                    subscription,
-                    _selectedIndex == 0 ? lifetime : monthly,
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD700),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text(
-                    'Get Premium Access',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Footer Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: () => subscription.restorePurchases(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white54,
-                    ),
-                    child: const Text(
-                      'Restore',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const Text('•', style: TextStyle(color: Colors.white24)),
-                  TextButton(
-                    onPressed: () {
-                      /* TODO: Replace with your URL */
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white54,
-                    ),
-                    child: const Text(
-                      'Privacy Policy',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const Text('•', style: TextStyle(color: Colors.white24)),
-                  TextButton(
-                    onPressed: () {
-                      /* TODO: Replace with your URL */
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white54,
-                    ),
-                    child: const Text(
-                      'Terms of Use',
-                      style: TextStyle(fontSize: 12),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
-              ),
-            ],
-          );
-        },
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () =>
+                      _handlePurchase(context, subscription, selectedPackage),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Get Premium'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(58),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: subscription.restorePurchases,
+                  child: const Text('Restore purchases'),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -397,14 +166,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
     Package? package,
   ) async {
     if (package == null) {
-      // No real package available — show a friendly message
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Purchases are not available yet. Please try again from the Play Store version.',
+              'Purchases are not available yet. Please try again from the store version.',
             ),
-            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -414,14 +181,48 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final success = await provider.purchasePackage(package);
     if (success && context.mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Welcome to Premium Club!'),
-          backgroundColor: Color(0xFFFFD700),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Premium is active')));
     }
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        tileColor: colorScheme.surfaceContainerLow,
+        leading: CircleAvatar(
+          backgroundColor: colorScheme.primaryContainer,
+          foregroundColor: colorScheme.onPrimaryContainer,
+          child: Icon(icon),
+        ),
+        title: Text(title),
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -429,7 +230,7 @@ class _PricingCard extends StatelessWidget {
   final String title;
   final String price;
   final String period;
-  final String? subtitle;
+  final String subtitle;
   final bool isBestValue;
   final bool isSelected;
   final VoidCallback onTap;
@@ -438,7 +239,7 @@ class _PricingCard extends StatelessWidget {
     required this.title,
     required this.price,
     required this.period,
-    this.subtitle,
+    required this.subtitle,
     this.isBestValue = false,
     required this.isSelected,
     required this.onTap,
@@ -446,134 +247,112 @@ class _PricingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return InkWell(
       onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
               color: isSelected
-                  ? const Color(0xFFFFD700).withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.05),
-              border: Border.all(
-                color: isSelected ? const Color(0xFFFFD700) : Colors.white12,
-                width: isSelected ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(20),
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
-            child: Row(
-              children: [
-                // Radio Indicator
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFFFFD700)
-                          : Colors.white38,
-                      width: 2,
-                    ),
-                    color: isSelected
-                        ? const Color(0xFFFFD700)
-                        : Colors.transparent,
-                  ),
-                  child: isSelected
-                      ? const Icon(Icons.check, size: 16, color: Colors.black)
-                      : null,
-                ),
-                const SizedBox(width: 16),
-
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle!,
-                          style: const TextStyle(
-                            color: Color(0xFF6366F1), // Indigo accent
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
+                      ),
+                      if (isBestValue) ...[
+                        const SizedBox(width: 8),
+                        const _BestValuePill(),
                       ],
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  price,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-
-                // Price
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      price,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                      ),
-                    ),
-                    Text(
-                      period,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+                Text(
+                  period,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-          if (isBestValue)
-            Positioned(
-              top: -10,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Text(
-                  'BEST VALUE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-        ],
+class _BestValuePill extends StatelessWidget {
+  const _BestValuePill();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.tertiary,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Best',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onTertiary,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

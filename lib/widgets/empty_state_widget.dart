@@ -16,74 +16,54 @@ class EmptyStateWidget extends StatelessWidget {
     this.imageAsset,
     this.buttonText,
     this.onButtonPressed,
-  }) : assert(icon != null || imageAsset != null, 'Either icon or imageAsset must be provided');
+  }) : assert(
+         icon != null || imageAsset != null,
+         'Either icon or imageAsset must be provided',
+       );
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (imageAsset != null)
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  imageAsset!,
-                  width: 300, // Final size as requested
-                  fit: BoxFit.contain,
-                ),
-              )
+              Image.asset(imageAsset!, width: 168, fit: BoxFit.contain)
             else
               Container(
-                padding: const EdgeInsets.all(32),
+                width: 86,
+                height: 86,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                  color: colorScheme.primaryContainer,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
                 ),
                 child: Icon(
                   icon,
-                  size: 64,
-                  color: isDark ? Colors.blue.shade200 : Colors.blue.shade400,
+                  size: 40,
+                  color: colorScheme.onPrimaryContainer,
                 ),
               ),
             const SizedBox(height: 32),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-                letterSpacing: -0.5,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               message,
-              style: TextStyle(
-                fontSize: 15,
-                color: isDark ? Colors.white60 : Colors.black54,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 height: 1.5,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
@@ -94,15 +74,6 @@ class EmptyStateWidget extends StatelessWidget {
                 height: 52,
                 child: FilledButton.icon(
                   onPressed: onButtonPressed,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 4,
-                    shadowColor: Colors.blue.withValues(alpha: 0.4),
-                  ),
                   icon: const Icon(Icons.add_rounded),
                   label: Text(
                     buttonText!,

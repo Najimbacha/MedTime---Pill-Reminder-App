@@ -98,13 +98,44 @@ class _NotificationTroubleshootScreenState
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Fix Notifications')),
+      backgroundColor: colorScheme.surface,
+      appBar: AppBar(title: const Text('Notification Help')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_active_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                        size: 34,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'RoutineTime needs notification and alarm access to remind you on time.',
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w800,
+                                height: 1.35,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 _buildStatusCard(),
                 const SizedBox(height: 24),
                 if (!_isIgnoringBatteryOptimizations) ...[
@@ -136,16 +167,12 @@ class _NotificationTroubleshootScreenState
   }
 
   Widget _buildStatusCard() {
-    return Card(
-      elevation: 0,
-      color: Theme.of(
-        context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-        ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -173,11 +200,15 @@ class _NotificationTroubleshootScreenState
         children: [
           Icon(
             isOk
-                ? Icons.check_circle
-                : (isCritical ? Icons.error : Icons.cancel),
+                ? Icons.check_circle_rounded
+                : (isCritical
+                      ? Icons.error_outline_rounded
+                      : Icons.info_outline_rounded),
             color: isOk
-                ? Colors.green
-                : (isCritical ? Colors.red : Colors.orange),
+                ? Theme.of(context).colorScheme.primary
+                : (isCritical
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.tertiary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -197,18 +228,22 @@ class _NotificationTroubleshootScreenState
   }
 
   Widget _buildBatteryActionCard() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.shade200),
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.battery_alert, color: Colors.red.shade700, size: 32),
+              Icon(
+                Icons.battery_alert_outlined,
+                color: colorScheme.onErrorContainer,
+                size: 32,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
@@ -216,7 +251,7 @@ class _NotificationTroubleshootScreenState
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.red.shade900,
+                    color: colorScheme.onErrorContainer,
                   ),
                 ),
               ),
@@ -225,7 +260,11 @@ class _NotificationTroubleshootScreenState
           const SizedBox(height: 12),
           Text(
             'Your phone may kill RoutineTime to save power, preventing reminders. Please disable optimization for this app.',
-            style: TextStyle(color: Colors.red.shade800),
+            style: TextStyle(
+              color: colorScheme.onErrorContainer.withValues(alpha: 0.76),
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -233,10 +272,11 @@ class _NotificationTroubleshootScreenState
             child: FilledButton.icon(
               onPressed: _requestBatteryOptimization,
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
                 padding: const EdgeInsets.all(16),
               ),
-              icon: const Icon(Icons.bolt, color: Colors.white),
+              icon: const Icon(Icons.bolt),
               label: const Text('Disable Optimization'),
             ),
           ),
@@ -247,6 +287,8 @@ class _NotificationTroubleshootScreenState
 
   Widget _buildInstructionsCard() {
     if (_manufacturer == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,31 +297,35 @@ class _NotificationTroubleshootScreenState
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             'Instructions for ${_manufacturer!.toUpperCase()}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Colors.grey,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ),
-        Card(
-          elevation: 0,
-          color: Colors.grey.shade50,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.grey.shade200),
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.lightbulb, color: Colors.amber),
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: colorScheme.tertiary,
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     _getManufacturerAdvice(),
-                    style: const TextStyle(height: 1.5),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],

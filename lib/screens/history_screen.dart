@@ -30,17 +30,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final logs = context.watch<LogProvider>().getLogsForDate(_selectedDay);
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(title: const Text('History')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
-          Card(
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+          Container(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: TableCalendar<Log>(
               firstDay: DateTime.now().subtract(const Duration(days: 365)),
@@ -61,40 +65,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 });
               },
               calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
                 markerDecoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
+                  color: colorScheme.primary,
                   shape: BoxShape.circle,
                 ),
                 selectedDecoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
+                  color: colorScheme.primary,
                   shape: BoxShape.circle,
                 ),
                 todayDecoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
+                  color: colorScheme.primaryContainer,
                   shape: BoxShape.circle,
                 ),
                 todayTextStyle: TextStyle(
-                  color: theme.colorScheme.onPrimaryContainer,
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+                weekendTextStyle: TextStyle(color: colorScheme.onSurface),
+              ),
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+                weekendStyle: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              headerStyle: const HeaderStyle(
+              headerStyle: HeaderStyle(
                 formatButtonVisible: false,
                 titleCentered: true,
+                titleTextStyle: theme.textTheme.titleMedium!.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+                leftChevronIcon: const Icon(Icons.chevron_left_rounded),
+                rightChevronIcon: const Icon(Icons.chevron_right_rounded),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            DateFormat('EEEE, MMMM d').format(_selectedDay),
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  DateFormat('EEEE, MMMM d').format(_selectedDay),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _CountPill(count: logs.length),
+            ],
           ),
           const SizedBox(height: 12),
           if (logs.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 24),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(24),
+              ),
               child: Column(
                 children: [
                   Icon(
@@ -106,7 +139,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Text(
                     'No routines completed',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
@@ -115,6 +148,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
           else
             for (final log in logs) _HistoryTile(log: log),
         ],
+      ),
+    );
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  final int count;
+
+  const _CountPill({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count done',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
