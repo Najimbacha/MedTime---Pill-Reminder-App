@@ -2,7 +2,7 @@
 // Provides mock versions of DatabaseHelper and NotificationService
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/routine.dart';
 import 'package:routine_time/models/schedule.dart';
 import 'package:routine_time/models/log.dart';
 import 'package:routine_time/models/snoozed_dose.dart';
@@ -11,91 +11,65 @@ import 'package:routine_time/services/notification_service.dart';
 
 // Mock implementation of DatabaseHelper for testing
 class MockDatabaseHelper implements DatabaseHelper {
-  final List<Medicine> _medicines = [];
+  final List<Routine> _routines = [];
   final List<Schedule> _schedules = [];
   final List<Log> _logs = [];
   final List<SnoozedDose> _snoozedDoses = [];
-  int _medicineIdCounter = 1;
+  int _routineIdCounter = 1;
   int _scheduleIdCounter = 1;
   int _logIdCounter = 1;
   int _snoozedDoseIdCounter = 1;
 
   /// Clear all mock data
   void reset() {
-    _medicines.clear();
+    _routines.clear();
     _schedules.clear();
     _logs.clear();
     _snoozedDoses.clear();
-    _medicineIdCounter = 1;
+    _routineIdCounter = 1;
     _scheduleIdCounter = 1;
     _logIdCounter = 1;
     _snoozedDoseIdCounter = 1;
   }
 
-  // ==================== Medicine CRUD ====================
+  // ==================== Routine CRUD ====================
 
   @override
-  Future<Medicine> createMedicine(Medicine medicine) async {
-    final newMedicine = medicine.copyWith(id: _medicineIdCounter++);
-    _medicines.add(newMedicine);
-    return newMedicine;
+  Future<Routine> createRoutine(Routine routine) async {
+    final newRoutine = routine.copyWith(id: _routineIdCounter++);
+    _routines.add(newRoutine);
+    return newRoutine;
   }
 
   @override
-  Future<List<Medicine>> getAllMedicines() async {
-    return List.from(_medicines);
+  Future<List<Routine>> getAllRoutines() async {
+    return List.from(_routines);
   }
 
   @override
-  Future<Medicine?> getMedicine(int id) async {
+  Future<Routine?> getRoutine(int id) async {
     try {
-      return _medicines.firstWhere((m) => m.id == id);
+      return _routines.firstWhere((m) => m.id == id);
     } catch (_) {
       return null;
     }
   }
 
   @override
-  Future<int> updateMedicine(Medicine medicine) async {
-    final index = _medicines.indexWhere((m) => m.id == medicine.id);
+  Future<int> updateRoutine(Routine routine) async {
+    final index = _routines.indexWhere((m) => m.id == routine.id);
     if (index != -1) {
-      _medicines[index] = medicine;
+      _routines[index] = routine;
       return 1;
     }
     return 0;
   }
 
   @override
-  Future<int> deleteMedicine(int id) async {
-    _medicines.removeWhere((m) => m.id == id);
-    _schedules.removeWhere((s) => s.medicineId == id);
+  Future<int> deleteRoutine(int id) async {
+    _routines.removeWhere((m) => m.id == id);
+    _schedules.removeWhere((s) => s.routineId == id);
     return 1;
-  }
-
-  @override
-  Future<int> decrementStock(int medicineId) async {
-    final index = _medicines.indexWhere((m) => m.id == medicineId);
-    if (index != -1) {
-      final medicine = _medicines[index];
-      _medicines[index] = medicine.copyWith(
-        currentStock: medicine.currentStock - 1,
-      );
-      return 1;
-    }
-    return 0;
-  }
-
-  @override
-  Future<int> incrementStock(int medicineId) async {
-    final index = _medicines.indexWhere((m) => m.id == medicineId);
-    if (index != -1) {
-      final medicine = _medicines[index];
-      _medicines[index] = medicine.copyWith(
-        currentStock: medicine.currentStock + 1,
-      );
-      return 1;
-    }
-    return 0;
   }
 
   // ==================== Schedule CRUD ====================
@@ -113,8 +87,8 @@ class MockDatabaseHelper implements DatabaseHelper {
   }
 
   @override
-  Future<List<Schedule>> getSchedulesForMedicine(int medicineId) async {
-    return _schedules.where((s) => s.medicineId == medicineId).toList();
+  Future<List<Schedule>> getSchedulesForRoutine(int routineId) async {
+    return _schedules.where((s) => s.routineId == routineId).toList();
   }
 
   @override
@@ -134,9 +108,9 @@ class MockDatabaseHelper implements DatabaseHelper {
   }
 
   @override
-  Future<int> deleteSchedulesForMedicine(int medicineId) async {
-    final count = _schedules.where((s) => s.medicineId == medicineId).length;
-    _schedules.removeWhere((s) => s.medicineId == medicineId);
+  Future<int> deleteSchedulesForRoutine(int routineId) async {
+    final count = _schedules.where((s) => s.routineId == routineId).length;
+    _schedules.removeWhere((s) => s.routineId == routineId);
     return count;
   }
 
@@ -155,8 +129,8 @@ class MockDatabaseHelper implements DatabaseHelper {
   }
 
   @override
-  Future<List<Log>> getLogsForMedicine(int medicineId) async {
-    return _logs.where((l) => l.medicineId == medicineId).toList();
+  Future<List<Log>> getLogsForRoutine(int routineId) async {
+    return _logs.where((l) => l.routineId == routineId).toList();
   }
 
   @override
@@ -236,13 +210,13 @@ class MockDatabaseHelper implements DatabaseHelper {
 
   @override
   Future<SnoozedDose?> getSnoozedDose(
-    int medicineId,
+    int routineId,
     DateTime scheduledTime,
   ) async {
     try {
       return _snoozedDoses.firstWhere(
         (d) =>
-            d.medicineId == medicineId &&
+            d.routineId == routineId &&
             d.originalScheduledTime == scheduledTime,
       );
     } catch (_) {
@@ -271,10 +245,10 @@ class MockDatabaseHelper implements DatabaseHelper {
   }
 
   @override
-  Future<int> deleteSnoozedDose(int medicineId, DateTime scheduledTime) async {
+  Future<int> deleteSnoozedDose(int routineId, DateTime scheduledTime) async {
     _snoozedDoses.removeWhere(
       (d) =>
-          d.medicineId == medicineId &&
+          d.routineId == routineId &&
           d.originalScheduledTime == scheduledTime,
     );
     return 1;
@@ -321,8 +295,6 @@ class MockDatabaseHelper implements DatabaseHelper {
 class MockNotificationService implements NotificationService {
   final List<int> scheduledNotificationIds = [];
   final List<int> cancelledNotificationIds = [];
-  final List<int> lowStockAlertIds = [];
-  final List<int> refillReminderIds = [];
   bool _initialized = false;
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
@@ -331,8 +303,6 @@ class MockNotificationService implements NotificationService {
   void reset() {
     scheduledNotificationIds.clear();
     cancelledNotificationIds.clear();
-    lowStockAlertIds.clear();
-    refillReminderIds.clear();
     _initialized = false;
     _notificationsEnabled = true;
     _exactAlarmsEnabled = true;
@@ -377,10 +347,10 @@ class MockNotificationService implements NotificationService {
   }
 
   @override
-  Future<void> scheduleMedicineReminder({
+  Future<void> scheduleRoutineReminder({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
     required DateTime scheduledTime,
     FrequencyType? frequencyType,
@@ -391,8 +361,8 @@ class MockNotificationService implements NotificationService {
   @override
   Future<void> showImmediateNotification({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
   }) async {
     scheduledNotificationIds.add(notificationId);
@@ -400,19 +370,19 @@ class MockNotificationService implements NotificationService {
 
   @override
   Future<void> scheduleSnooze({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
     required int minutes,
   }) async {
-    scheduledNotificationIds.add(medicineId * 1000); // Unique ID for snooze
+    scheduledNotificationIds.add(routineId * 1000); // Unique ID for snooze
   }
 
   @override
   Future<void> snoozeNotification({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
   }) async {
     scheduledNotificationIds.add(notificationId + 10000);
@@ -457,34 +427,6 @@ class MockNotificationService implements NotificationService {
     return scheduledNotificationIds
         .map((id) => PendingNotificationRequest(id, null, null, null))
         .toList();
-  }
-
-  @override
-  Future<void> showLowStockAlert({
-    required int medicineId,
-    required String medicineName,
-    required int currentStock,
-  }) async {
-    lowStockAlertIds.add(medicineId);
-  }
-
-  @override
-  Future<void> scheduleLowStockWarning({
-    required int medicineId,
-    required String medicineName,
-    required DateTime warningDate,
-    required int daysLeft,
-  }) async {
-    lowStockAlertIds.add(medicineId);
-  }
-
-  @override
-  Future<void> scheduleRefillReminder({
-    required int medicineId,
-    required String medicineName,
-    required DateTime refillDate,
-  }) async {
-    refillReminderIds.add(medicineId);
   }
 
   // Stub for any missing methods

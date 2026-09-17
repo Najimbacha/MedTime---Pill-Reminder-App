@@ -9,7 +9,7 @@ class SnoozeProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notificationService = NotificationService.instance;
 
-  /// Map of snoozed doses keyed by "${medicineId}_${originalScheduledTime.toIso8601String()}"
+  /// Map of snoozed doses keyed by "${routineId}_${originalScheduledTime.toIso8601String()}"
   final Map<String, SnoozedDose> _snoozedDoses = {};
 
   /// Get all active snoozed doses
@@ -26,27 +26,27 @@ class SnoozeProvider extends ChangeNotifier {
     final doses = await _db.getActiveSnoozedDoses();
     _snoozedDoses.clear();
     for (final dose in doses) {
-      _snoozedDoses[_key(dose.medicineId, dose.originalScheduledTime)] = dose;
+      _snoozedDoses[_key(dose.routineId, dose.originalScheduledTime)] = dose;
     }
     notifyListeners();
   }
 
   /// Create a key for the snooze map
-  String _key(int medicineId, DateTime scheduledTime) {
-    return '${medicineId}_${scheduledTime.toIso8601String()}';
+  String _key(int routineId, DateTime scheduledTime) {
+    return '${routineId}_${scheduledTime.toIso8601String()}';
   }
 
   /// Snooze a dose for a specified number of minutes
   Future<void> snoozeDose({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required DateTime originalScheduledTime,
     required int minutes,
   }) async {
     final snoozedUntil = DateTime.now().add(Duration(minutes: minutes));
 
     final dose = SnoozedDose(
-      medicineId: medicineId,
+      routineId: routineId,
       originalScheduledTime: originalScheduledTime,
       snoozedUntil: snoozedUntil,
     );
@@ -55,13 +55,13 @@ class SnoozeProvider extends ChangeNotifier {
     await _db.createSnoozedDose(dose);
 
     // Add to local cache
-    _snoozedDoses[_key(medicineId, originalScheduledTime)] = dose;
+    _snoozedDoses[_key(routineId, originalScheduledTime)] = dose;
 
     // Schedule snooze notification (wrapped in try-catch to not block UI update)
     try {
       await _scheduleSnoozeNotification(
-        medicineId: medicineId,
-        medicineName: medicineName,
+        routineId: routineId,
+        routineName: routineName,
         snoozedUntil: snoozedUntil,
         originalScheduledTime: originalScheduledTime,
       );
@@ -70,27 +70,27 @@ class SnoozeProvider extends ChangeNotifier {
     }
 
     debugPrint(
-      '🔔 SnoozeProvider: Snooze added for medicine $medicineId, notifying listeners...',
+      '🔔 SnoozeProvider: Snooze added for routine $routineId, notifying listeners...',
     );
     notifyListeners();
   }
 
   /// Cancel a snooze
   Future<void> cancelSnooze({
-    required int medicineId,
+    required int routineId,
     required DateTime originalScheduledTime,
   }) async {
-    final key = _key(medicineId, originalScheduledTime);
+    final key = _key(routineId, originalScheduledTime);
 
     // Remove from database
-    await _db.deleteSnoozedDose(medicineId, originalScheduledTime);
+    await _db.deleteSnoozedDose(routineId, originalScheduledTime);
 
     // Remove from local cache
     _snoozedDoses.remove(key);
 
     // Cancel the snooze notification
     final notificationId = _getSnoozeNotificationId(
-      medicineId,
+      routineId,
       originalScheduledTime,
     );
     await _notificationService.cancelNotification(notificationId);
@@ -99,8 +99,8 @@ class SnoozeProvider extends ChangeNotifier {
   }
 
   /// Check if a dose is snoozed
-  bool isSnoozed(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  bool isSnoozed(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     final dose = _snoozedDoses[key];
     if (dose == null) return false;
     // Check if snooze is still active
@@ -112,46 +112,46 @@ class SnoozeProvider extends ChangeNotifier {
   }
 
   /// Get the snoozed time for a dose (if snoozed)
-  DateTime? getSnoozedTimeFor(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  DateTime? getSnoozedTimeFor(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     final dose = _snoozedDoses[key];
     if (dose == null || dose.isExpired) return null;
     return dose.snoozedUntil;
   }
 
   /// Get SnoozedDose object if exists
-  SnoozedDose? getSnooze(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  SnoozedDose? getSnooze(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     return _snoozedDoses[key];
   }
 
   /// Schedule a notification for snoozed dose
   Future<void> _scheduleSnoozeNotification({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required DateTime snoozedUntil,
     required DateTime originalScheduledTime,
   }) async {
     final notificationId = _getSnoozeNotificationId(
-      medicineId,
+      routineId,
       originalScheduledTime,
     );
 
-    await _notificationService.scheduleMedicineReminder(
+    await _notificationService.scheduleRoutineReminder(
       notificationId: notificationId,
-      medicineId: medicineId,
-      medicineName: '⏰ $medicineName (Snoozed)',
+      routineId: routineId,
+      routineName: '⏰ $routineName (Snoozed)',
       dosage: 'Time to take your snoozed dose!',
       scheduledTime: snoozedUntil,
     );
   }
 
   /// Generate unique notification ID for snooze
-  int _getSnoozeNotificationId(int medicineId, DateTime scheduledTime) {
+  int _getSnoozeNotificationId(int routineId, DateTime scheduledTime) {
     // Use a high base to avoid collision with regular notification IDs
-    // Format: 900000 + medicineId * 1000 + (hour * 60 + minute)
+    // Format: 900000 + routineId * 1000 + (hour * 60 + minute)
     return 900000 +
-        (medicineId * 1000) +
+        (routineId * 1000) +
         (scheduledTime.hour * 60 + scheduledTime.minute);
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
 import 'main_screen.dart';
@@ -67,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
         debugPrint('🔄 Starting Self-Healing process...');
 
         final settings = Provider.of<SettingsService>(context, listen: false);
-        final medicineProvider = Provider.of<MedicineProvider>(
+        final routineProvider = Provider.of<RoutineProvider>(
           context,
           listen: false,
         );
@@ -80,15 +80,15 @@ class _SplashScreenState extends State<SplashScreen>
 
         // Ensure fresh data
         await Future.wait([
-          medicineProvider.loadMedicines(),
+          routineProvider.loadRoutines(),
           scheduleProvider.loadSchedules(),
           logProvider.loadLogs(),
         ]);
 
         // Reschedule all notifications
-        if (medicineProvider.medicines.isNotEmpty) {
+        if (routineProvider.routines.isNotEmpty) {
           await scheduleProvider.rescheduleAllNotifications(
-            medicineProvider.medicines,
+            routineProvider.routines,
           );
           debugPrint('✅ Self-Healing complete: All notifications rescheduled');
         } else {

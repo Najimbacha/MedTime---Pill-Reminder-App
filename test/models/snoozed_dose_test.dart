@@ -9,12 +9,12 @@ void main() {
         final snoozedUntil = DateTime(2026, 2, 2, 8, 10);
 
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: originalTime,
           snoozedUntil: snoozedUntil,
         );
 
-        expect(dose.medicineId, 1);
+        expect(dose.routineId, 1);
         expect(dose.originalScheduledTime, originalTime);
         expect(dose.snoozedUntil, snoozedUntil);
         expect(dose.id, isNull);
@@ -28,14 +28,14 @@ void main() {
 
         final dose = SnoozedDose(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: originalTime,
           snoozedUntil: snoozedUntil,
           createdAt: createdAt,
         );
 
         expect(dose.id, 1);
-        expect(dose.medicineId, 2);
+        expect(dose.routineId, 2);
         expect(dose.originalScheduledTime, originalTime);
         expect(dose.snoozedUntil, snoozedUntil);
         expect(dose.createdAt, createdAt);
@@ -45,7 +45,7 @@ void main() {
         final before = DateTime.now();
 
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime.now(),
           snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
         );
@@ -66,7 +66,7 @@ void main() {
     group('isExpired', () {
       test('returns true when snoozed time has passed', () {
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime.now().subtract(
             const Duration(hours: 1),
           ),
@@ -78,7 +78,7 @@ void main() {
 
       test('returns false when snoozed time is in the future', () {
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime.now(),
           snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
         );
@@ -90,7 +90,7 @@ void main() {
     group('remainingTime', () {
       test('returns zero duration when expired', () {
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime.now().subtract(
             const Duration(hours: 1),
           ),
@@ -103,7 +103,7 @@ void main() {
       test('returns positive duration when not expired', () {
         final snoozedUntil = DateTime.now().add(const Duration(minutes: 10));
         final dose = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime.now(),
           snoozedUntil: snoozedUntil,
         );
@@ -124,7 +124,7 @@ void main() {
 
         final dose = SnoozedDose(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: originalTime,
           snoozedUntil: snoozedUntil,
           createdAt: createdAt,
@@ -133,7 +133,7 @@ void main() {
         final map = dose.toMap();
 
         expect(map['id'], 1);
-        expect(map['medicine_id'], 2);
+        expect(map['routine_id'], 2);
         expect(map['original_scheduled_time'], originalTime.toIso8601String());
         expect(map['snoozed_until'], snoozedUntil.toIso8601String());
         expect(map['created_at'], createdAt.toIso8601String());
@@ -142,7 +142,7 @@ void main() {
       test('fromMap creates correct SnoozedDose', () {
         final map = {
           'id': 1,
-          'medicine_id': 2,
+          'routine_id': 2,
           'original_scheduled_time': '2026-02-02T08:00:00.000',
           'snoozed_until': '2026-02-02T08:10:00.000',
           'created_at': '2026-02-02T08:00:00.000',
@@ -151,7 +151,7 @@ void main() {
         final dose = SnoozedDose.fromMap(map);
 
         expect(dose.id, 1);
-        expect(dose.medicineId, 2);
+        expect(dose.routineId, 2);
         expect(dose.originalScheduledTime, DateTime(2026, 2, 2, 8, 0));
         expect(dose.snoozedUntil, DateTime(2026, 2, 2, 8, 10));
         expect(dose.createdAt, DateTime(2026, 2, 2, 8, 0));
@@ -164,7 +164,7 @@ void main() {
 
         final original = SnoozedDose(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: originalTime,
           snoozedUntil: snoozedUntil,
           createdAt: createdAt,
@@ -173,7 +173,7 @@ void main() {
         final restored = SnoozedDose.fromMap(original.toMap());
 
         expect(restored.id, original.id);
-        expect(restored.medicineId, original.medicineId);
+        expect(restored.routineId, original.routineId);
         expect(restored.originalScheduledTime, original.originalScheduledTime);
         expect(restored.snoozedUntil, original.snoozedUntil);
         expect(restored.createdAt, original.createdAt);
@@ -187,7 +187,7 @@ void main() {
 
         final original = SnoozedDose(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: originalTime,
           snoozedUntil: snoozedUntil,
         );
@@ -196,7 +196,7 @@ void main() {
         final copy = original.copyWith(snoozedUntil: newSnoozedUntil);
 
         expect(copy.id, 1); // unchanged
-        expect(copy.medicineId, 2); // unchanged
+        expect(copy.routineId, 2); // unchanged
         expect(copy.originalScheduledTime, originalTime); // unchanged
         expect(copy.snoozedUntil, newSnoozedUntil);
       });
@@ -204,19 +204,19 @@ void main() {
 
     group('Equality', () {
       test(
-        'doses with same medicineId and originalScheduledTime are equal',
+        'doses with same routineId and originalScheduledTime are equal',
         () {
           final originalTime = DateTime(2026, 2, 2, 8, 0);
 
           final dose1 = SnoozedDose(
             id: 1,
-            medicineId: 1,
+            routineId: 1,
             originalScheduledTime: originalTime,
             snoozedUntil: DateTime(2026, 2, 2, 8, 10),
           );
           final dose2 = SnoozedDose(
             id: 2,
-            medicineId: 1,
+            routineId: 1,
             originalScheduledTime: originalTime,
             snoozedUntil: DateTime(2026, 2, 2, 8, 20),
           );
@@ -225,16 +225,16 @@ void main() {
         },
       );
 
-      test('doses with different medicineId are not equal', () {
+      test('doses with different routineId are not equal', () {
         final originalTime = DateTime(2026, 2, 2, 8, 0);
 
         final dose1 = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: originalTime,
           snoozedUntil: DateTime(2026, 2, 2, 8, 10),
         );
         final dose2 = SnoozedDose(
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: originalTime,
           snoozedUntil: DateTime(2026, 2, 2, 8, 10),
         );
@@ -244,12 +244,12 @@ void main() {
 
       test('doses with different originalScheduledTime are not equal', () {
         final dose1 = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime(2026, 2, 2, 8, 0),
           snoozedUntil: DateTime(2026, 2, 2, 8, 10),
         );
         final dose2 = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: DateTime(2026, 2, 2, 9, 0),
           snoozedUntil: DateTime(2026, 2, 2, 9, 10),
         );
@@ -257,16 +257,16 @@ void main() {
         expect(dose1 == dose2, isFalse);
       });
 
-      test('hashCode is based on medicineId and originalScheduledTime', () {
+      test('hashCode is based on routineId and originalScheduledTime', () {
         final originalTime = DateTime(2026, 2, 2, 8, 0);
 
         final dose1 = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: originalTime,
           snoozedUntil: DateTime(2026, 2, 2, 8, 10),
         );
         final dose2 = SnoozedDose(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: originalTime,
           snoozedUntil: DateTime(2026, 2, 2, 8, 20),
         );
@@ -279,7 +279,7 @@ void main() {
       test('returns formatted string', () {
         final dose = SnoozedDose(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           originalScheduledTime: DateTime(2026, 2, 2, 8, 0),
           snoozedUntil: DateTime(2026, 2, 2, 8, 10),
         );
@@ -287,7 +287,7 @@ void main() {
         final str = dose.toString();
         expect(str.contains('SnoozedDose'), isTrue);
         expect(str.contains('id: 1'), isTrue);
-        expect(str.contains('medicineId: 2'), isTrue);
+        expect(str.contains('routineId: 2'), isTrue);
       });
     });
   });

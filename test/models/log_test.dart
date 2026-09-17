@@ -16,12 +16,12 @@ void main() {
       test('creates log with required fields', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
 
-        expect(log.medicineId, 1);
+        expect(log.routineId, 1);
         expect(log.scheduledTime, scheduledTime);
         expect(log.status, LogStatus.take);
         expect(log.id, isNull);
@@ -33,14 +33,14 @@ void main() {
         final actualTime = DateTime(2026, 2, 2, 8, 15);
         final log = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
         );
 
         expect(log.id, 1);
-        expect(log.medicineId, 2);
+        expect(log.routineId, 2);
         expect(log.scheduledTime, scheduledTime);
         expect(log.actualTime, actualTime);
         expect(log.status, LogStatus.take);
@@ -52,7 +52,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 8, 15);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -64,7 +64,7 @@ void main() {
       test('returns true when taken exactly at scheduled time', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: scheduledTime,
           status: LogStatus.take,
@@ -77,7 +77,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 8, 30);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -90,7 +90,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 8, 31);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -103,7 +103,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 7, 30);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -115,7 +115,7 @@ void main() {
       test('returns false when status is not take', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: scheduledTime,
           status: LogStatus.skip,
@@ -127,7 +127,7 @@ void main() {
       test('returns false when actualTime is null', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
@@ -140,7 +140,7 @@ void main() {
       test('returns 0 when actualTime is null', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
@@ -152,7 +152,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 8, 15);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -165,7 +165,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final actualTime = DateTime(2026, 2, 2, 7, 45);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -177,7 +177,7 @@ void main() {
       test('returns 0 when taken exactly on time', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           actualTime: scheduledTime,
           status: LogStatus.take,
@@ -188,19 +188,19 @@ void main() {
     });
 
     group('statusText', () {
-      test('returns "Taken" for take status', () {
+      test('returns "Done" for take status', () {
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: DateTime.now(),
           status: LogStatus.take,
         );
 
-        expect(log.statusText, 'Taken');
+        expect(log.statusText, 'Done');
       });
 
       test('returns "Skipped" for skip status', () {
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: DateTime.now(),
           status: LogStatus.skip,
         );
@@ -210,7 +210,7 @@ void main() {
 
       test('returns "Missed" for missed status', () {
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: DateTime.now(),
           status: LogStatus.missed,
         );
@@ -225,7 +225,7 @@ void main() {
         final actualTime = DateTime(2026, 2, 2, 8, 15);
         final log = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -234,7 +234,7 @@ void main() {
         final map = log.toMap();
 
         expect(map['id'], 1);
-        expect(map['medicine_id'], 2);
+        expect(map['routine_id'], 2);
         expect(map['scheduled_time'], scheduledTime.toIso8601String());
         expect(map['actual_time'], actualTime.toIso8601String());
         expect(map['status'], 'take');
@@ -243,7 +243,7 @@ void main() {
       test('toMap handles null actualTime', () {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.missed,
         );
@@ -256,7 +256,7 @@ void main() {
       test('fromMap creates correct Log', () {
         final map = {
           'id': 1,
-          'medicine_id': 2,
+          'routine_id': 2,
           'scheduled_time': '2026-02-02T08:00:00.000',
           'actual_time': '2026-02-02T08:15:00.000',
           'status': 'take',
@@ -265,7 +265,7 @@ void main() {
         final log = Log.fromMap(map);
 
         expect(log.id, 1);
-        expect(log.medicineId, 2);
+        expect(log.routineId, 2);
         expect(log.scheduledTime, DateTime(2026, 2, 2, 8, 0));
         expect(log.actualTime, DateTime(2026, 2, 2, 8, 15));
         expect(log.status, LogStatus.take);
@@ -274,7 +274,7 @@ void main() {
       test('fromMap handles null actualTime', () {
         final map = {
           'id': 1,
-          'medicine_id': 2,
+          'routine_id': 2,
           'scheduled_time': '2026-02-02T08:00:00.000',
           'actual_time': null,
           'status': 'missed',
@@ -287,7 +287,7 @@ void main() {
 
       test('fromMap defaults to missed for unknown status', () {
         final map = {
-          'medicine_id': 1,
+          'routine_id': 1,
           'scheduled_time': '2026-02-02T08:00:00.000',
           'status': 'unknown',
         };
@@ -302,7 +302,7 @@ void main() {
         final actualTime = DateTime(2026, 2, 2, 8, 15);
         final original = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -311,7 +311,7 @@ void main() {
         final restored = Log.fromMap(original.toMap());
 
         expect(restored.id, original.id);
-        expect(restored.medicineId, original.medicineId);
+        expect(restored.routineId, original.routineId);
         expect(restored.scheduledTime, original.scheduledTime);
         expect(restored.actualTime, original.actualTime);
         expect(restored.status, original.status);
@@ -323,7 +323,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final original = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
@@ -335,7 +335,7 @@ void main() {
         );
 
         expect(copy.id, 1); // unchanged
-        expect(copy.medicineId, 2); // unchanged
+        expect(copy.routineId, 2); // unchanged
         expect(copy.scheduledTime, scheduledTime); // unchanged
         expect(copy.actualTime, newActualTime);
         expect(copy.status, LogStatus.skip);
@@ -346,7 +346,7 @@ void main() {
         final actualTime = DateTime(2026, 2, 2, 8, 5);
         final original = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           actualTime: actualTime,
           status: LogStatus.take,
@@ -355,7 +355,7 @@ void main() {
         final copy = original.copyWith();
 
         expect(copy.id, original.id);
-        expect(copy.medicineId, original.medicineId);
+        expect(copy.routineId, original.routineId);
         expect(copy.scheduledTime, original.scheduledTime);
         expect(copy.actualTime, original.actualTime);
         expect(copy.status, original.status);
@@ -366,13 +366,13 @@ void main() {
       test('logs with same id are equal', () {
         final log1 = Log(
           id: 1,
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: DateTime(2026, 2, 2, 8, 0),
           status: LogStatus.take,
         );
         final log2 = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: DateTime(2026, 2, 3, 9, 0),
           status: LogStatus.skip,
         );
@@ -384,13 +384,13 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log1 = Log(
           id: 1,
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
         final log2 = Log(
           id: 2,
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
@@ -401,13 +401,13 @@ void main() {
       test('hashCode is based on id', () {
         final log1 = Log(
           id: 1,
-          medicineId: 1,
+          routineId: 1,
           scheduledTime: DateTime.now(),
           status: LogStatus.take,
         );
         final log2 = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: DateTime.now(),
           status: LogStatus.skip,
         );
@@ -421,7 +421,7 @@ void main() {
         final scheduledTime = DateTime(2026, 2, 2, 8, 0);
         final log = Log(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           scheduledTime: scheduledTime,
           status: LogStatus.take,
         );
@@ -429,7 +429,7 @@ void main() {
         final str = log.toString();
         expect(str.contains('Log'), isTrue);
         expect(str.contains('id: 1'), isTrue);
-        expect(str.contains('medicineId: 2'), isTrue);
+        expect(str.contains('routineId: 2'), isTrue);
         expect(str.contains('take'), isTrue);
       });
     });

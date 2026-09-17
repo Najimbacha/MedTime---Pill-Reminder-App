@@ -4,25 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-import '../models/medicine.dart';
+import '../models/routine.dart';
 import '../models/schedule.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../services/notification_service.dart';
 import '../utils/haptic_helper.dart';
 import 'notification_troubleshoot_screen.dart';
-import 'paywall_screen.dart';
 
-class AddEditMedicineScreen extends StatefulWidget {
-  final Medicine? medicine;
+class AddEditRoutineScreen extends StatefulWidget {
+  final Routine? routine;
 
-  const AddEditMedicineScreen({super.key, this.medicine});
+  const AddEditRoutineScreen({super.key, this.routine});
 
   @override
-  State<AddEditMedicineScreen> createState() => _AddEditMedicineScreenState();
+  State<AddEditRoutineScreen> createState() => _AddEditRoutineScreenState();
 }
 
-class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
+class _AddEditRoutineScreenState extends State<AddEditRoutineScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _intervalController;
@@ -62,10 +61,10 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.medicine?.name ?? '');
+    _nameController = TextEditingController(text: widget.routine?.name ?? '');
     _intervalController = TextEditingController(text: '7');
 
-    final routine = widget.medicine;
+    final routine = widget.routine;
     if (routine != null) {
       _selectedIcon = routine.typeIcon;
       _selectedColor = routine.color;
@@ -73,7 +72,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final schedules = context
             .read<ScheduleProvider>()
-            .getSchedulesForMedicine(routine.id!);
+            .getSchedulesForRoutine(routine.id!);
         if (schedules.isEmpty || !mounted) return;
 
         final schedule = schedules.first;
@@ -181,37 +180,26 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       return;
     }
 
-    final routine = Medicine(
-      id: widget.medicine?.id,
+    final routine = Routine(
+      id: widget.routine?.id,
       name: _nameController.text.trim(),
       dosage: '',
       typeIcon: _selectedIcon,
-      currentStock: 0,
-      lowStockThreshold: 0,
       color: _selectedColor,
     );
 
     if (!mounted) return;
-    final routineProvider = context.read<MedicineProvider>();
+    final routineProvider = context.read<RoutineProvider>();
     final scheduleProvider = context.read<ScheduleProvider>();
 
-    Medicine? savedRoutine;
+    Routine? savedRoutine;
     try {
-      if (widget.medicine == null) {
-        savedRoutine = await routineProvider.addMedicine(routine);
+      if (widget.routine == null) {
+        savedRoutine = await routineProvider.addRoutine(routine);
       } else {
-        await routineProvider.updateMedicine(routine);
+        await routineProvider.updateRoutine(routine);
         savedRoutine = routine;
       }
-    } on PremiumLimitException catch (_) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PaywallScreen()),
-        );
-      }
-      return;
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -227,7 +215,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       return;
     }
 
-    await scheduleProvider.replaceSchedulesForMedicine(savedRoutine!.id!, [
+    await scheduleProvider.replaceSchedulesForRoutine(savedRoutine!.id!, [
       _buildSchedule(savedRoutine.id!),
     ], savedRoutine);
 
@@ -247,14 +235,14 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     switch (_repeat) {
       case 'weekdays':
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,2,3,4,5',
         );
       case 'weekends':
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '6,7',
@@ -262,14 +250,14 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       case 'specific':
         final days = (_selectedDays.toList()..sort()).join(',');
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.specificDays,
           frequencyDays: days,
         );
       case 'interval':
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.interval,
           intervalDays: int.parse(_intervalController.text),
@@ -277,7 +265,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
         );
       case 'once':
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.once,
           startDate: startDate,
@@ -286,7 +274,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
       case 'daily':
       default:
         return Schedule(
-          medicineId: routineId,
+          routineId: routineId,
           timeOfDay: timeOfDay,
           frequencyType: FrequencyType.daily,
         );
@@ -347,7 +335,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   }
 
   Future<void> _deleteRoutine() async {
-    final routine = widget.medicine;
+    final routine = widget.routine;
     if (routine?.id == null) return;
 
     final confirmed = await showDialog<bool>(
@@ -371,7 +359,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
     );
 
     if (confirmed != true || !mounted) return;
-    await context.read<MedicineProvider>().deleteMedicineWithSnapshot(
+    await context.read<RoutineProvider>().deleteRoutineWithSnapshot(
       routine!.id!,
     );
     if (mounted) Navigator.pop(context);
@@ -381,7 +369,7 @@ class _AddEditMedicineScreenState extends State<AddEditMedicineScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isEditing = widget.medicine != null;
+    final isEditing = widget.routine != null;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,

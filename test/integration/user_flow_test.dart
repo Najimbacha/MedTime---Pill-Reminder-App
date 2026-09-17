@@ -1,9 +1,9 @@
 // End-to-end user flow integration tests
-// Tests complete user scenarios from medicine creation to adherence tracking
+// Tests complete user scenarios from routine creation to adherence tracking
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/routine.dart';
 import 'package:routine_time/models/schedule.dart';
 import 'package:routine_time/models/log.dart';
 import 'package:routine_time/models/snoozed_dose.dart';
@@ -13,7 +13,7 @@ class IntegrationTestHarness {
   Database? _database;
 
   // In-memory caches (simulating providers)
-  List<Medicine> medicines = [];
+  List<Routine> routines = [];
   List<Schedule> schedules = [];
   List<Log> logs = [];
   Map<String, SnoozedDose> snoozedDoses = {};
@@ -27,118 +27,102 @@ class IntegrationTestHarness {
 
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE medicines (
+      CREATE TABLE routines (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         dosage TEXT,
         type_icon INTEGER DEFAULT 1,
-        current_stock INTEGER DEFAULT 0,
-        low_stock_threshold INTEGER DEFAULT 5,
-        color INTEGER DEFAULT 0xFF2196F3,
-        image_path TEXT,
-        pharmacy_name TEXT,
-        pharmacy_phone TEXT,
-        rxcui TEXT
+        color INTEGER DEFAULT 0xFF2196F3
       )
     ''');
 
     await db.execute('''
       CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         time_of_day TEXT NOT NULL,
         frequency_type TEXT NOT NULL,
         frequency_days TEXT,
         interval_days INTEGER,
         start_date TEXT,
         end_date TEXT,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
     await db.execute('''
       CREATE TABLE logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         scheduled_time TEXT NOT NULL,
         actual_time TEXT,
         status TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
     await db.execute('''
       CREATE TABLE snoozed_doses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         original_scheduled_time TEXT NOT NULL,
         snoozed_until TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
   }
 
   // ==================== User Actions ====================
 
-  /// User adds a new medicine with schedules
-  Future<Medicine> addMedicine({
+  /// User adds a new routine with schedules
+  Future<Routine> addRoutine({
     required String name,
     required String dosage,
-    required int currentStock,
-    required int lowStockThreshold,
     required List<String> scheduleTimes,
     FrequencyType frequencyType = FrequencyType.daily,
   }) async {
     final db = _database!;
 
-    // Create medicine
-    final medicineId = await db.insert('medicines', {
+    // Create routine
+    final routineId = await db.insert('routines', {
       'name': name,
       'dosage': dosage,
-      'current_stock': currentStock,
-      'low_stock_threshold': lowStockThreshold,
       'type_icon': 1,
       'color': 0xFF2196F3,
     });
 
-    final medicine = Medicine(
-      id: medicineId,
-      name: name,
-      dosage: dosage,
-      currentStock: currentStock,
-      lowStockThreshold: lowStockThreshold,
-    );
-    medicines.add(medicine);
+    final routine = Routine(id: routineId, name: name, dosage: dosage);
+    routines.add(routine);
 
     // Create schedules
     for (final time in scheduleTimes) {
       final scheduleId = await db.insert('schedules', {
-        'medicine_id': medicineId,
+        'routine_id': routineId,
         'time_of_day': time,
         'frequency_type': frequencyType.name,
       });
       schedules.add(
         Schedule(
           id: scheduleId,
-          medicineId: medicineId,
+          routineId: routineId,
           timeOfDay: time,
           frequencyType: frequencyType,
         ),
       );
     }
 
-    return medicine;
+    return routine;
   }
 
-  /// User takes their medicine
-  Future<Log> takeMedicine(int medicineId, DateTime scheduledTime) async {
+  /// User takes their routine
+  Future<Log> takeRoutine(int routineId, DateTime scheduledTime) async {
     final db = _database!;
     final now = DateTime.now();
 
     // Create log
     final logId = await db.insert('logs', {
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'scheduled_time': scheduledTime.toIso8601String(),
       'actual_time': now.toIso8601String(),
       'status': 'take',
@@ -146,36 +130,22 @@ class IntegrationTestHarness {
 
     final log = Log(
       id: logId,
-      medicineId: medicineId,
+      routineId: routineId,
       scheduledTime: scheduledTime,
       actualTime: now,
       status: LogStatus.take,
     );
     logs.add(log);
 
-    // Decrement stock
-    await db.rawUpdate(
-      'UPDATE medicines SET current_stock = current_stock - 1 WHERE id = ? AND current_stock > 0',
-      [medicineId],
-    );
-
-    // Update local cache
-    final index = medicines.indexWhere((m) => m.id == medicineId);
-    if (index != -1) {
-      medicines[index] = medicines[index].copyWith(
-        currentStock: medicines[index].currentStock - 1,
-      );
-    }
-
     return log;
   }
 
-  /// User skips their medicine
-  Future<Log> skipMedicine(int medicineId, DateTime scheduledTime) async {
+  /// User skips their routine
+  Future<Log> skipRoutine(int routineId, DateTime scheduledTime) async {
     final db = _database!;
 
     final logId = await db.insert('logs', {
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'scheduled_time': scheduledTime.toIso8601String(),
       'actual_time': null,
       'status': 'skip',
@@ -183,7 +153,7 @@ class IntegrationTestHarness {
 
     final log = Log(
       id: logId,
-      medicineId: medicineId,
+      routineId: routineId,
       scheduledTime: scheduledTime,
       status: LogStatus.skip,
     );
@@ -194,22 +164,22 @@ class IntegrationTestHarness {
 
   /// User snoozes a dose
   Future<SnoozedDose> snoozeDose({
-    required int medicineId,
+    required int routineId,
     required DateTime scheduledTime,
     required int minutes,
   }) async {
     final db = _database!;
     final snoozedUntil = DateTime.now().add(Duration(minutes: minutes));
 
-    // Delete existing snooze for same medicine/time
+    // Delete existing snooze for same routine/time
     await db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
-      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+      where: 'routine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [routineId, scheduledTime.toIso8601String()],
     );
 
     final id = await db.insert('snoozed_doses', {
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'original_scheduled_time': scheduledTime.toIso8601String(),
       'snoozed_until': snoozedUntil.toIso8601String(),
       'created_at': DateTime.now().toIso8601String(),
@@ -217,38 +187,38 @@ class IntegrationTestHarness {
 
     final dose = SnoozedDose(
       id: id,
-      medicineId: medicineId,
+      routineId: routineId,
       originalScheduledTime: scheduledTime,
       snoozedUntil: snoozedUntil,
     );
 
-    final key = '${medicineId}_${scheduledTime.toIso8601String()}';
+    final key = '${routineId}_${scheduledTime.toIso8601String()}';
     snoozedDoses[key] = dose;
 
     return dose;
   }
 
-  /// User deletes a medicine
-  Future<void> deleteMedicine(int medicineId) async {
+  /// User deletes a routine
+  Future<void> deleteRoutine(int routineId) async {
     final db = _database!;
 
-    await db.delete('medicines', where: 'id = ?', whereArgs: [medicineId]);
+    await db.delete('routines', where: 'id = ?', whereArgs: [routineId]);
     await db.delete(
       'schedules',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
     );
-    await db.delete('logs', where: 'medicine_id = ?', whereArgs: [medicineId]);
+    await db.delete('logs', where: 'routine_id = ?', whereArgs: [routineId]);
     await db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
     );
 
-    medicines.removeWhere((m) => m.id == medicineId);
-    schedules.removeWhere((s) => s.medicineId == medicineId);
-    logs.removeWhere((l) => l.medicineId == medicineId);
-    snoozedDoses.removeWhere((k, v) => v.medicineId == medicineId);
+    routines.removeWhere((m) => m.id == routineId);
+    schedules.removeWhere((s) => s.routineId == routineId);
+    logs.removeWhere((l) => l.routineId == routineId);
+    snoozedDoses.removeWhere((k, v) => v.routineId == routineId);
   }
 
   // ==================== Queries ====================
@@ -269,15 +239,15 @@ class IntegrationTestHarness {
         int.parse(parts[1]),
       );
 
-      final medicine = medicines.firstWhere(
-        (m) => m.id == schedule.medicineId,
-        orElse: () => Medicine(name: 'Unknown'),
+      final routine = routines.firstWhere(
+        (m) => m.id == schedule.routineId,
+        orElse: () => Routine(name: 'Unknown'),
       );
 
       // Check if already logged
       final hasLog = logs.any(
         (l) =>
-            l.medicineId == schedule.medicineId &&
+            l.routineId == schedule.routineId &&
             l.scheduledTime.year == scheduledTime.year &&
             l.scheduledTime.month == scheduledTime.month &&
             l.scheduledTime.day == scheduledTime.day &&
@@ -286,7 +256,7 @@ class IntegrationTestHarness {
       );
 
       result.add({
-        'medicine': medicine,
+        'routine': routine,
         'schedule': schedule,
         'scheduledTime': scheduledTime,
         'hasLog': hasLog,
@@ -306,11 +276,6 @@ class IntegrationTestHarness {
 
     final taken = logsInRange.where((l) => l.status == LogStatus.take).length;
     return taken / logsInRange.length;
-  }
-
-  /// Get low stock medicines
-  List<Medicine> getLowStockMedicines() {
-    return medicines.where((m) => m.isLowStock).toList();
   }
 
   Future<void> dispose() async {
@@ -333,18 +298,16 @@ void main() {
   });
 
   group('End-to-End User Flows', () {
-    group('Complete Medicine Workflow', () {
-      test('User adds medicine → schedules dose → takes medicine', () async {
-        // 1. User adds a new medicine
-        final medicine = await harness.addMedicine(
-          name: 'Aspirin',
-          dosage: '100mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+    group('Complete Routine Workflow', () {
+      test('User adds routine → schedules dose → completes routine', () async {
+        // 1. User adds a new routine
+        final routine = await harness.addRoutine(
+          name: 'Read',
+          dosage: '20 min',
           scheduleTimes: ['08:00', '20:00'],
         );
 
-        expect(harness.medicines.length, 1);
+        expect(harness.routines.length, 1);
         expect(harness.schedules.length, 2);
 
         // 2. User gets their scheduled doses for today
@@ -354,41 +317,37 @@ void main() {
         expect(doses.length, 2);
         expect(doses.every((d) => d['hasLog'] == false), isTrue);
 
-        // 3. User takes their morning dose
+        // 3. User completes their morning dose
         final morningDose = doses.firstWhere(
           (d) => (d['schedule'] as Schedule).timeOfDay == '08:00',
         );
-        await harness.takeMedicine(
-          medicine.id!,
+        await harness.takeRoutine(
+          routine.id!,
           morningDose['scheduledTime'] as DateTime,
         );
 
         expect(harness.logs.length, 1);
         expect(harness.logs.first.status, LogStatus.take);
-        expect(harness.medicines.first.currentStock, 29);
       });
 
       test('User maintains adherence over multiple days', () async {
-        final medicine = await harness.addMedicine(
-          name: 'Daily Vitamin',
-          dosage: '1 tablet',
-          currentStock: 30,
-          lowStockThreshold: 5,
+        final routine = await harness.addRoutine(
+          name: 'Daily Walk',
+          dosage: '30 min',
           scheduleTimes: ['09:00'],
         );
 
-        // Simulate 7 days of taking medication
+        // Simulate 7 days of completing the routine
         final startDate = DateTime.now();
 
         for (var i = 0; i < 7; i++) {
           final date = startDate.add(Duration(days: i));
           final scheduledTime = DateTime(date.year, date.month, date.day, 9, 0);
 
-          await harness.takeMedicine(medicine.id!, scheduledTime);
+          await harness.takeRoutine(routine.id!, scheduledTime);
         }
 
         expect(harness.logs.length, 7);
-        expect(harness.medicines.first.currentStock, 23);
 
         // Calculate adherence
         final adherence = harness.calculateAdherenceRate(
@@ -399,30 +358,24 @@ void main() {
       });
 
       test('User skips some doses → partial adherence', () async {
-        final medicine = await harness.addMedicine(
-          name: 'Medication',
-          dosage: '50mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+        final routine = await harness.addRoutine(
+          name: 'Meditation',
+          dosage: '10 min',
           scheduleTimes: ['08:00'],
         );
 
         final now = DateTime.now();
-        final startDate = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ); // Start of day
+        final startDate = DateTime(now.year, now.month, now.day);
 
-        // Take for 3 days, skip for 2 days
+        // Complete for 3 days, skip for 2 days
         for (var i = 0; i < 5; i++) {
           final date = startDate.add(Duration(days: i));
           final scheduledTime = DateTime(date.year, date.month, date.day, 8, 0);
 
           if (i < 3) {
-            await harness.takeMedicine(medicine.id!, scheduledTime);
+            await harness.takeRoutine(routine.id!, scheduledTime);
           } else {
-            await harness.skipMedicine(medicine.id!, scheduledTime);
+            await harness.skipRoutine(routine.id!, scheduledTime);
           }
         }
 
@@ -436,59 +389,11 @@ void main() {
       });
     });
 
-    group('Stock Management', () {
-      test('Stock depletes correctly with each dose', () async {
-        final medicine = await harness.addMedicine(
-          name: 'Limited Stock Med',
-          dosage: '25mg',
-          currentStock: 5,
-          lowStockThreshold: 3,
-          scheduleTimes: ['08:00'],
-        );
-
-        expect(harness.getLowStockMedicines(), isEmpty);
-
-        // Take 3 doses
-        for (var i = 0; i < 3; i++) {
-          final scheduledTime = DateTime.now().add(Duration(hours: i));
-          await harness.takeMedicine(medicine.id!, scheduledTime);
-        }
-
-        // Check stock
-        expect(harness.medicines.first.currentStock, 2);
-
-        // Now should be low stock
-        expect(harness.getLowStockMedicines().length, 1);
-      });
-
-      test('Low stock alert triggers at threshold', () async {
-        final medicine = await harness.addMedicine(
-          name: 'Threshold Test',
-          dosage: '10mg',
-          currentStock: 6,
-          lowStockThreshold: 5,
-          scheduleTimes: ['08:00'],
-        );
-
-        // Stock is 6, threshold is 5 - not low stock
-        expect(medicine.isLowStock, isFalse);
-
-        // Take one dose
-        await harness.takeMedicine(medicine.id!, DateTime.now());
-
-        // Stock is now 5, at threshold - IS low stock
-        expect(harness.medicines.first.currentStock, 5);
-        expect(harness.medicines.first.isLowStock, isTrue);
-      });
-    });
-
     group('Snooze Workflow', () {
       test('User snoozes dose → takes later', () async {
-        final medicine = await harness.addMedicine(
-          name: 'Snooze Test Med',
-          dosage: '100mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+        final routine = await harness.addRoutine(
+          name: 'Snooze Test',
+          dosage: '20 min',
           scheduleTimes: ['08:00'],
         );
 
@@ -496,7 +401,7 @@ void main() {
 
         // User snoozes for 10 minutes
         final snooze = await harness.snoozeDose(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           scheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -504,34 +409,30 @@ void main() {
         expect(harness.snoozedDoses.length, 1);
         expect(snooze.snoozedUntil.isAfter(DateTime.now()), isTrue);
 
-        // Later, user takes the dose
-        await harness.takeMedicine(medicine.id!, scheduledTime);
+        // Later, user completes the routine
+        await harness.takeRoutine(routine.id!, scheduledTime);
 
         expect(harness.logs.length, 1);
         expect(harness.logs.first.status, LogStatus.take);
       });
 
       test('Multiple snoozes replace previous', () async {
-        final medicine = await harness.addMedicine(
+        final routine = await harness.addRoutine(
           name: 'Multi Snooze',
-          dosage: '50mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+          dosage: '10 min',
           scheduleTimes: ['08:00'],
         );
 
         final scheduledTime = DateTime.now();
 
-        // Snooze for 10 minutes
         await harness.snoozeDose(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           scheduledTime: scheduledTime,
           minutes: 10,
         );
 
-        // Snooze again for 20 minutes
         await harness.snoozeDose(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           scheduledTime: scheduledTime,
           minutes: 20,
         );
@@ -541,101 +442,88 @@ void main() {
       });
     });
 
-    group('Delete Medicine Cascade', () {
-      test('Deleting medicine removes related data', () async {
-        final medicine = await harness.addMedicine(
+    group('Delete Routine Cascade', () {
+      test('Deleting routine removes related data', () async {
+        final routine = await harness.addRoutine(
           name: 'To Delete',
-          dosage: '100mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+          dosage: '15 min',
           scheduleTimes: ['08:00', '20:00'],
         );
 
         // Add some activity
-        await harness.takeMedicine(medicine.id!, DateTime.now());
+        await harness.takeRoutine(routine.id!, DateTime.now());
         await harness.snoozeDose(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           scheduledTime: DateTime.now().add(const Duration(hours: 1)),
           minutes: 10,
         );
 
-        expect(harness.medicines.length, 1);
+        expect(harness.routines.length, 1);
         expect(harness.schedules.length, 2);
         expect(harness.logs.length, 1);
         expect(harness.snoozedDoses.length, 1);
 
-        // Delete medicine
-        await harness.deleteMedicine(medicine.id!);
+        // Delete routine
+        await harness.deleteRoutine(routine.id!);
 
         // All related data should be gone
-        expect(harness.medicines, isEmpty);
+        expect(harness.routines, isEmpty);
         expect(harness.schedules, isEmpty);
         expect(harness.logs, isEmpty);
         expect(harness.snoozedDoses, isEmpty);
       });
     });
 
-    group('Multiple Medicines', () {
-      test('User manages multiple medicines independently', () async {
-        final aspirin = await harness.addMedicine(
-          name: 'Aspirin',
-          dosage: '100mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+    group('Multiple Routines', () {
+      test('User manages multiple routines independently', () async {
+        final read = await harness.addRoutine(
+          name: 'Read',
+          dosage: '20 min',
           scheduleTimes: ['08:00'],
         );
 
-        final vitamin = await harness.addMedicine(
-          name: 'Vitamin D',
-          dosage: '1000 IU',
-          currentStock: 90,
-          lowStockThreshold: 10,
+        final walk = await harness.addRoutine(
+          name: 'Walk',
+          dosage: '30 min',
           scheduleTimes: ['09:00'],
         );
 
-        final insulin = await harness.addMedicine(
-          name: 'Insulin',
-          dosage: '10 units',
-          currentStock: 20,
-          lowStockThreshold: 5,
+        final meditate = await harness.addRoutine(
+          name: 'Meditate',
+          dosage: '10 min',
           scheduleTimes: ['07:00', '13:00', '19:00'],
         );
 
-        expect(harness.medicines.length, 3);
+        expect(harness.routines.length, 3);
         expect(harness.schedules.length, 5); // 1 + 1 + 3
 
-        // Take aspirin and insulin, skip vitamin
+        // Complete read and meditate, skip walk
         final now = DateTime.now();
-        await harness.takeMedicine(aspirin.id!, now);
-        await harness.takeMedicine(insulin.id!, now);
-        await harness.skipMedicine(vitamin.id!, now);
+        await harness.takeRoutine(read.id!, now);
+        await harness.takeRoutine(meditate.id!, now);
+        await harness.skipRoutine(walk.id!, now);
 
-        // Check stocks
-        final updatedAspirin = harness.medicines.firstWhere(
-          (m) => m.id == aspirin.id,
-        );
-        expect(updatedAspirin.currentStock, 29);
+        final readLogs = harness.logs
+            .where((l) => l.routineId == read.id)
+            .toList();
+        final walkLogs = harness.logs
+            .where((l) => l.routineId == walk.id)
+            .toList();
+        final meditateLogs = harness.logs
+            .where((l) => l.routineId == meditate.id)
+            .toList();
 
-        final updatedInsulin = harness.medicines.firstWhere(
-          (m) => m.id == insulin.id,
-        );
-        expect(updatedInsulin.currentStock, 19);
-
-        // Vitamin stock should be unchanged (skipped)
-        final updatedVitamin = harness.medicines.firstWhere(
-          (m) => m.id == vitamin.id,
-        );
-        expect(updatedVitamin.currentStock, 90);
+        expect(readLogs.single.status, LogStatus.take);
+        expect(meditateLogs.single.status, LogStatus.take);
+        expect(walkLogs.single.status, LogStatus.skip);
       });
     });
 
     group('Complex Scheduling', () {
       test('Specific days schedule only triggers on correct days', () async {
-        await harness.addMedicine(
-          name: 'MWF Medicine',
-          dosage: '50mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+        await harness.addRoutine(
+          name: 'MWF Routine',
+          dosage: '20 min',
           scheduleTimes: ['08:00'],
           frequencyType: FrequencyType.specificDays,
         );
@@ -644,7 +532,7 @@ void main() {
         final schedule = harness.schedules.first;
         harness.schedules[0] = Schedule(
           id: schedule.id,
-          medicineId: schedule.medicineId,
+          routineId: schedule.routineId,
           timeOfDay: schedule.timeOfDay,
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5', // Mon, Wed, Fri
@@ -671,9 +559,8 @@ void main() {
       test('Empty state queries work correctly', () {
         final today = DateTime.now();
 
-        expect(harness.medicines, isEmpty);
+        expect(harness.routines, isEmpty);
         expect(harness.getScheduledDosesForDate(today), isEmpty);
-        expect(harness.getLowStockMedicines(), isEmpty);
         expect(
           harness.calculateAdherenceRate(
             today,
@@ -683,16 +570,14 @@ void main() {
         );
       });
 
-      test('Handles medicine with no schedules', () async {
-        await harness.addMedicine(
-          name: 'PRN Only',
-          dosage: '25mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
+      test('Handles routine with no schedules', () async {
+        await harness.addRoutine(
+          name: 'One-off',
+          dosage: '15 min',
           scheduleTimes: [], // No schedules
         );
 
-        expect(harness.medicines.length, 1);
+        expect(harness.routines.length, 1);
         expect(harness.schedules, isEmpty);
 
         final doses = harness.getScheduledDosesForDate(DateTime.now());

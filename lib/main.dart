@@ -8,20 +8,14 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
-import 'providers/auth_provider.dart';
 import 'providers/log_provider.dart';
-import 'providers/medicine_provider.dart';
+import 'providers/routine_provider.dart';
 import 'providers/schedule_provider.dart';
 import 'providers/snooze_provider.dart';
-import 'providers/statistics_provider.dart';
-import 'providers/subscription_provider.dart';
-import 'providers/sync_provider.dart';
 import 'screens/splash_screen.dart';
-import 'services/ad_service.dart';
 import 'services/app_runtime_state.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
-import 'services/streak_service.dart';
 import 'widgets/notification_handler.dart';
 
 Future<void> main() async {
@@ -82,26 +76,6 @@ Future<void> main() async {
     debugPrint('⚠️ SettingsService init failed: $e');
   }
 
-  try {
-    debugPrint('🏆 Initializing StreakService...');
-    await StreakService.instance.initialize().timeout(
-      const Duration(seconds: 5),
-    );
-    status = status.copyWith(streakServiceInitialized: true);
-    debugPrint('✅ StreakService Initialized');
-  } catch (e) {
-    debugPrint('⚠️ StreakService init failed: $e');
-  }
-
-  try {
-    debugPrint('💰 Initializing AdService...');
-    await AdService.instance.initialize().timeout(const Duration(seconds: 5));
-    status = status.copyWith(adServiceInitialized: true);
-    debugPrint('✅ AdService Initialized');
-  } catch (e) {
-    debugPrint('⚠️ AdService init failed: $e');
-  }
-
   AppRuntimeState.instance.updateBootstrapStatus(status);
   runApp(const RoutineTimeApp());
 }
@@ -113,21 +87,12 @@ class RoutineTimeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
         ChangeNotifierProvider(create: (_) => LogProvider()),
-        ChangeNotifierProvider(create: (_) => SyncProvider()),
-        ChangeNotifierProvider(create: (_) => StatisticsProvider()),
         ChangeNotifierProvider(create: (_) => SnoozeProvider()..initialize()),
         ChangeNotifierProvider.value(value: SettingsService.instance),
-
-        // Legacy provider name kept so existing local routine data can migrate cleanly.
-        ChangeNotifierProxyProvider<SubscriptionProvider, MedicineProvider>(
-          create: (context) => MedicineProvider()..loadMedicines(),
-          update: (context, subscription, medicineProvider) =>
-              (medicineProvider ?? MedicineProvider())
-                ..updateSubscription(subscription),
+        ChangeNotifierProvider(
+          create: (_) => RoutineProvider()..loadRoutines(),
         ),
       ],
       child: Consumer<SettingsService>(

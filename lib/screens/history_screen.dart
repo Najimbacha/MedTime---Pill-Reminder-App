@@ -5,7 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../models/log.dart';
 import '../providers/log_provider.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -23,7 +23,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LogProvider>().loadLogs();
-      context.read<MedicineProvider>().loadMedicines();
+      context.read<RoutineProvider>().loadRoutines();
     });
   }
 
@@ -186,8 +186,8 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final routine = context.watch<MedicineProvider>().getMedicineById(
-      log.medicineId,
+    final routine = context.watch<RoutineProvider>().getRoutineById(
+      log.routineId,
     );
     if (routine == null) return const SizedBox.shrink();
 

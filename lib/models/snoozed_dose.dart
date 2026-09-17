@@ -1,15 +1,15 @@
-/// Represents a snoozed dose for a medicine
+/// Represents a snoozed dose for a routine
 /// Tracks the original scheduled time and the new snoozed time
 class SnoozedDose {
   final int? id;
-  final int medicineId;
+  final int routineId;
   final DateTime originalScheduledTime;
   final DateTime snoozedUntil;
   final DateTime createdAt;
 
   SnoozedDose({
     this.id,
-    required this.medicineId,
+    required this.routineId,
     required this.originalScheduledTime,
     required this.snoozedUntil,
     DateTime? createdAt,
@@ -29,7 +29,7 @@ class SnoozedDose {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'original_scheduled_time': originalScheduledTime.toIso8601String(),
       'snoozed_until': snoozedUntil.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
@@ -40,7 +40,7 @@ class SnoozedDose {
   factory SnoozedDose.fromMap(Map<String, dynamic> map) {
     return SnoozedDose(
       id: map['id'] as int?,
-      medicineId: map['medicine_id'] as int,
+      routineId: map['routine_id'] as int,
       originalScheduledTime: DateTime.parse(
         map['original_scheduled_time'] as String,
       ),
@@ -52,14 +52,14 @@ class SnoozedDose {
   /// Create a copy with modified fields
   SnoozedDose copyWith({
     int? id,
-    int? medicineId,
+    int? routineId,
     DateTime? originalScheduledTime,
     DateTime? snoozedUntil,
     DateTime? createdAt,
   }) {
     return SnoozedDose(
       id: id ?? this.id,
-      medicineId: medicineId ?? this.medicineId,
+      routineId: routineId ?? this.routineId,
       originalScheduledTime:
           originalScheduledTime ?? this.originalScheduledTime,
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
@@ -69,17 +69,17 @@ class SnoozedDose {
 
   @override
   String toString() {
-    return 'SnoozedDose(id: $id, medicineId: $medicineId, original: $originalScheduledTime, snoozedUntil: $snoozedUntil)';
+    return 'SnoozedDose(id: $id, routineId: $routineId, original: $originalScheduledTime, snoozedUntil: $snoozedUntil)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is SnoozedDose &&
-        other.medicineId == medicineId &&
+        other.routineId == routineId &&
         other.originalScheduledTime == originalScheduledTime;
   }
 
   @override
-  int get hashCode => Object.hash(medicineId, originalScheduledTime);
+  int get hashCode => Object.hash(routineId, originalScheduledTime);
 }

@@ -1,23 +1,23 @@
-/// Status of a medicine log entry
+/// Status of a routine log entry
 enum LogStatus { take, skip, missed }
 
-/// Represents a log entry for medicine adherence tracking
+/// Represents a log entry for routine adherence tracking
 class Log {
   final int? id;
-  final int medicineId;
+  final int routineId;
   final DateTime scheduledTime;
   final DateTime? actualTime;
   final LogStatus status;
 
   Log({
     this.id,
-    required this.medicineId,
+    required this.routineId,
     required this.scheduledTime,
     this.actualTime,
     required this.status,
   });
 
-  /// Check if medicine was taken on time (within 30 minutes of scheduled time)
+  /// Check if routine was taken on time (within 30 minutes of scheduled time)
   bool get takenOnTime {
     if (status != LogStatus.take || actualTime == null) return false;
     final difference = actualTime!.difference(scheduledTime).abs();
@@ -46,7 +46,7 @@ class Log {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'scheduled_time': scheduledTime.toIso8601String(),
       'actual_time': actualTime?.toIso8601String(),
       'status': status.name,
@@ -57,7 +57,7 @@ class Log {
   factory Log.fromMap(Map<String, dynamic> map) {
     return Log(
       id: map['id'] as int?,
-      medicineId: map['medicine_id'] as int,
+      routineId: map['routine_id'] as int,
       scheduledTime: DateTime.parse(map['scheduled_time'] as String),
       actualTime: map['actual_time'] != null
           ? DateTime.parse(map['actual_time'] as String)
@@ -72,14 +72,14 @@ class Log {
   /// Create a copy with modified fields
   Log copyWith({
     int? id,
-    int? medicineId,
+    int? routineId,
     DateTime? scheduledTime,
     DateTime? actualTime,
     LogStatus? status,
   }) {
     return Log(
       id: id ?? this.id,
-      medicineId: medicineId ?? this.medicineId,
+      routineId: routineId ?? this.routineId,
       scheduledTime: scheduledTime ?? this.scheduledTime,
       actualTime: actualTime ?? this.actualTime,
       status: status ?? this.status,
@@ -88,7 +88,7 @@ class Log {
 
   @override
   String toString() {
-    return 'Log(id: $id, medicineId: $medicineId, scheduled: $scheduledTime, status: ${status.name})';
+    return 'Log(id: $id, routineId: $routineId, scheduled: $scheduledTime, status: ${status.name})';
   }
 
   @override

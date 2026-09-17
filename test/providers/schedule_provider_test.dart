@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routine_time/providers/schedule_provider.dart';
 import 'package:routine_time/models/schedule.dart';
-import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/routine.dart';
 import 'package:routine_time/services/database_helper.dart';
 import 'package:routine_time/services/notification_service.dart';
 
@@ -49,10 +49,10 @@ class MockNotificationService implements NotificationService {
   List<int> cancelledIds = [];
 
   @override
-  Future<void> scheduleMedicineReminder({
+  Future<void> scheduleRoutineReminder({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
     required DateTime scheduledTime,
     FrequencyType? frequencyType,
@@ -111,15 +111,14 @@ void main() {
   });
 
   group('ScheduleProvider Tests', () {
-    final testMedicine = Medicine(
+    final testRoutine = Routine(
       id: 1,
-      name: 'Aspirin',
-      dosage: '10mg',
-      currentStock: 10,
+      name: 'Read',
+      dosage: '20 min',
     );
 
     final testSchedule = Schedule(
-      medicineId: 1,
+      routineId: 1,
       timeOfDay: '08:00',
       frequencyType: FrequencyType.daily,
     );
@@ -130,10 +129,10 @@ void main() {
     });
 
     test('addSchedule adds to list and calls DB/Notification', () async {
-      await provider.addSchedule(testSchedule, testMedicine);
+      await provider.addSchedule(testSchedule, testRoutine);
 
       expect(provider.schedules.length, 1);
-      expect(provider.schedules.first.medicineId, 1);
+      expect(provider.schedules.first.routineId, 1);
 
       // Verify DB interaction (mock stores it)
       final dbSchedules = await mockDb.getAllSchedules();
@@ -146,13 +145,13 @@ void main() {
 
     test('updateSchedule updates list and reschedules notification', () async {
       // Setup: Add first
-      await provider.addSchedule(testSchedule, testMedicine);
+      await provider.addSchedule(testSchedule, testRoutine);
       final createdSchedule = provider.schedules.first;
 
       // Act: Update time
       final updatedSchedule = createdSchedule.copyWith(timeOfDay: '09:00');
 
-      await provider.updateSchedule(updatedSchedule, testMedicine);
+      await provider.updateSchedule(updatedSchedule, testRoutine);
 
       // Assert
       expect(provider.schedules.first.timeOfDay, '09:00');
@@ -162,7 +161,7 @@ void main() {
 
     test('deleteSchedule removes from list and cancels notification', () async {
       // Setup
-      await provider.addSchedule(testSchedule, testMedicine);
+      await provider.addSchedule(testSchedule, testRoutine);
       final idToDelete = provider.schedules.first.id!;
 
       // Act
@@ -173,34 +172,34 @@ void main() {
       expect(mockNotifications.cancelledIds.contains(idToDelete), true);
     });
 
-    test('getSchedulesForMedicine filters correctly', () async {
-      await provider.addSchedule(testSchedule, testMedicine);
+    test('getSchedulesForRoutine filters correctly', () async {
+      await provider.addSchedule(testSchedule, testRoutine);
 
-      // Add another medicine's schedule
+      // Add another routine's schedule
       final med2Schedule = Schedule(
-        medicineId: 99,
+        routineId: 99,
         timeOfDay: '10:00',
         frequencyType: FrequencyType.daily,
       );
-      // We pass testMedicine but it doesn't matter for the DB insertion in mock
-      await provider.addSchedule(med2Schedule, testMedicine);
+      // We pass testRoutine but it doesn't matter for the DB insertion in mock
+      await provider.addSchedule(med2Schedule, testRoutine);
 
-      final med1Schedules = provider.getSchedulesForMedicine(1);
+      final med1Schedules = provider.getSchedulesForRoutine(1);
       expect(med1Schedules.length, 1);
-      expect(med1Schedules.first.medicineId, 1);
+      expect(med1Schedules.first.routineId, 1);
     });
 
     test(
       'specific-days schedule creates one reminder per selected weekday',
       () async {
         final specificDaysSchedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5',
         );
 
-        await provider.addSchedule(specificDaysSchedule, testMedicine);
+        await provider.addSchedule(specificDaysSchedule, testRoutine);
         final created = provider.schedules.first;
 
         expect(mockNotifications.scheduledIds.length, 3);
@@ -219,13 +218,13 @@ void main() {
       'deleting specific-days schedule cancels all derived notifications',
       () async {
         final specificDaysSchedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '2,4',
         );
 
-        await provider.addSchedule(specificDaysSchedule, testMedicine);
+        await provider.addSchedule(specificDaysSchedule, testRoutine);
         final created = provider.schedules.first;
 
         await provider.deleteSchedule(created.id!);

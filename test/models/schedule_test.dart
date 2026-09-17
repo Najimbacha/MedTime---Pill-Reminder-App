@@ -6,12 +6,12 @@ void main() {
     group('Constructor and Properties', () {
       test('creates schedule with required fields', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
 
-        expect(schedule.medicineId, 1);
+        expect(schedule.routineId, 1);
         expect(schedule.timeOfDay, '08:00');
         expect(schedule.frequencyType, FrequencyType.daily);
         expect(schedule.id, isNull);
@@ -24,7 +24,7 @@ void main() {
       test('creates schedule with all fields', () {
         final schedule = Schedule(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           timeOfDay: '14:30',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5',
@@ -34,7 +34,7 @@ void main() {
         );
 
         expect(schedule.id, 1);
-        expect(schedule.medicineId, 2);
+        expect(schedule.routineId, 2);
         expect(schedule.timeOfDay, '14:30');
         expect(schedule.frequencyType, FrequencyType.specificDays);
         expect(schedule.frequencyDays, '1,3,5');
@@ -47,7 +47,7 @@ void main() {
     group('daysList', () {
       test('parses frequency days string correctly', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5',
@@ -58,7 +58,7 @@ void main() {
 
       test('returns empty list when frequencyDays is null', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -68,7 +68,7 @@ void main() {
 
       test('returns empty list when frequencyDays is empty', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '',
@@ -79,7 +79,7 @@ void main() {
 
       test('handles spaces in frequency days', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1, 3, 5',
@@ -92,7 +92,7 @@ void main() {
     group('shouldTriggerOnDate - Daily', () {
       test('triggers every day', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -118,7 +118,7 @@ void main() {
 
       test('respects start date', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
           startDate: '2026-02-05',
@@ -131,7 +131,7 @@ void main() {
 
       test('respects end date', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
           endDate: '2026-02-10',
@@ -144,7 +144,7 @@ void main() {
 
       test('respects both start and end date', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
           startDate: '2026-02-05',
@@ -162,7 +162,7 @@ void main() {
     group('shouldTriggerOnDate - Specific Days', () {
       test('triggers only on configured weekdays', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5', // Mon, Wed, Fri
@@ -201,7 +201,7 @@ void main() {
 
       test('triggers on weekends only', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '6,7', // Sat, Sun
@@ -227,7 +227,7 @@ void main() {
 
       test('handles single day', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '5', // Friday only
@@ -251,7 +251,7 @@ void main() {
     group('shouldTriggerOnDate - Interval', () {
       test('triggers every N days from start date', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.interval,
           intervalDays: 3,
@@ -290,7 +290,7 @@ void main() {
 
       test('every 2 days', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.interval,
           intervalDays: 2,
@@ -321,7 +321,7 @@ void main() {
 
       test('returns true when interval or start date is null', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.interval,
         );
@@ -332,23 +332,23 @@ void main() {
     });
 
     group('shouldTriggerOnDate - AsNeeded', () {
-      test('always returns true', () {
+      test('never triggers automatically', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.asNeeded,
         );
 
-        expect(schedule.shouldTriggerOnDate(DateTime(2026, 2, 1)), isTrue);
-        expect(schedule.shouldTriggerOnDate(DateTime(2026, 2, 2)), isTrue);
-        expect(schedule.shouldTriggerOnDate(DateTime(2026, 12, 31)), isTrue);
+        expect(schedule.shouldTriggerOnDate(DateTime(2026, 2, 1)), isFalse);
+        expect(schedule.shouldTriggerOnDate(DateTime(2026, 2, 2)), isFalse);
+        expect(schedule.shouldTriggerOnDate(DateTime(2026, 12, 31)), isFalse);
       });
     });
 
     group('shouldTriggerOnDate - Edge Cases', () {
       test('handles leap year', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -359,7 +359,7 @@ void main() {
 
       test('handles year boundary', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '23:59',
           frequencyType: FrequencyType.daily,
         );
@@ -370,7 +370,7 @@ void main() {
 
       test('ignores time component in date check', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -394,7 +394,7 @@ void main() {
     group('frequencyDescription', () {
       test('returns "Every day" for daily', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -404,7 +404,7 @@ void main() {
 
       test('returns day names for specific days', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5',
@@ -415,7 +415,7 @@ void main() {
 
       test('returns "Every X days" for interval', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.interval,
           intervalDays: 3,
@@ -426,12 +426,12 @@ void main() {
 
       test('returns "As needed" for asNeeded', () {
         final schedule = Schedule(
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.asNeeded,
         );
 
-        expect(schedule.frequencyDescription, 'As needed (PRN)');
+        expect(schedule.frequencyDescription, 'As needed');
       });
     });
 
@@ -439,7 +439,7 @@ void main() {
       test('toMap creates correct map', () {
         final schedule = Schedule(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           timeOfDay: '14:30',
           frequencyType: FrequencyType.specificDays,
           frequencyDays: '1,3,5',
@@ -451,7 +451,7 @@ void main() {
         final map = schedule.toMap();
 
         expect(map['id'], 1);
-        expect(map['medicine_id'], 2);
+        expect(map['routine_id'], 2);
         expect(map['time_of_day'], '14:30');
         expect(map['frequency_type'], 'specificDays');
         expect(map['frequency_days'], '1,3,5');
@@ -463,7 +463,7 @@ void main() {
       test('fromMap creates correct Schedule', () {
         final map = {
           'id': 1,
-          'medicine_id': 2,
+          'routine_id': 2,
           'time_of_day': '14:30',
           'frequency_type': 'specificDays',
           'frequency_days': '1,3,5',
@@ -475,7 +475,7 @@ void main() {
         final schedule = Schedule.fromMap(map);
 
         expect(schedule.id, 1);
-        expect(schedule.medicineId, 2);
+        expect(schedule.routineId, 2);
         expect(schedule.timeOfDay, '14:30');
         expect(schedule.frequencyType, FrequencyType.specificDays);
         expect(schedule.frequencyDays, '1,3,5');
@@ -487,7 +487,7 @@ void main() {
       test('toMap and fromMap are reversible', () {
         final original = Schedule(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.interval,
           intervalDays: 5,
@@ -497,7 +497,7 @@ void main() {
         final restored = Schedule.fromMap(original.toMap());
 
         expect(restored.id, original.id);
-        expect(restored.medicineId, original.medicineId);
+        expect(restored.routineId, original.routineId);
         expect(restored.timeOfDay, original.timeOfDay);
         expect(restored.frequencyType, original.frequencyType);
         expect(restored.intervalDays, original.intervalDays);
@@ -506,7 +506,7 @@ void main() {
 
       test('fromMap defaults to daily for unknown frequency type', () {
         final map = {
-          'medicine_id': 1,
+          'routine_id': 1,
           'time_of_day': '08:00',
           'frequency_type': 'unknown',
         };
@@ -521,7 +521,7 @@ void main() {
       test('creates copy with modified fields', () {
         final original = Schedule(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -532,7 +532,7 @@ void main() {
         );
 
         expect(copy.id, 1); // unchanged
-        expect(copy.medicineId, 2); // unchanged
+        expect(copy.routineId, 2); // unchanged
         expect(copy.timeOfDay, '14:00');
         expect(copy.frequencyType, FrequencyType.interval);
       });
@@ -542,13 +542,13 @@ void main() {
       test('schedules with same id are equal', () {
         final schedule1 = Schedule(
           id: 1,
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
         final schedule2 = Schedule(
           id: 1,
-          medicineId: 2,
+          routineId: 2,
           timeOfDay: '09:00',
           frequencyType: FrequencyType.interval,
         );
@@ -559,13 +559,13 @@ void main() {
       test('schedules with different ids are not equal', () {
         final schedule1 = Schedule(
           id: 1,
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
         final schedule2 = Schedule(
           id: 2,
-          medicineId: 1,
+          routineId: 1,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );

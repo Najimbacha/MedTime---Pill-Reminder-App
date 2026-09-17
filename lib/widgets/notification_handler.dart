@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notification_service.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/log_provider.dart';
 import '../screens/main_screen.dart';
@@ -25,15 +25,15 @@ class _NotificationHandlerState extends State<NotificationHandler> {
   }
 
   void _handleNotificationAction(
-    int medicineId,
+    int routineId,
     String action,
     String? payload,
   ) {
-    debugPrint('Notification Action: $action for routine $medicineId');
+    debugPrint('Notification Action: $action for routine $routineId');
     if (!mounted) return;
 
     if (action == 'take') {
-      final medicineProvider = Provider.of<MedicineProvider>(
+      final routineProvider = Provider.of<RoutineProvider>(
         context,
         listen: false,
       );
@@ -62,14 +62,14 @@ class _NotificationHandlerState extends State<NotificationHandler> {
             }
 
             debugPrint(
-              'Notification Action: marking $medicineId done for $scheduledTime',
+              'Notification Action: marking $routineId done for $scheduledTime',
             );
 
-            logProvider.markAsTaken(medicineId, scheduledTime).then((_) {
+            logProvider.markAsTaken(routineId, scheduledTime).then((_) {
               if (!mounted) return;
               // Reload all data so the dashboard updates
               logProvider.loadLogs();
-              medicineProvider.loadMedicines();
+              routineProvider.loadRoutines();
               context.read<ScheduleProvider>().loadSchedules();
 
               // User requested: navigate to home screen on "Take Now" too
@@ -97,18 +97,18 @@ class _NotificationHandlerState extends State<NotificationHandler> {
         );
       }
     } else if (action == 'snooze') {
-      final medicineProvider = Provider.of<MedicineProvider>(
+      final routineProvider = Provider.of<RoutineProvider>(
         context,
         listen: false,
       );
-      final medicine = medicineProvider.getMedicineById(medicineId);
+      final routine = routineProvider.getRoutineById(routineId);
 
-      if (medicine != null) {
+      if (routine != null) {
         NotificationService.instance.snoozeNotification(
-          notificationId: medicineId,
-          medicineId: medicineId,
-          medicineName: medicine.name,
-          dosage: medicine.dosage,
+          notificationId: routineId,
+          routineId: routineId,
+          routineName: routine.name,
+          dosage: routine.dosage,
         );
       }
     } else if (action == 'view') {

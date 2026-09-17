@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/log_provider.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../services/backup_service.dart';
 import '../services/database_helper.dart';
@@ -63,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await DatabaseHelper.instance.resetAllData();
       if (!mounted) return;
       await Future.wait([
-        context.read<MedicineProvider>().loadMedicines(),
+        context.read<RoutineProvider>().loadRoutines(),
         context.read<ScheduleProvider>().loadSchedules(),
         context.read<LogProvider>().loadLogs(),
       ]);
@@ -175,13 +175,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: const Text('Haptics'),
                 value: settings.hapticFeedbackEnabled,
                 onChanged: settings.setHapticFeedback,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.volume_up_outlined),
-                title: const Text('Sounds'),
-                value: settings.soundEnabled,
-                onChanged: settings.setSoundEnabled,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,

@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/ad_service.dart';
 import '../services/notification_service.dart';
-import '../services/revenuecat_service.dart';
 import 'dashboard_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -29,18 +27,6 @@ class _MainScreenState extends State<MainScreen> {
       await NotificationService.instance.initialize();
     } catch (e) {
       debugPrint('NotificationService init failed: $e');
-    }
-
-    try {
-      await AdService.instance.initialize();
-    } catch (e) {
-      debugPrint('AdService init failed: $e');
-    }
-
-    try {
-      await RevenueCatService().initialize();
-    } catch (e) {
-      debugPrint('RevenueCat initialization deferred: $e');
     }
   }
 

@@ -1,10 +1,10 @@
 /// Frequency types for routine schedules.
 enum FrequencyType { daily, specificDays, interval, once, asNeeded }
 
-/// Represents a schedule for taking a medicine
+/// Represents a schedule for taking a routine
 class Schedule {
   final int? id;
-  final int medicineId;
+  final int routineId;
   final String timeOfDay; // Format: "HH:mm" (24-hour)
   final FrequencyType frequencyType;
   final String? frequencyDays; // Comma-separated days: "1,3,5" (Mon, Wed, Fri)
@@ -14,7 +14,7 @@ class Schedule {
 
   Schedule({
     this.id,
-    required this.medicineId,
+    required this.routineId,
     required this.timeOfDay,
     required this.frequencyType,
     this.frequencyDays,
@@ -216,7 +216,7 @@ class Schedule {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'medicine_id': medicineId,
+      'routine_id': routineId,
       'time_of_day': timeOfDay,
       'frequency_type': frequencyType.name,
       'frequency_days': frequencyDays,
@@ -230,7 +230,7 @@ class Schedule {
   factory Schedule.fromMap(Map<String, dynamic> map) {
     return Schedule(
       id: map['id'] as int?,
-      medicineId: map['medicine_id'] as int,
+      routineId: map['routine_id'] as int,
       timeOfDay: map['time_of_day'] as String,
       frequencyType: FrequencyType.values.firstWhere(
         (e) => e.name == map['frequency_type'],
@@ -246,7 +246,7 @@ class Schedule {
   /// Create a copy with modified fields
   Schedule copyWith({
     int? id,
-    int? medicineId,
+    int? routineId,
     String? timeOfDay,
     FrequencyType? frequencyType,
     String? frequencyDays,
@@ -256,7 +256,7 @@ class Schedule {
   }) {
     return Schedule(
       id: id ?? this.id,
-      medicineId: medicineId ?? this.medicineId,
+      routineId: routineId ?? this.routineId,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       frequencyType: frequencyType ?? this.frequencyType,
       frequencyDays: frequencyDays ?? this.frequencyDays,
@@ -268,7 +268,7 @@ class Schedule {
 
   @override
   String toString() {
-    return 'Schedule(id: $id, medicineId: $medicineId, time: $timeOfDay, frequency: ${frequencyType.name})';
+    return 'Schedule(id: $id, routineId: $routineId, time: $timeOfDay, frequency: ${frequencyType.name})';
   }
 
   @override

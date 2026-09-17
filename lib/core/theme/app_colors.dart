@@ -13,7 +13,7 @@ class AppColors {
   static const Color error = Color(0xFFEF4444); // Red 500
   static const Color info = Color(0xFF3B82F6); // Blue 500
   
-  // Medicine Status - Softer pastel tones for UI
+  // Routine Status - Softer pastel tones for UI
   static const Color taken = Color(0xFF34D399); // Emerald 400
   static const Color pending = Color(0xFF60A5FA); // Blue 400
   static const Color overdue = Color(0xFFF87171); // Red 400
@@ -66,8 +66,8 @@ class AppColors {
     end: Alignment.bottomCenter,
   );
   
-  // Medicine Colors (for color picker)
-  static const List<Color> medicineColors = [
+  // Routine Colors (for color picker)
+  static const List<Color> routineColors = [
     Color(0xFF6366F1), // Indigo
     Color(0xFFEF4444), // Red
     Color(0xFF10B981), // Emerald

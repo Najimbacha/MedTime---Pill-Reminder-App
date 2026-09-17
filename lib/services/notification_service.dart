@@ -20,9 +20,9 @@ void notificationTapBackground(
 
   if (payload != null && actionId != null) {
     final parts = payload.split('|');
-    final medicineId = int.tryParse(parts[0]);
+    final routineId = int.tryParse(parts[0]);
 
-    if (medicineId != null) {
+    if (routineId != null) {
       if (actionId == 'snooze') {
         // Re-schedule for 10 min later
         final flutterLocalNotificationsPlugin =
@@ -88,7 +88,7 @@ void notificationTapBackground(
         );
 
         await flutterLocalNotificationsPlugin.zonedSchedule(
-          medicineId,
+          routineId,
           name,
           "It's time.",
           tz.TZDateTime.from(scheduledTime, tz.local),
@@ -123,15 +123,15 @@ void notificationTapBackground(
             }
 
             final log = Log(
-              medicineId: medicineId,
+              routineId: routineId,
               scheduledTime: scheduledTime,
               actualTime: now,
               status: LogStatus.take,
             );
             await db.createLog(log);
-            debugPrint('✅ Log created in background for medicine $medicineId');
+            debugPrint('✅ Log created in background for routine $routineId');
           } catch (e) {
-            debugPrint('Error marking medicine as taken from notification: $e');
+            debugPrint('Error marking routine as taken from notification: $e');
           }
         } else {
           debugPrint('⚠️ No scheduled time in payload, cannot create log.');
@@ -139,7 +139,7 @@ void notificationTapBackground(
 
         final flutterLocalNotificationsPlugin =
             FlutterLocalNotificationsPlugin();
-        await flutterLocalNotificationsPlugin.cancel(medicineId);
+        await flutterLocalNotificationsPlugin.cancel(routineId);
       }
     }
   }
@@ -172,14 +172,14 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   // Callback for when notification is tapped
-  Function(int medicineId, String action, String? payload)?
+  Function(int routineId, String action, String? payload)?
   _onNotificationAction;
 
   // Storage for pending action if listener isn't ready
   Map<String, dynamic>? _pendingAction;
 
   set onNotificationAction(
-    Function(int medicineId, String action, String? payload)? callback,
+    Function(int routineId, String action, String? payload)? callback,
   ) {
     _onNotificationAction = callback;
     if (callback != null && _pendingAction != null) {
@@ -432,8 +432,8 @@ class NotificationService {
 
     // Payload can be "id" or "id|name|dosage|scheduledTime"
     final parts = payload.split('|');
-    final medicineId = int.tryParse(parts[0]);
-    if (medicineId == null) return;
+    final routineId = int.tryParse(parts[0]);
+    if (routineId == null) return;
 
     // Determine action from button ID, or default to 'view' if body tapped
     final action = response.actionId == 'take'
@@ -443,13 +443,13 @@ class NotificationService {
         : 'view';
 
     if (_onNotificationAction != null) {
-      _onNotificationAction!(medicineId, action, payload);
+      _onNotificationAction!(routineId, action, payload);
     } else {
       // Store pending action
       debugPrint(
-        'Storing pending notification action: $action for $medicineId',
+        'Storing pending notification action: $action for $routineId',
       );
-      _pendingAction = {'id': medicineId, 'action': action, 'payload': payload};
+      _pendingAction = {'id': routineId, 'action': action, 'payload': payload};
     }
   }
 
@@ -458,10 +458,10 @@ class NotificationService {
   ///  - daily   → fires every day at same time (no manual reschedule needed)
   ///  - specificDays → fires every week on that same day+time
   ///  - interval / asNeeded / null → one-shot exact alarm
-  Future<void> scheduleMedicineReminder({
+  Future<void> scheduleRoutineReminder({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
     required DateTime scheduledTime,
     FrequencyType? frequencyType,
@@ -520,18 +520,18 @@ class NotificationService {
     // Schedule notification
     await _notifications.zonedSchedule(
       notificationId,
-      medicineName,
+      routineName,
       "It's time.",
       tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: matchComponents,
       payload:
-          '$medicineId|$medicineName|$dosage|${scheduledTime.toIso8601String()}',
+          '$routineId|$routineName|$dosage|${scheduledTime.toIso8601String()}',
     );
 
     debugPrint(
-      '🔔 Scheduled: $medicineName at $scheduledTime '
+      '🔔 Scheduled: $routineName at $scheduledTime '
       '(id=$notificationId, repeat=${matchComponents?.name ?? "one-shot"})',
     );
   }
@@ -539,8 +539,8 @@ class NotificationService {
   /// Show immediate notification (for testing or immediate reminders)
   Future<void> showImmediateNotification({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
   }) async {
     final androidDetails = AndroidNotificationDetails(
@@ -583,31 +583,31 @@ class NotificationService {
 
     await _notifications.show(
       notificationId,
-      medicineName,
+      routineName,
       "It's time.",
       notificationDetails,
       payload:
-          '$medicineId|$medicineName|$dosage|${DateTime.now().toIso8601String()}',
+          '$routineId|$routineName|$dosage|${DateTime.now().toIso8601String()}',
     );
   }
 
   /// Snooze notification (reschedule for [minutes] later)
   Future<void> scheduleSnooze({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
     required int minutes,
   }) async {
     // Reschedule for X minutes from now
-    // We use a unique ID for snoozes (e.g. medicineId + 50000 + minutes)
+    // We use a unique ID for snoozes (e.g. routineId + 50000 + minutes)
     // to allow multiple snoozes but avoid collisions with main schedule
     final snoozeTime = DateTime.now().add(Duration(minutes: minutes));
-    final notificationId = medicineId + 50000 + minutes;
+    final notificationId = routineId + 50000 + minutes;
 
-    await scheduleMedicineReminder(
+    await scheduleRoutineReminder(
       notificationId: notificationId,
-      medicineId: medicineId,
-      medicineName: medicineName,
+      routineId: routineId,
+      routineName: routineName,
       dosage: dosage,
       scheduledTime: snoozeTime,
     );
@@ -616,8 +616,8 @@ class NotificationService {
   /// Snooze notification (internal helper, default 10m)
   Future<void> snoozeNotification({
     required int notificationId,
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required String dosage,
   }) async {
     // Cancel current notification is implicit usually, but we can explicit cancel
@@ -626,8 +626,8 @@ class NotificationService {
 
     await cancelNotification(notificationId);
     await scheduleSnooze(
-      medicineId: medicineId,
-      medicineName: medicineName,
+      routineId: routineId,
+      routineName: routineName,
       dosage: dosage,
       minutes: 10,
     );
@@ -659,16 +659,13 @@ class NotificationService {
     await _notifications.cancelAll();
   }
 
-  /// Cancel all known notifications belonging to one medicine.
-  Future<void> cancelNotificationsForMedicine({
-    required int medicineId,
+  /// Cancel all known notifications belonging to one routine.
+  Future<void> cancelNotificationsForRoutine({
+    required int routineId,
     List<int> scheduleIds = const [],
   }) async {
     // Explicit fixed-offset IDs used by this app.
-    await _notifications.cancel(medicineId); // direct reminder ID fallback
-    await _notifications.cancel(medicineId + 10000); // supply alert
-    await _notifications.cancel(medicineId + 20000); // restock reminder
-    await _notifications.cancel(medicineId + 30000); // supply warning
+    await _notifications.cancel(routineId); // direct reminder ID fallback
 
     for (final scheduleId in scheduleIds) {
       await _notifications.cancel(scheduleId);
@@ -678,7 +675,7 @@ class NotificationService {
     final pending = await _notifications.pendingNotificationRequests();
     for (final request in pending) {
       final payload = request.payload;
-      if (payload != null && payload.startsWith('$medicineId|')) {
+      if (payload != null && payload.startsWith('$routineId|')) {
         await _notifications.cancel(request.id);
       }
     }
@@ -687,138 +684,5 @@ class NotificationService {
   /// Get pending notifications
   Future<List<PendingNotificationRequest>> getPendingNotifications() async {
     return await _notifications.pendingNotificationRequests();
-  }
-
-  /// Legacy supply alert, retained only for old data paths.
-  Future<void> showLowStockAlert({
-    required int medicineId,
-    required String medicineName,
-    required int currentStock,
-  }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'routine_supply_alerts',
-      'Supply Alerts',
-      channelDescription: 'Alerts when supply is low',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: 'ic_notification',
-      playSound: true,
-      enableVibration: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notifications.show(
-      medicineId + 10000,
-      'Supply Reminder: $medicineName',
-      'Only $currentStock ${currentStock == 1 ? 'item' : 'items'} remaining.',
-      notificationDetails,
-    );
-  }
-
-  /// Legacy supply warning, retained only for old data paths.
-  Future<void> scheduleLowStockWarning({
-    required int medicineId,
-    required String medicineName,
-    required DateTime warningDate,
-    required int daysLeft,
-  }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'routine_supply_warning',
-      'Supply Warnings',
-      channelDescription: 'Early warning when supply is running low',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: 'ic_notification',
-      playSound: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Schedule for 10:00 AM on the warning date
-    final scheduledTime = DateTime(
-      warningDate.year,
-      warningDate.month,
-      warningDate.day,
-      10,
-      0,
-    );
-
-    if (scheduledTime.isBefore(DateTime.now())) return;
-
-    await _notifications.zonedSchedule(
-      medicineId + 30000,
-      'Supply Warning: $medicineName',
-      'You may run out in about $daysLeft days.',
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
-  }
-
-  /// Legacy restock reminder, retained only for old data paths.
-  Future<void> scheduleRefillReminder({
-    required int medicineId,
-    required String medicineName,
-    required DateTime refillDate,
-  }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'routine_restock_reminders',
-      'Restock Reminders',
-      channelDescription: 'Reminders when it is time to restock',
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Schedule for 09:00 AM on the refill date
-    final scheduledTime = DateTime(
-      refillDate.year,
-      refillDate.month,
-      refillDate.day,
-      9,
-      0,
-    );
-
-    // If already passed, don't schedule
-    if (scheduledTime.isBefore(DateTime.now())) return;
-
-    await _notifications.zonedSchedule(
-      medicineId + 20000,
-      'Restock Reminder: $medicineName',
-      'You may be out of $medicineName today.',
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
   }
 }

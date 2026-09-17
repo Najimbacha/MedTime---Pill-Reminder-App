@@ -149,8 +149,8 @@ class _NotificationTroubleshootScreenState
                     onPressed: () {
                       NotificationService.instance.showImmediateNotification(
                         notificationId: 99999,
-                        medicineId: 99999,
-                        medicineName: 'Test Reminder',
+                        routineId: 99999,
+                        routineName: 'Test Reminder',
                         dosage: 'Test',
                       );
                       ScaffoldMessenger.of(context).showSnackBar(

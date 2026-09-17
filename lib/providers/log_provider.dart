@@ -1,14 +1,11 @@
 import 'package:flutter/foundation.dart';
 import '../models/log.dart';
-import '../models/medicine.dart';
 import '../models/schedule.dart'; // Added import for Schedule
 import '../services/database_helper.dart';
-import '../services/sync_service.dart';
 
 /// Provider for managing adherence logs
 class LogProvider with ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
-  final SyncService _syncService = SyncService();
 
   List<Log> _logs = [];
   bool _isLoading = false;
@@ -32,9 +29,9 @@ class LogProvider with ChangeNotifier {
     }).toList();
   }
 
-  /// Get logs for a specific medicine
-  List<Log> getLogsForMedicine(int medicineId) {
-    return _logs.where((log) => log.medicineId == medicineId).toList();
+  /// Get logs for a specific routine
+  List<Log> getLogsForRoutine(int routineId) {
+    return _logs.where((log) => log.routineId == routineId).toList();
   }
 
   /// Get logs for a specific date (from DB)
@@ -44,13 +41,13 @@ class LogProvider with ChangeNotifier {
     return await _db.getLogsByDateRange(startOfDay, endOfDay);
   }
 
-  /// Find the most recent log for a specific medicine time slot (hour/minute)
-  Log? getLatestLogForSlot(int medicineId, DateTime slotTime) {
-    // Filter by medicine and hour/minute matching
+  /// Find the most recent log for a specific routine time slot (hour/minute)
+  Log? getLatestLogForSlot(int routineId, DateTime slotTime) {
+    // Filter by routine and hour/minute matching
     final matching = _logs
         .where(
           (l) =>
-              l.medicineId == medicineId &&
+              l.routineId == routineId &&
               l.scheduledTime.hour == slotTime.hour &&
               l.scheduledTime.minute == slotTime.minute,
         )
@@ -88,7 +85,7 @@ class LogProvider with ChangeNotifier {
   /// Add a new log entry
   Future<Log?> addLog(Log log) async {
     debugPrint(
-      '🔵 LogProvider.addLog: Adding log for medicineId=${log.medicineId}, status=${log.status.name}',
+      '🔵 LogProvider.addLog: Adding log for routineId=${log.routineId}, status=${log.status.name}',
     );
     try {
       final newLog = await _db.createLog(log);
@@ -106,43 +103,37 @@ class LogProvider with ChangeNotifier {
     }
   }
 
-  /// Add a log and sync to cloud
-  Future<Log?> addLogWithSync(Log log, Medicine medicine) async {
-    debugPrint(
-      '🔵 LogProvider.addLogWithSync: Adding log for ${medicine.name} (id=${log.medicineId})',
+  /// Mark routine as taken
+  Future<Log> markAsTaken(int routineId, DateTime scheduledTime) async {
+    final log = Log(
+      routineId: routineId,
+      scheduledTime: scheduledTime,
+      actualTime: DateTime.now(),
+      status: LogStatus.take,
     );
-    try {
-      final newLog = await _db.createLog(log);
-      debugPrint(
-        '✅ LogProvider.addLogWithSync: Created log with id=${newLog.id}',
-      );
-      _logs.insert(0, newLog);
-      debugPrint(
-        '✅ LogProvider.addLogWithSync: Added to local list, notifying listeners',
-      );
-      notifyListeners();
+    return await addLog(log) as Log;
+  }
 
-      // Sync to cloud (fire and forget, don't block UI)
-      debugPrint(
-        '🔵 LogProvider.addLogWithSync: Starting cloud sync (async)...',
-      );
-      _syncService
-          .uploadAdherenceLog(log: newLog, medicine: medicine)
-          .then((_) {
-            debugPrint('✅ LogProvider.addLogWithSync: Cloud sync completed');
-          })
-          .catchError((e) {
-            debugPrint(
-              '⚠️ LogProvider.addLogWithSync: Cloud sync failed (non-blocking): $e',
-            );
-          });
+  /// Mark routine as skipped
+  Future<Log> markAsSkipped(int routineId, DateTime scheduledTime) async {
+    final log = Log(
+      routineId: routineId,
+      scheduledTime: scheduledTime,
+      actualTime: DateTime.now(),
+      status: LogStatus.skip,
+    );
+    return await addLog(log) as Log;
+  }
 
-      return newLog;
-    } catch (e, stackTrace) {
-      debugPrint('❌ LogProvider.addLogWithSync ERROR: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
-      rethrow; // Re-throw so calling code knows about the error
-    }
+  /// Mark routine as missed
+  Future<Log> markAsMissed(int routineId, DateTime scheduledTime) async {
+    final log = Log(
+      routineId: routineId,
+      scheduledTime: scheduledTime,
+      actualTime: null,
+      status: LogStatus.missed,
+    );
+    return await addLog(log) as Log;
   }
 
   /// Update an existing log
@@ -171,66 +162,6 @@ class LogProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error deleting log: $e');
       return false;
-    }
-  }
-
-  /// Mark medicine as taken
-  Future<Log> markAsTaken(
-    int medicineId,
-    DateTime scheduledTime, {
-    Medicine? medicine,
-  }) async {
-    final log = Log(
-      medicineId: medicineId,
-      scheduledTime: scheduledTime,
-      actualTime: DateTime.now(),
-      status: LogStatus.take,
-    );
-
-    if (medicine != null) {
-      return await addLogWithSync(log, medicine) as Log;
-    } else {
-      return await addLog(log) as Log;
-    }
-  }
-
-  /// Mark medicine as skipped
-  Future<Log> markAsSkipped(
-    int medicineId,
-    DateTime scheduledTime, {
-    Medicine? medicine,
-  }) async {
-    final log = Log(
-      medicineId: medicineId,
-      scheduledTime: scheduledTime,
-      actualTime: DateTime.now(),
-      status: LogStatus.skip,
-    );
-
-    if (medicine != null) {
-      return await addLogWithSync(log, medicine) as Log;
-    } else {
-      return await addLog(log) as Log;
-    }
-  }
-
-  /// Mark medicine as missed
-  Future<Log> markAsMissed(
-    int medicineId,
-    DateTime scheduledTime, {
-    Medicine? medicine,
-  }) async {
-    final log = Log(
-      medicineId: medicineId,
-      scheduledTime: scheduledTime,
-      actualTime: null,
-      status: LogStatus.missed,
-    );
-
-    if (medicine != null) {
-      return await addLogWithSync(log, medicine) as Log;
-    } else {
-      return await addLog(log) as Log;
     }
   }
 
@@ -298,10 +229,10 @@ class LogProvider with ChangeNotifier {
         total++;
 
         // Check if taken
-        // We match basically if there is any 'take' log for this medicine today
+        // We match basically if there is any 'take' log for this routine today
         // Ideally we match exact time, but for MVP/Simplicity if multiple doses exist,
         // we might need more robust matching.
-        // Let's match by medicineId and time if possible, or just count logs.
+        // Let's match by routineId and time if possible, or just count logs.
 
         // Construct expected time to match log's scheduledTime
         final parts = schedule.timeOfDay.split(':');
@@ -315,12 +246,12 @@ class LogProvider with ChangeNotifier {
 
         final hasTakenLog = logsForDate.any(
           (l) =>
-              l.medicineId == schedule.medicineId &&
+              l.routineId == schedule.routineId &&
               l.status == LogStatus.take &&
               // Fuzzy match time (within a minute tolerance or exact?)
               // DateTime is precise. Let's compare minutes?
               // Actually Log.scheduledTime should match exactly how it was created from schedule.
-              // But let's be safe and check if medicine ID matches and status is take.
+              // But let's be safe and check if routine ID matches and status is take.
               // But what if same med twice a day?
               // We need to match the specific slot.
               l.scheduledTime.year == scheduledDateTime.year &&

@@ -7,7 +7,7 @@ class TestableSnoozeProvider {
   final MockDatabaseHelper db;
   final MockNotificationService notifications;
 
-  /// Map of snoozed doses keyed by "${medicineId}_${originalScheduledTime.toIso8601String()}"
+  /// Map of snoozed doses keyed by "${routineId}_${originalScheduledTime.toIso8601String()}"
   final Map<String, SnoozedDose> _snoozedDoses = {};
 
   TestableSnoozeProvider({required this.db, required this.notifications});
@@ -26,26 +26,26 @@ class TestableSnoozeProvider {
     final doses = await db.getActiveSnoozedDoses();
     _snoozedDoses.clear();
     for (final dose in doses) {
-      _snoozedDoses[_key(dose.medicineId, dose.originalScheduledTime)] = dose;
+      _snoozedDoses[_key(dose.routineId, dose.originalScheduledTime)] = dose;
     }
   }
 
   /// Create a key for the snooze map
-  String _key(int medicineId, DateTime scheduledTime) {
-    return '${medicineId}_${scheduledTime.toIso8601String()}';
+  String _key(int routineId, DateTime scheduledTime) {
+    return '${routineId}_${scheduledTime.toIso8601String()}';
   }
 
   /// Snooze a dose for a specified number of minutes
   Future<void> snoozeDose({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required DateTime originalScheduledTime,
     required int minutes,
   }) async {
     final snoozedUntil = DateTime.now().add(Duration(minutes: minutes));
 
     final dose = SnoozedDose(
-      medicineId: medicineId,
+      routineId: routineId,
       originalScheduledTime: originalScheduledTime,
       snoozedUntil: snoozedUntil,
     );
@@ -54,12 +54,12 @@ class TestableSnoozeProvider {
     await db.createSnoozedDose(dose);
 
     // Add to local cache
-    _snoozedDoses[_key(medicineId, originalScheduledTime)] = dose;
+    _snoozedDoses[_key(routineId, originalScheduledTime)] = dose;
 
     // Schedule snooze notification
     await _scheduleSnoozeNotification(
-      medicineId: medicineId,
-      medicineName: medicineName,
+      routineId: routineId,
+      routineName: routineName,
       snoozedUntil: snoozedUntil,
       originalScheduledTime: originalScheduledTime,
     );
@@ -67,28 +67,28 @@ class TestableSnoozeProvider {
 
   /// Cancel a snooze
   Future<void> cancelSnooze({
-    required int medicineId,
+    required int routineId,
     required DateTime originalScheduledTime,
   }) async {
-    final key = _key(medicineId, originalScheduledTime);
+    final key = _key(routineId, originalScheduledTime);
 
     // Remove from database
-    await db.deleteSnoozedDose(medicineId, originalScheduledTime);
+    await db.deleteSnoozedDose(routineId, originalScheduledTime);
 
     // Remove from local cache
     _snoozedDoses.remove(key);
 
     // Cancel the snooze notification
     final notificationId = _getSnoozeNotificationId(
-      medicineId,
+      routineId,
       originalScheduledTime,
     );
     await notifications.cancelNotification(notificationId);
   }
 
   /// Check if a dose is snoozed
-  bool isSnoozed(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  bool isSnoozed(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     final dose = _snoozedDoses[key];
     if (dose == null) return false;
     // Check if snooze is still active
@@ -100,45 +100,45 @@ class TestableSnoozeProvider {
   }
 
   /// Get the snoozed time for a dose (if snoozed)
-  DateTime? getSnoozedTimeFor(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  DateTime? getSnoozedTimeFor(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     final dose = _snoozedDoses[key];
     if (dose == null || dose.isExpired) return null;
     return dose.snoozedUntil;
   }
 
   /// Get SnoozedDose object if exists
-  SnoozedDose? getSnooze(int medicineId, DateTime scheduledTime) {
-    final key = _key(medicineId, scheduledTime);
+  SnoozedDose? getSnooze(int routineId, DateTime scheduledTime) {
+    final key = _key(routineId, scheduledTime);
     return _snoozedDoses[key];
   }
 
   /// Schedule a notification for snoozed dose
   Future<void> _scheduleSnoozeNotification({
-    required int medicineId,
-    required String medicineName,
+    required int routineId,
+    required String routineName,
     required DateTime snoozedUntil,
     required DateTime originalScheduledTime,
   }) async {
     final notificationId = _getSnoozeNotificationId(
-      medicineId,
+      routineId,
       originalScheduledTime,
     );
 
-    await notifications.scheduleMedicineReminder(
+    await notifications.scheduleRoutineReminder(
       notificationId: notificationId,
-      medicineId: medicineId,
-      medicineName: '⏰ $medicineName (Snoozed)',
+      routineId: routineId,
+      routineName: '⏰ $routineName (Snoozed)',
       dosage: 'Time to take your snoozed dose!',
       scheduledTime: snoozedUntil,
     );
   }
 
   /// Generate unique notification ID for snooze
-  int _getSnoozeNotificationId(int medicineId, DateTime scheduledTime) {
+  int _getSnoozeNotificationId(int routineId, DateTime scheduledTime) {
     // Use a high base to avoid collision with regular notification IDs
     return 900000 +
-        (medicineId * 1000) +
+        (routineId * 1000) +
         (scheduledTime.hour * 60 + scheduledTime.minute);
   }
 
@@ -195,22 +195,22 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Aspirin',
+          routineId: 1,
+          routineName: 'Aspirin',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
 
         expect(provider.snoozedDoses.length, 1);
-        expect(provider.snoozedDoses.first.medicineId, 1);
+        expect(provider.snoozedDoses.first.routineId, 1);
       });
 
       test('schedules notification for snooze', () async {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Aspirin',
+          routineId: 1,
+          routineName: 'Aspirin',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -223,8 +223,8 @@ void main() {
         final beforeSnooze = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 15,
         );
@@ -243,19 +243,19 @@ void main() {
         );
       });
 
-      test('handles multiple snoozes for different medicines', () async {
+      test('handles multiple snoozes for different routines', () async {
         final time1 = DateTime.now();
         final time2 = DateTime.now().add(const Duration(hours: 1));
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Med 1',
+          routineId: 1,
+          routineName: 'Med 1',
           originalScheduledTime: time1,
           minutes: 10,
         );
         await provider.snoozeDose(
-          medicineId: 2,
-          medicineName: 'Med 2',
+          routineId: 2,
+          routineName: 'Med 2',
           originalScheduledTime: time2,
           minutes: 15,
         );
@@ -263,12 +263,12 @@ void main() {
         expect(provider.snoozedDoses.length, 2);
       });
 
-      test('replaces existing snooze for same medicine and time', () async {
+      test('replaces existing snooze for same routine and time', () async {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -279,8 +279,8 @@ void main() {
         await Future.delayed(const Duration(milliseconds: 50));
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 20,
         );
@@ -298,8 +298,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -307,7 +307,7 @@ void main() {
         expect(provider.snoozedDoses.length, 1);
 
         await provider.cancelSnooze(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: scheduledTime,
         );
 
@@ -318,14 +318,14 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
 
         await provider.cancelSnooze(
-          medicineId: 1,
+          routineId: 1,
           originalScheduledTime: scheduledTime,
         );
 
@@ -334,7 +334,7 @@ void main() {
 
       test('handles cancelling non-existent snooze gracefully', () async {
         await provider.cancelSnooze(
-          medicineId: 999,
+          routineId: 999,
           originalScheduledTime: DateTime.now(),
         );
 
@@ -347,8 +347,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -372,8 +372,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -394,8 +394,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -403,7 +403,7 @@ void main() {
         final snooze = provider.getSnooze(1, scheduledTime);
 
         expect(snooze, isNotNull);
-        expect(snooze!.medicineId, 1);
+        expect(snooze!.routineId, 1);
       });
 
       test('returns null when not exists', () {
@@ -419,7 +419,7 @@ void main() {
 
         await mockDb.createSnoozedDose(
           SnoozedDose(
-            medicineId: 1,
+            routineId: 1,
             originalScheduledTime: scheduledTime,
             snoozedUntil: snoozedUntil,
           ),
@@ -428,7 +428,7 @@ void main() {
         await provider.initialize();
 
         expect(provider.snoozedDoses.length, 1);
-        expect(provider.snoozedDoses.first.medicineId, 1);
+        expect(provider.snoozedDoses.first.routineId, 1);
       });
     });
 
@@ -437,8 +437,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 10,
         );
@@ -449,7 +449,7 @@ void main() {
         );
         await mockDb.createSnoozedDose(
           SnoozedDose(
-            medicineId: 2,
+            routineId: 2,
             originalScheduledTime: externalScheduledTime,
             snoozedUntil: DateTime.now().add(const Duration(minutes: 15)),
           ),
@@ -462,18 +462,18 @@ void main() {
     });
 
     group('Notification ID Generation', () {
-      test('generates unique IDs for different medicines', () async {
+      test('generates unique IDs for different routines', () async {
         final time = DateTime(2026, 2, 2, 8, 0);
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Med 1',
+          routineId: 1,
+          routineName: 'Med 1',
           originalScheduledTime: time,
           minutes: 10,
         );
         await provider.snoozeDose(
-          medicineId: 2,
-          medicineName: 'Med 2',
+          routineId: 2,
+          routineName: 'Med 2',
           originalScheduledTime: time,
           minutes: 10,
         );
@@ -491,14 +491,14 @@ void main() {
         final time2 = DateTime(2026, 2, 2, 12, 0);
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Med',
+          routineId: 1,
+          routineName: 'Med',
           originalScheduledTime: time1,
           minutes: 10,
         );
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Med',
+          routineId: 1,
+          routineName: 'Med',
           originalScheduledTime: time2,
           minutes: 10,
         );
@@ -512,8 +512,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 1, // 1 minute snooze
         );
@@ -525,8 +525,8 @@ void main() {
         final scheduledTime = DateTime.now();
 
         await provider.snoozeDose(
-          medicineId: 1,
-          medicineName: 'Test',
+          routineId: 1,
+          routineName: 'Test',
           originalScheduledTime: scheduledTime,
           minutes: 60, // 1 hour snooze
         );
@@ -545,13 +545,13 @@ void main() {
 
         for (var i = 0; i < 5; i++) {
           await provider.snoozeDose(
-            medicineId: 1,
-            medicineName: 'Test',
+            routineId: 1,
+            routineName: 'Test',
             originalScheduledTime: scheduledTime,
             minutes: 10,
           );
           await provider.cancelSnooze(
-            medicineId: 1,
+            routineId: 1,
             originalScheduledTime: scheduledTime,
           );
         }

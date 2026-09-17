@@ -28,9 +28,9 @@ class TestableLogProvider {
     }).toList();
   }
 
-  /// Get logs for a specific medicine
-  List<Log> getLogsForMedicine(int medicineId) {
-    return _logs.where((log) => log.medicineId == medicineId).toList();
+  /// Get logs for a specific routine
+  List<Log> getLogsForRoutine(int routineId) {
+    return _logs.where((log) => log.routineId == routineId).toList();
   }
 
   /// Load logs from database
@@ -70,10 +70,10 @@ class TestableLogProvider {
     return true;
   }
 
-  /// Mark medicine as taken
-  Future<Log> markAsTaken(int medicineId, DateTime scheduledTime) async {
+  /// Mark routine as taken
+  Future<Log> markAsTaken(int routineId, DateTime scheduledTime) async {
     final log = Log(
-      medicineId: medicineId,
+      routineId: routineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.take,
@@ -81,10 +81,10 @@ class TestableLogProvider {
     return await addLog(log) as Log;
   }
 
-  /// Mark medicine as skipped
-  Future<Log> markAsSkipped(int medicineId, DateTime scheduledTime) async {
+  /// Mark routine as skipped
+  Future<Log> markAsSkipped(int routineId, DateTime scheduledTime) async {
     final log = Log(
-      medicineId: medicineId,
+      routineId: routineId,
       scheduledTime: scheduledTime,
       actualTime: DateTime.now(),
       status: LogStatus.skip,
@@ -92,10 +92,10 @@ class TestableLogProvider {
     return await addLog(log) as Log;
   }
 
-  /// Mark medicine as missed
-  Future<Log> markAsMissed(int medicineId, DateTime scheduledTime) async {
+  /// Mark routine as missed
+  Future<Log> markAsMissed(int routineId, DateTime scheduledTime) async {
     final log = Log(
-      medicineId: medicineId,
+      routineId: routineId,
       scheduledTime: scheduledTime,
       actualTime: null,
       status: LogStatus.missed,
@@ -149,7 +149,7 @@ class TestableLogProvider {
 
         final hasTakenLog = logsForDate.any(
           (l) =>
-              l.medicineId == schedule.medicineId &&
+              l.routineId == schedule.routineId &&
               l.status == LogStatus.take &&
               l.scheduledTime.year == scheduledDateTime.year &&
               l.scheduledTime.month == scheduledDateTime.month &&
@@ -195,6 +195,9 @@ class TestableLogProvider {
         final start = DateTime.parse(schedule.startDate!);
         final diff = dayDate.difference(start).inDays;
         return diff % schedule.intervalDays! == 0;
+      case FrequencyType.once:
+        if (schedule.startDate == null) return true;
+        return dayDate == DateTime.parse(schedule.startDate!);
       case FrequencyType.asNeeded:
         return false;
     }
@@ -283,20 +286,20 @@ void main() {
       });
     });
 
-    group('getLogsForMedicine', () {
-      test('filters logs by medicine ID', () async {
-        await provider.addLog(LogFixtures.taken(medicineId: 1));
-        await provider.addLog(LogFixtures.taken(medicineId: 2));
-        await provider.addLog(LogFixtures.taken(medicineId: 1));
+    group('getLogsForRoutine', () {
+      test('filters logs by routine ID', () async {
+        await provider.addLog(LogFixtures.taken(routineId: 1));
+        await provider.addLog(LogFixtures.taken(routineId: 2));
+        await provider.addLog(LogFixtures.taken(routineId: 1));
 
-        final logs = provider.getLogsForMedicine(1);
+        final logs = provider.getLogsForRoutine(1);
 
         expect(logs.length, 2);
-        expect(logs.every((l) => l.medicineId == 1), isTrue);
+        expect(logs.every((l) => l.routineId == 1), isTrue);
       });
 
-      test('returns empty when no logs for medicine', () {
-        final logs = provider.getLogsForMedicine(999);
+      test('returns empty when no logs for routine', () {
+        final logs = provider.getLogsForRoutine(999);
         expect(logs, isEmpty);
       });
     });
@@ -313,10 +316,10 @@ void main() {
       });
 
       test('inserts log at beginning of list', () async {
-        await provider.addLog(LogFixtures.taken(medicineId: 1));
-        await provider.addLog(LogFixtures.taken(medicineId: 2));
+        await provider.addLog(LogFixtures.taken(routineId: 1));
+        await provider.addLog(LogFixtures.taken(routineId: 2));
 
-        expect(provider.logs.first.medicineId, 2);
+        expect(provider.logs.first.routineId, 2);
       });
     });
 
@@ -327,7 +330,7 @@ void main() {
         final log = await provider.markAsTaken(1, scheduledTime);
 
         expect(log.status, LogStatus.take);
-        expect(log.medicineId, 1);
+        expect(log.routineId, 1);
         expect(log.actualTime, isNotNull);
       });
     });
@@ -339,7 +342,7 @@ void main() {
         final log = await provider.markAsSkipped(1, scheduledTime);
 
         expect(log.status, LogStatus.skip);
-        expect(log.medicineId, 1);
+        expect(log.routineId, 1);
       });
     });
 
@@ -379,14 +382,14 @@ void main() {
       test('calculates correct progress with all taken', () async {
         final today = DateTime.now();
         final schedules = [
-          ScheduleFixtures.daily(medicineId: 1, timeOfDay: '08:00'),
-          ScheduleFixtures.daily(medicineId: 2, timeOfDay: '09:00'),
+          ScheduleFixtures.daily(routineId: 1, timeOfDay: '08:00'),
+          ScheduleFixtures.daily(routineId: 2, timeOfDay: '09:00'),
         ];
 
         // Mark both as taken
         await provider.addLog(
           Log(
-            medicineId: 1,
+            routineId: 1,
             scheduledTime: DateTime(today.year, today.month, today.day, 8, 0),
             actualTime: DateTime.now(),
             status: LogStatus.take,
@@ -394,7 +397,7 @@ void main() {
         );
         await provider.addLog(
           Log(
-            medicineId: 2,
+            routineId: 2,
             scheduledTime: DateTime(today.year, today.month, today.day, 9, 0),
             actualTime: DateTime.now(),
             status: LogStatus.take,
@@ -411,8 +414,8 @@ void main() {
       test('calculates correct progress with none taken', () async {
         final today = DateTime.now();
         final schedules = [
-          ScheduleFixtures.daily(medicineId: 1, timeOfDay: '08:00'),
-          ScheduleFixtures.daily(medicineId: 2, timeOfDay: '09:00'),
+          ScheduleFixtures.daily(routineId: 1, timeOfDay: '08:00'),
+          ScheduleFixtures.daily(routineId: 2, timeOfDay: '09:00'),
         ];
 
         // No logs added
@@ -427,14 +430,14 @@ void main() {
       test('calculates correct progress with partial completion', () async {
         final today = DateTime.now();
         final schedules = [
-          ScheduleFixtures.daily(medicineId: 1, timeOfDay: '08:00'),
-          ScheduleFixtures.daily(medicineId: 2, timeOfDay: '09:00'),
+          ScheduleFixtures.daily(routineId: 1, timeOfDay: '08:00'),
+          ScheduleFixtures.daily(routineId: 2, timeOfDay: '09:00'),
         ];
 
         // Only first one taken
         await provider.addLog(
           Log(
-            medicineId: 1,
+            routineId: 1,
             scheduledTime: DateTime(today.year, today.month, today.day, 8, 0),
             actualTime: DateTime.now(),
             status: LogStatus.take,
@@ -451,8 +454,8 @@ void main() {
       test('excludes asNeeded schedules from progress', () async {
         final today = DateTime.now();
         final schedules = [
-          ScheduleFixtures.daily(medicineId: 1, timeOfDay: '08:00'),
-          ScheduleFixtures.asNeeded(medicineId: 2, timeOfDay: '09:00'),
+          ScheduleFixtures.daily(routineId: 1, timeOfDay: '08:00'),
+          ScheduleFixtures.asNeeded(routineId: 2, timeOfDay: '09:00'),
         ];
 
         final progress = provider.calculateDailyProgress(today, schedules);
@@ -466,7 +469,7 @@ void main() {
 
         final schedules = [
           ScheduleFixtures.specificDays(
-            medicineId: 1,
+            routineId: 1,
             timeOfDay: '08:00',
             frequencyDays: '1,3,5', // Mon, Wed, Fri
           ),
@@ -483,7 +486,7 @@ void main() {
 
         final schedules = [
           ScheduleFixtures.specificDays(
-            medicineId: 1,
+            routineId: 1,
             timeOfDay: '08:00',
             frequencyDays: '1,3,5', // Mon, Wed, Fri - NOT Tuesday
           ),
@@ -502,7 +505,7 @@ void main() {
 
         await mockDb.createLog(
           Log(
-            medicineId: 1,
+            routineId: 1,
             scheduledTime: today.add(const Duration(hours: 8)),
             actualTime: today.add(const Duration(hours: 8)),
             status: LogStatus.take,
@@ -510,7 +513,7 @@ void main() {
         );
         await mockDb.createLog(
           Log(
-            medicineId: 1,
+            routineId: 1,
             scheduledTime: today.add(const Duration(hours: 12)),
             status: LogStatus.missed,
           ),

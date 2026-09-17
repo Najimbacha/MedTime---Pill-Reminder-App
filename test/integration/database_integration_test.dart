@@ -3,7 +3,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:routine_time/models/medicine.dart';
+import 'package:routine_time/models/routine.dart';
 import 'package:routine_time/models/schedule.dart';
 import 'package:routine_time/models/log.dart';
 import 'package:routine_time/models/snoozed_dose.dart';
@@ -26,20 +26,14 @@ class TestableDatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Medicines table
+    // Routines table
     await db.execute('''
-      CREATE TABLE medicines (
+      CREATE TABLE routines (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         dosage TEXT,
         type_icon INTEGER DEFAULT 1,
-        current_stock INTEGER DEFAULT 0,
-        low_stock_threshold INTEGER DEFAULT 5,
-        color INTEGER DEFAULT 0xFF2196F3,
-        image_path TEXT,
-        pharmacy_name TEXT,
-        pharmacy_phone TEXT,
-        rxcui TEXT
+        color INTEGER DEFAULT 0xFF2196F3
       )
     ''');
 
@@ -47,14 +41,14 @@ class TestableDatabaseHelper {
     await db.execute('''
       CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         time_of_day TEXT NOT NULL,
         frequency_type TEXT NOT NULL,
         frequency_days TEXT,
         interval_days INTEGER,
         start_date TEXT,
         end_date TEXT,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
@@ -62,11 +56,11 @@ class TestableDatabaseHelper {
     await db.execute('''
       CREATE TABLE logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         scheduled_time TEXT NOT NULL,
         actual_time TEXT,
         status TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
@@ -74,67 +68,51 @@ class TestableDatabaseHelper {
     await db.execute('''
       CREATE TABLE snoozed_doses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         original_scheduled_time TEXT NOT NULL,
         snoozed_until TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
   }
 
-  // ==================== MEDICINE CRUD ====================
+  // ==================== ROUTINE CRUD ====================
 
-  Future<Medicine> createMedicine(Medicine medicine) async {
+  Future<Routine> createRoutine(Routine routine) async {
     final db = await database;
-    final id = await db.insert('medicines', medicine.toMap());
-    return medicine.copyWith(id: id);
+    final id = await db.insert('routines', routine.toMap());
+    return routine.copyWith(id: id);
   }
 
-  Future<List<Medicine>> getAllMedicines() async {
+  Future<List<Routine>> getAllRoutines() async {
     final db = await database;
-    final result = await db.query('medicines', orderBy: 'name ASC');
-    return result.map((map) => Medicine.fromMap(map)).toList();
+    final result = await db.query('routines', orderBy: 'name ASC');
+    return result.map((map) => Routine.fromMap(map)).toList();
   }
 
-  Future<Medicine?> getMedicine(int id) async {
+  Future<Routine?> getRoutine(int id) async {
     final db = await database;
-    final maps = await db.query('medicines', where: 'id = ?', whereArgs: [id]);
+    final maps = await db.query('routines', where: 'id = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
-      return Medicine.fromMap(maps.first);
+      return Routine.fromMap(maps.first);
     }
     return null;
   }
 
-  Future<int> updateMedicine(Medicine medicine) async {
+  Future<int> updateRoutine(Routine routine) async {
     final db = await database;
     return db.update(
-      'medicines',
-      medicine.toMap(),
+      'routines',
+      routine.toMap(),
       where: 'id = ?',
-      whereArgs: [medicine.id],
+      whereArgs: [routine.id],
     );
   }
 
-  Future<int> deleteMedicine(int id) async {
+  Future<int> deleteRoutine(int id) async {
     final db = await database;
-    return db.delete('medicines', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> decrementStock(int medicineId) async {
-    final db = await database;
-    await db.rawUpdate(
-      'UPDATE medicines SET current_stock = current_stock - 1 WHERE id = ? AND current_stock > 0',
-      [medicineId],
-    );
-  }
-
-  Future<void> incrementStock(int medicineId) async {
-    final db = await database;
-    await db.rawUpdate(
-      'UPDATE medicines SET current_stock = current_stock + 1 WHERE id = ?',
-      [medicineId],
-    );
+    return db.delete('routines', where: 'id = ?', whereArgs: [id]);
   }
 
   // ==================== SCHEDULE CRUD ====================
@@ -145,12 +123,12 @@ class TestableDatabaseHelper {
     return schedule.copyWith(id: id);
   }
 
-  Future<List<Schedule>> getSchedulesForMedicine(int medicineId) async {
+  Future<List<Schedule>> getSchedulesForRoutine(int routineId) async {
     final db = await database;
     final result = await db.query(
       'schedules',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
       orderBy: 'time_of_day ASC',
     );
     return result.map((map) => Schedule.fromMap(map)).toList();
@@ -162,12 +140,12 @@ class TestableDatabaseHelper {
     return result.map((map) => Schedule.fromMap(map)).toList();
   }
 
-  Future<int> deleteSchedulesForMedicine(int medicineId) async {
+  Future<int> deleteSchedulesForRoutine(int routineId) async {
     final db = await database;
     return db.delete(
       'schedules',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
     );
   }
 
@@ -179,12 +157,12 @@ class TestableDatabaseHelper {
     return log.copyWith(id: id);
   }
 
-  Future<List<Log>> getLogsForMedicine(int medicineId) async {
+  Future<List<Log>> getLogsForRoutine(int routineId) async {
     final db = await database;
     final result = await db.query(
       'logs',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
       orderBy: 'scheduled_time DESC, id DESC',
     );
     return result.map((map) => Log.fromMap(map)).toList();
@@ -234,9 +212,9 @@ class TestableDatabaseHelper {
     final db = await database;
     await db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
+      where: 'routine_id = ? AND original_scheduled_time = ?',
       whereArgs: [
-        dose.medicineId,
+        dose.routineId,
         dose.originalScheduledTime.toIso8601String(),
       ],
     );
@@ -245,14 +223,14 @@ class TestableDatabaseHelper {
   }
 
   Future<SnoozedDose?> getSnoozedDose(
-    int medicineId,
+    int routineId,
     DateTime scheduledTime,
   ) async {
     final db = await database;
     final result = await db.query(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
-      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+      where: 'routine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [routineId, scheduledTime.toIso8601String()],
     );
     if (result.isNotEmpty) {
       return SnoozedDose.fromMap(result.first);
@@ -271,12 +249,12 @@ class TestableDatabaseHelper {
     return result.map((map) => SnoozedDose.fromMap(map)).toList();
   }
 
-  Future<int> deleteSnoozedDose(int medicineId, DateTime scheduledTime) async {
+  Future<int> deleteSnoozedDose(int routineId, DateTime scheduledTime) async {
     final db = await database;
     return db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
-      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+      where: 'routine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [routineId, scheduledTime.toIso8601String()],
     );
   }
 
@@ -297,7 +275,7 @@ class TestableDatabaseHelper {
     await db.delete('snoozed_doses');
     await db.delete('logs');
     await db.delete('schedules');
-    await db.delete('medicines');
+    await db.delete('routines');
   }
 
   Future<void> close() async {
@@ -323,16 +301,14 @@ void main() {
   });
 
   group('Database Integration Tests', () {
-    group('Medicine CRUD', () {
-      test('creates medicine with auto-generated ID', () async {
-        final medicine = Medicine(
+    group('Routine CRUD', () {
+      test('creates routine with auto-generated ID', () async {
+        final routine = Routine(
           name: 'Aspirin',
           dosage: '100mg',
-          currentStock: 30,
-          lowStockThreshold: 5,
         );
 
-        final created = await db.createMedicine(medicine);
+        final created = await db.createRoutine(routine);
 
         expect(created.id, isNotNull);
         expect(created.id, greaterThan(0));
@@ -340,104 +316,71 @@ void main() {
         expect(created.dosage, '100mg');
       });
 
-      test('getAllMedicines returns empty for fresh database', () async {
-        final medicines = await db.getAllMedicines();
-        expect(medicines, isEmpty);
+      test('getAllRoutines returns empty for fresh database', () async {
+        final routines = await db.getAllRoutines();
+        expect(routines, isEmpty);
       });
 
-      test('getAllMedicines returns medicines in name order', () async {
-        await db.createMedicine(Medicine(name: 'Zebra Med'));
-        await db.createMedicine(Medicine(name: 'Alpha Med'));
-        await db.createMedicine(Medicine(name: 'Beta Med'));
+      test('getAllRoutines returns routines in name order', () async {
+        await db.createRoutine(Routine(name: 'Zebra Med'));
+        await db.createRoutine(Routine(name: 'Alpha Med'));
+        await db.createRoutine(Routine(name: 'Beta Med'));
 
-        final medicines = await db.getAllMedicines();
+        final routines = await db.getAllRoutines();
 
-        expect(medicines.length, 3);
-        expect(medicines[0].name, 'Alpha Med');
-        expect(medicines[1].name, 'Beta Med');
-        expect(medicines[2].name, 'Zebra Med');
+        expect(routines.length, 3);
+        expect(routines[0].name, 'Alpha Med');
+        expect(routines[1].name, 'Beta Med');
+        expect(routines[2].name, 'Zebra Med');
       });
 
-      test('getMedicine returns medicine by ID', () async {
-        final created = await db.createMedicine(Medicine(name: 'FindMe'));
+      test('getRoutine returns routine by ID', () async {
+        final created = await db.createRoutine(Routine(name: 'FindMe'));
 
-        final found = await db.getMedicine(created.id!);
+        final found = await db.getRoutine(created.id!);
 
         expect(found, isNotNull);
         expect(found!.name, 'FindMe');
       });
 
-      test('getMedicine returns null for non-existent ID', () async {
-        final found = await db.getMedicine(9999);
+      test('getRoutine returns null for non-existent ID', () async {
+        final found = await db.getRoutine(9999);
         expect(found, isNull);
       });
 
-      test('updateMedicine updates existing medicine', () async {
-        final created = await db.createMedicine(
-          Medicine(name: 'Original', dosage: '50mg'),
+      test('updateRoutine updates existing routine', () async {
+        final created = await db.createRoutine(
+          Routine(name: 'Original', dosage: '50mg'),
         );
 
         final updated = created.copyWith(name: 'Updated', dosage: '100mg');
-        await db.updateMedicine(updated);
+        await db.updateRoutine(updated);
 
-        final found = await db.getMedicine(created.id!);
+        final found = await db.getRoutine(created.id!);
         expect(found!.name, 'Updated');
         expect(found.dosage, '100mg');
       });
 
-      test('deleteMedicine removes medicine', () async {
-        final created = await db.createMedicine(Medicine(name: 'ToDelete'));
+      test('deleteRoutine removes routine', () async {
+        final created = await db.createRoutine(Routine(name: 'ToDelete'));
 
-        await db.deleteMedicine(created.id!);
+        await db.deleteRoutine(created.id!);
 
-        final found = await db.getMedicine(created.id!);
+        final found = await db.getRoutine(created.id!);
         expect(found, isNull);
-      });
-
-      test('decrementStock reduces stock by 1', () async {
-        final created = await db.createMedicine(
-          Medicine(name: 'Test', currentStock: 10),
-        );
-
-        await db.decrementStock(created.id!);
-
-        final found = await db.getMedicine(created.id!);
-        expect(found!.currentStock, 9);
-      });
-
-      test('decrementStock does not go below 0', () async {
-        final created = await db.createMedicine(
-          Medicine(name: 'Empty', currentStock: 0),
-        );
-
-        await db.decrementStock(created.id!);
-
-        final found = await db.getMedicine(created.id!);
-        expect(found!.currentStock, 0);
-      });
-
-      test('incrementStock increases stock by 1', () async {
-        final created = await db.createMedicine(
-          Medicine(name: 'Test', currentStock: 10),
-        );
-
-        await db.incrementStock(created.id!);
-
-        final found = await db.getMedicine(created.id!);
-        expect(found!.currentStock, 11);
       });
     });
 
     group('Schedule CRUD', () {
-      late Medicine medicine;
+      late Routine routine;
 
       setUp(() async {
-        medicine = await db.createMedicine(Medicine(name: 'Test Med'));
+        routine = await db.createRoutine(Routine(name: 'Test Med'));
       });
 
-      test('creates schedule linked to medicine', () async {
+      test('creates schedule linked to routine', () async {
         final schedule = Schedule(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           timeOfDay: '08:00',
           frequencyType: FrequencyType.daily,
         );
@@ -445,49 +388,49 @@ void main() {
         final created = await db.createSchedule(schedule);
 
         expect(created.id, isNotNull);
-        expect(created.medicineId, medicine.id);
+        expect(created.routineId, routine.id);
       });
 
       test(
-        'getSchedulesForMedicine returns only that medicine schedules',
+        'getSchedulesForRoutine returns only that routine schedules',
         () async {
-          final med2 = await db.createMedicine(Medicine(name: 'Med 2'));
+          final med2 = await db.createRoutine(Routine(name: 'Med 2'));
 
           await db.createSchedule(
             Schedule(
-              medicineId: medicine.id!,
+              routineId: routine.id!,
               timeOfDay: '08:00',
               frequencyType: FrequencyType.daily,
             ),
           );
           await db.createSchedule(
             Schedule(
-              medicineId: med2.id!,
+              routineId: med2.id!,
               timeOfDay: '09:00',
               frequencyType: FrequencyType.daily,
             ),
           );
 
-          final schedules = await db.getSchedulesForMedicine(medicine.id!);
+          final schedules = await db.getSchedulesForRoutine(routine.id!);
 
           expect(schedules.length, 1);
-          expect(schedules.first.medicineId, medicine.id);
+          expect(schedules.first.routineId, routine.id);
         },
       );
 
       test('getAllSchedules returns all schedules', () async {
-        final med2 = await db.createMedicine(Medicine(name: 'Med 2'));
+        final med2 = await db.createRoutine(Routine(name: 'Med 2'));
 
         await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '08:00',
             frequencyType: FrequencyType.daily,
           ),
         );
         await db.createSchedule(
           Schedule(
-            medicineId: med2.id!,
+            routineId: med2.id!,
             timeOfDay: '09:00',
             frequencyType: FrequencyType.daily,
           ),
@@ -499,41 +442,41 @@ void main() {
       });
 
       test(
-        'deleteSchedulesForMedicine removes all schedules for medicine',
+        'deleteSchedulesForRoutine removes all schedules for routine',
         () async {
           await db.createSchedule(
             Schedule(
-              medicineId: medicine.id!,
+              routineId: routine.id!,
               timeOfDay: '08:00',
               frequencyType: FrequencyType.daily,
             ),
           );
           await db.createSchedule(
             Schedule(
-              medicineId: medicine.id!,
+              routineId: routine.id!,
               timeOfDay: '12:00',
               frequencyType: FrequencyType.daily,
             ),
           );
 
-          await db.deleteSchedulesForMedicine(medicine.id!);
+          await db.deleteSchedulesForRoutine(routine.id!);
 
-          final schedules = await db.getSchedulesForMedicine(medicine.id!);
+          final schedules = await db.getSchedulesForRoutine(routine.id!);
           expect(schedules, isEmpty);
         },
       );
     });
 
     group('Log CRUD', () {
-      late Medicine medicine;
+      late Routine routine;
 
       setUp(() async {
-        medicine = await db.createMedicine(Medicine(name: 'Test Med'));
+        routine = await db.createRoutine(Routine(name: 'Test Med'));
       });
 
       test('creates log with status', () async {
         final log = Log(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           scheduledTime: DateTime.now(),
           actualTime: DateTime.now(),
           status: LogStatus.take,
@@ -545,28 +488,28 @@ void main() {
         expect(created.status, LogStatus.take);
       });
 
-      test('getLogsForMedicine returns only that medicine logs', () async {
-        final med2 = await db.createMedicine(Medicine(name: 'Med 2'));
+      test('getLogsForRoutine returns only that routine logs', () async {
+        final med2 = await db.createRoutine(Routine(name: 'Med 2'));
 
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: DateTime.now(),
             status: LogStatus.take,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: med2.id!,
+            routineId: med2.id!,
             scheduledTime: DateTime.now(),
             status: LogStatus.skip,
           ),
         );
 
-        final logs = await db.getLogsForMedicine(medicine.id!);
+        final logs = await db.getLogsForRoutine(routine.id!);
 
         expect(logs.length, 1);
-        expect(logs.first.medicineId, medicine.id);
+        expect(logs.first.routineId, routine.id);
       });
 
       test('getLogsByDateRange filters by date', () async {
@@ -576,21 +519,21 @@ void main() {
 
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: yesterday,
             status: LogStatus.take,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: today,
             status: LogStatus.take,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: tomorrow,
             status: LogStatus.take,
           ),
@@ -612,7 +555,7 @@ void main() {
         // Add logs within range
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: start.add(const Duration(hours: 8)),
             actualTime: start.add(const Duration(hours: 8)),
             status: LogStatus.take,
@@ -620,14 +563,14 @@ void main() {
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: start.add(const Duration(hours: 12)),
             status: LogStatus.skip,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: start.add(const Duration(hours: 18)),
             status: LogStatus.missed,
           ),
@@ -644,15 +587,15 @@ void main() {
     });
 
     group('SnoozedDose CRUD', () {
-      late Medicine medicine;
+      late Routine routine;
 
       setUp(() async {
-        medicine = await db.createMedicine(Medicine(name: 'Test Med'));
+        routine = await db.createRoutine(Routine(name: 'Test Med'));
       });
 
       test('creates snoozed dose', () async {
         final dose = SnoozedDose(
-          medicineId: medicine.id!,
+          routineId: routine.id!,
           originalScheduledTime: DateTime.now(),
           snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
         );
@@ -660,7 +603,7 @@ void main() {
         final created = await db.createSnoozedDose(dose);
 
         expect(created.id, isNotNull);
-        expect(created.medicineId, medicine.id);
+        expect(created.routineId, routine.id);
       });
 
       test(
@@ -670,7 +613,7 @@ void main() {
 
           await db.createSnoozedDose(
             SnoozedDose(
-              medicineId: medicine.id!,
+              routineId: routine.id!,
               originalScheduledTime: scheduledTime,
               snoozedUntil: DateTime.now().add(const Duration(minutes: 5)),
             ),
@@ -678,13 +621,13 @@ void main() {
 
           await db.createSnoozedDose(
             SnoozedDose(
-              medicineId: medicine.id!,
+              routineId: routine.id!,
               originalScheduledTime: scheduledTime,
               snoozedUntil: DateTime.now().add(const Duration(minutes: 15)),
             ),
           );
 
-          final found = await db.getSnoozedDose(medicine.id!, scheduledTime);
+          final found = await db.getSnoozedDose(routine.id!, scheduledTime);
           expect(found, isNotNull);
 
           // Should only be one snooze
@@ -693,21 +636,21 @@ void main() {
         },
       );
 
-      test('getSnoozedDose returns snooze by medicine and time', () async {
+      test('getSnoozedDose returns snooze by routine and time', () async {
         final scheduledTime = DateTime.now();
 
         await db.createSnoozedDose(
           SnoozedDose(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             originalScheduledTime: scheduledTime,
             snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
           ),
         );
 
-        final found = await db.getSnoozedDose(medicine.id!, scheduledTime);
+        final found = await db.getSnoozedDose(routine.id!, scheduledTime);
 
         expect(found, isNotNull);
-        expect(found!.medicineId, medicine.id);
+        expect(found!.routineId, routine.id);
       });
 
       test('getSnoozedDose returns null for non-existent', () async {
@@ -721,7 +664,7 @@ void main() {
         // Active snooze
         await db.createSnoozedDose(
           SnoozedDose(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             originalScheduledTime: now,
             snoozedUntil: now.add(const Duration(hours: 1)),
           ),
@@ -739,39 +682,39 @@ void main() {
 
         await db.createSnoozedDose(
           SnoozedDose(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             originalScheduledTime: scheduledTime,
             snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
           ),
         );
 
-        await db.deleteSnoozedDose(medicine.id!, scheduledTime);
+        await db.deleteSnoozedDose(routine.id!, scheduledTime);
 
-        final found = await db.getSnoozedDose(medicine.id!, scheduledTime);
+        final found = await db.getSnoozedDose(routine.id!, scheduledTime);
         expect(found, isNull);
       });
     });
 
     group('Data Integrity', () {
       test('deleteAllData clears all tables', () async {
-        final medicine = await db.createMedicine(Medicine(name: 'Test'));
+        final routine = await db.createRoutine(Routine(name: 'Test'));
         await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '08:00',
             frequencyType: FrequencyType.daily,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: DateTime.now(),
             status: LogStatus.take,
           ),
         );
         await db.createSnoozedDose(
           SnoozedDose(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             originalScheduledTime: DateTime.now(),
             snoozedUntil: DateTime.now().add(const Duration(minutes: 10)),
           ),
@@ -779,47 +722,35 @@ void main() {
 
         await db.deleteAllData();
 
-        expect(await db.getAllMedicines(), isEmpty);
+        expect(await db.getAllRoutines(), isEmpty);
         expect(await db.getAllSchedules(), isEmpty);
         expect(await db.getAllLogs(), isEmpty);
         expect(await db.getActiveSnoozedDoses(), isEmpty);
       });
 
-      test('medicine stores all fields correctly', () async {
-        final medicine = Medicine(
-          name: 'Full Medicine',
+      test('routine stores all fields correctly', () async {
+        final routine = Routine(
+          name: 'Full Routine',
           dosage: '250mg',
           typeIcon: 3,
-          currentStock: 42,
-          lowStockThreshold: 10,
           color: 0xFFFF5722,
-          imagePath: '/path/to/image.jpg',
-          pharmacyName: 'Test Pharmacy',
-          pharmacyPhone: '+1234567890',
-          rxcui: 'RX12345',
         );
 
-        final created = await db.createMedicine(medicine);
-        final found = await db.getMedicine(created.id!);
+        final created = await db.createRoutine(routine);
+        final found = await db.getRoutine(created.id!);
 
-        expect(found!.name, 'Full Medicine');
+        expect(found!.name, 'Full Routine');
         expect(found.dosage, '250mg');
         expect(found.typeIcon, 3);
-        expect(found.currentStock, 42);
-        expect(found.lowStockThreshold, 10);
         expect(found.color, 0xFFFF5722);
-        expect(found.imagePath, '/path/to/image.jpg');
-        expect(found.pharmacyName, 'Test Pharmacy');
-        expect(found.pharmacyPhone, '+1234567890');
-        expect(found.rxcui, 'RX12345');
       });
 
       test('schedule stores all frequency types correctly', () async {
-        final medicine = await db.createMedicine(Medicine(name: 'Test'));
+        final routine = await db.createRoutine(Routine(name: 'Test'));
 
         final daily = await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '08:00',
             frequencyType: FrequencyType.daily,
           ),
@@ -827,7 +758,7 @@ void main() {
 
         final specificDays = await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '09:00',
             frequencyType: FrequencyType.specificDays,
             frequencyDays: '1,3,5',
@@ -836,7 +767,7 @@ void main() {
 
         final interval = await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '10:00',
             frequencyType: FrequencyType.interval,
             intervalDays: 3,
@@ -846,7 +777,7 @@ void main() {
 
         final asNeeded = await db.createSchedule(
           Schedule(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             timeOfDay: '11:00',
             frequencyType: FrequencyType.asNeeded,
           ),
@@ -873,12 +804,12 @@ void main() {
       });
 
       test('log stores all status types correctly', () async {
-        final medicine = await db.createMedicine(Medicine(name: 'Test'));
+        final routine = await db.createRoutine(Routine(name: 'Test'));
         final now = DateTime.now();
 
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: now,
             actualTime: now,
             status: LogStatus.take,
@@ -886,20 +817,20 @@ void main() {
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: now.add(const Duration(hours: 1)),
             status: LogStatus.skip,
           ),
         );
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: now.add(const Duration(hours: 2)),
             status: LogStatus.missed,
           ),
         );
 
-        final logs = await db.getLogsForMedicine(medicine.id!);
+        final logs = await db.getLogsForRoutine(routine.id!);
         expect(logs.length, 3);
 
         expect(logs.any((l) => l.status == LogStatus.take), isTrue);
@@ -909,71 +840,70 @@ void main() {
     });
 
     group('Edge Cases', () {
-      test('handles special characters in medicine name', () async {
-        final medicine = await db.createMedicine(
-          Medicine(name: "O'Sullivan's Medicine & Co. (100mg)"),
+      test('handles special characters in routine name', () async {
+        final routine = await db.createRoutine(
+          Routine(name: "O'Sullivan's Routine & Co. (100mg)"),
         );
 
-        final found = await db.getMedicine(medicine.id!);
-        expect(found!.name, "O'Sullivan's Medicine & Co. (100mg)");
+        final found = await db.getRoutine(routine.id!);
+        expect(found!.name, "O'Sullivan's Routine & Co. (100mg)");
       });
 
-      test('handles unicode in medicine name', () async {
-        final medicine = await db.createMedicine(
-          Medicine(name: '阿司匹林 - アスピリン'),
+      test('handles unicode in routine name', () async {
+        final routine = await db.createRoutine(
+          Routine(name: '阿司匹林 - アスピリン'),
         );
 
-        final found = await db.getMedicine(medicine.id!);
+        final found = await db.getRoutine(routine.id!);
         expect(found!.name, '阿司匹林 - アスピリン');
       });
 
       test('handles null optional fields', () async {
-        final medicine = await db.createMedicine(Medicine(name: 'MinimalMed'));
+        final routine = await db.createRoutine(Routine(name: 'MinimalTotal'));
 
-        final found = await db.getMedicine(medicine.id!);
-        expect(found!.imagePath, isNull);
-        expect(found.pharmacyName, isNull);
-        expect(found.pharmacyPhone, isNull);
-        expect(found.rxcui, isNull);
+        final found = await db.getRoutine(routine.id!);
+        expect(found!.dosage, '');
+        expect(found.typeIcon, 1);
+        expect(found.color, 0xFF2196F3);
       });
 
       test('handles rapid concurrent operations', () async {
-        // Create multiple medicines concurrently
+        // Create multiple routines concurrently
         final futures = List.generate(10, (i) {
-          return db.createMedicine(Medicine(name: 'Med $i'));
+          return db.createRoutine(Routine(name: 'Med $i'));
         });
 
-        final medicines = await Future.wait(futures);
+        final routines = await Future.wait(futures);
 
-        expect(medicines.length, 10);
-        expect(medicines.every((m) => m.id != null), isTrue);
+        expect(routines.length, 10);
+        expect(routines.every((m) => m.id != null), isTrue);
 
         // All IDs should be unique
-        final ids = medicines.map((m) => m.id!).toSet();
+        final ids = routines.map((m) => m.id!).toSet();
         expect(ids.length, 10);
       });
 
       test('handles empty string values', () async {
-        final medicine = await db.createMedicine(
-          Medicine(name: 'Test', dosage: ''),
+        final routine = await db.createRoutine(
+          Routine(name: 'Test', dosage: ''),
         );
 
-        final found = await db.getMedicine(medicine.id!);
+        final found = await db.getRoutine(routine.id!);
         expect(found!.dosage, '');
       });
 
       test('handles date at year boundary', () async {
-        final medicine = await db.createMedicine(Medicine(name: 'Test'));
+        final routine = await db.createRoutine(Routine(name: 'Test'));
 
         await db.createLog(
           Log(
-            medicineId: medicine.id!,
+            routineId: routine.id!,
             scheduledTime: DateTime(2026, 12, 31, 23, 59),
             status: LogStatus.take,
           ),
         );
 
-        final found = (await db.getLogsForMedicine(medicine.id!)).first;
+        final found = (await db.getLogsForRoutine(routine.id!)).first;
         expect(found.scheduledTime.year, 2026);
         expect(found.scheduledTime.month, 12);
         expect(found.scheduledTime.day, 31);

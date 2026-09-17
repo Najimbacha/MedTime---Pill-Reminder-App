@@ -3,14 +3,14 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/log.dart';
-import '../models/medicine.dart';
+import '../models/routine.dart';
 import '../models/schedule_entry.dart';
 import '../providers/log_provider.dart';
-import '../providers/medicine_provider.dart';
+import '../providers/routine_provider.dart';
 import '../providers/schedule_provider.dart';
 import '../utils/haptic_helper.dart';
 import '../core/components/timeline_item.dart';
-import 'add_edit_medicine_screen.dart';
+import 'add_edit_routine_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 
@@ -48,17 +48,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadData() async {
     if (!mounted) return;
     await Future.wait([
-      context.read<MedicineProvider>().loadMedicines(),
+      context.read<RoutineProvider>().loadRoutines(),
       context.read<ScheduleProvider>().loadSchedules(),
       context.read<LogProvider>().loadLogs(),
     ]);
   }
 
-  Future<void> _openRoutine({Medicine? routine}) async {
+  Future<void> _openRoutine({Routine? routine}) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AddEditMedicineScreen(medicine: routine),
+        builder: (_) => AddEditRoutineScreen(routine: routine),
       ),
     );
     _loadData();
@@ -85,9 +85,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() => _justCompleted.add(id));
     await HapticHelper.success();
     await logProvider.markAsTaken(
-      entry.medicine.id!,
+      entry.routine.id!,
       entry.scheduledDateTime,
-      medicine: entry.medicine,
     );
     await Future.delayed(const Duration(milliseconds: 260));
     await _loadData();
@@ -131,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       body: RefreshIndicator(
         onRefresh: _loadData,
-        child: Consumer3<MedicineProvider, ScheduleProvider, LogProvider>(
+        child: Consumer3<RoutineProvider, ScheduleProvider, LogProvider>(
           builder: (context, routineProvider, scheduleProvider, logProvider, _) {
             final entries = _entriesForToday(
               routineProvider,
@@ -187,10 +186,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             }
 
             final pending = entries
-                .where((e) => e.medicineStatus != MedicineStatus.take)
+                .where((e) => e.routineStatus != RoutineStatus.take)
                 .toList();
             final completed = entries
-                .where((e) => e.medicineStatus == MedicineStatus.take)
+                .where((e) => e.routineStatus == RoutineStatus.take)
                 .toList();
 
             return ListView(
@@ -215,7 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       completed: true,
                       fading: false,
                       onDone: null,
-                      onTap: () => _openRoutine(routine: entry.medicine),
+                      onTap: () => _openRoutine(routine: entry.routine),
                     ),
                 ],
               ],
@@ -256,13 +255,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           completed: false,
           fading: _justCompleted.contains(_entryKey(entry)),
           onDone: () => _complete(entry),
-          onTap: () => _openRoutine(routine: entry.medicine),
+          onTap: () => _openRoutine(routine: entry.routine),
         ),
     ];
   }
 
   List<ScheduleEntry> _entriesForToday(
-    MedicineProvider routineProvider,
+    RoutineProvider routineProvider,
     ScheduleProvider scheduleProvider,
     LogProvider logProvider,
   ) {
@@ -271,7 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final entries = <ScheduleEntry>[];
 
     for (final schedule in schedules) {
-      final routine = routineProvider.getMedicineById(schedule.medicineId);
+      final routine = routineProvider.getRoutineById(schedule.routineId);
       if (routine == null) continue;
 
       final parts = schedule.timeOfDay.split(':');
@@ -291,15 +290,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       entries.add(
         ScheduleEntry(
           schedule: schedule,
-          medicine: routine,
+          routine: routine,
           scheduledDateTime: scheduledDateTime,
           log: log,
           timelineStatus: completed
               ? TimelineStatus.completed
               : TimelineStatus.pending,
-          medicineStatus: completed
-              ? MedicineStatus.take
-              : MedicineStatus.pending,
+          routineStatus: completed
+              ? RoutineStatus.take
+              : RoutineStatus.pending,
         ),
       );
     }
@@ -309,7 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   String _entryKey(ScheduleEntry entry) =>
-      '${entry.medicine.id}-${entry.scheduledDateTime.toIso8601String()}';
+      '${entry.routine.id}-${entry.scheduledDateTime.toIso8601String()}';
 }
 
 class _TodaySummary extends StatelessWidget {
@@ -422,7 +421,7 @@ class _RoutineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final routine = entry.medicine;
+    final routine = entry.routine;
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 220),

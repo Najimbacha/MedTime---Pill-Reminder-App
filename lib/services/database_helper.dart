@@ -1,13 +1,13 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/medicine.dart';
+import '../models/routine.dart';
 import '../models/schedule.dart';
 import '../models/log.dart';
 import '../models/snoozed_dose.dart';
-import '../models/medicine_deletion_snapshot.dart';
+import '../models/routine_deletion_snapshot.dart';
 
 /// Singleton database helper for managing local SQLite database
-/// Handles all CRUD operations for medicines, schedules, and logs
+/// Handles all CRUD operations for routines, schedules, and logs
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -28,61 +28,107 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
   }
 
-  /// Handle database schema upgrades
+  /// Handle database schema upgrades.
+  ///
+  /// Version 7 migrates the legacy `medicines` schema to the trimmed `routines`
+  /// schema and drops the unused stock/pharmacy/RxNorm columns.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE medicines ADD COLUMN image_path TEXT');
+    if (oldVersion >= 7) return;
+
+    final tableNames = (await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table'",
+    )).map((row) => row['name'] as String).toSet();
+
+    Future<Set<String>> columnsOf(String table) async {
+      if (!tableNames.contains(table)) return <String>{};
+      final rows = await db.rawQuery('PRAGMA table_info($table)');
+      return rows.map((row) => row['name'] as String).toSet();
     }
-    if (oldVersion < 3) {
+
+    final routineColumns = await columnsOf('medicines');
+    final scheduleColumns = await columnsOf('schedules');
+    final logColumns = await columnsOf('logs');
+    final snoozeColumns = await columnsOf('snoozed_doses');
+
+    // Move legacy tables aside so the new schema can be created cleanly.
+    if (routineColumns.isNotEmpty) {
+      await db.execute('ALTER TABLE medicines RENAME TO medicines_old');
+    }
+    if (scheduleColumns.isNotEmpty) {
+      await db.execute('ALTER TABLE schedules RENAME TO schedules_old');
+    }
+    if (logColumns.isNotEmpty) {
+      await db.execute('ALTER TABLE logs RENAME TO logs_old');
+    }
+    if (snoozeColumns.isNotEmpty) {
       await db.execute(
-        'ALTER TABLE schedules ADD COLUMN interval_days INTEGER',
+        'ALTER TABLE snoozed_doses RENAME TO snoozed_doses_old',
       );
-      await db.execute('ALTER TABLE schedules ADD COLUMN start_date TEXT');
     }
-    if (oldVersion < 4) {
-      await db.execute('ALTER TABLE medicines ADD COLUMN pharmacy_name TEXT');
-      await db.execute('ALTER TABLE medicines ADD COLUMN pharmacy_phone TEXT');
-      await db.execute('ALTER TABLE schedules ADD COLUMN end_date TEXT');
+
+    await _createDB(db, newVersion);
+
+    if (routineColumns.isNotEmpty) {
+      await db.execute(
+        'INSERT INTO routines (id, name, dosage, type_icon, color) '
+        'SELECT id, name, dosage, type_icon, color FROM medicines_old',
+      );
     }
-    if (oldVersion < 5) {
-      await db.execute('ALTER TABLE medicines ADD COLUMN rxcui TEXT');
+    if (scheduleColumns.isNotEmpty) {
+      final interval = scheduleColumns.contains('interval_days')
+          ? 'interval_days'
+          : 'NULL';
+      final startDate = scheduleColumns.contains('start_date')
+          ? 'start_date'
+          : 'NULL';
+      final endDate = scheduleColumns.contains('end_date')
+          ? 'end_date'
+          : 'NULL';
+      await db.execute(
+        'INSERT INTO schedules '
+        '(id, routine_id, time_of_day, frequency_type, frequency_days, '
+        'interval_days, start_date, end_date) '
+        'SELECT id, medicine_id, time_of_day, frequency_type, frequency_days, '
+        '$interval, $startDate, $endDate FROM schedules_old',
+      );
     }
-    if (oldVersion < 6) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS snoozed_doses (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          medicine_id INTEGER NOT NULL,
-          original_scheduled_time TEXT NOT NULL,
-          snoozed_until TEXT NOT NULL,
-          created_at TEXT NOT NULL,
-          FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
-        )
-      ''');
+    if (logColumns.isNotEmpty) {
+      await db.execute(
+        'INSERT INTO logs (id, routine_id, scheduled_time, actual_time, status) '
+        'SELECT id, medicine_id, scheduled_time, actual_time, status FROM logs_old',
+      );
     }
+    if (snoozeColumns.isNotEmpty) {
+      await db.execute(
+        'INSERT INTO snoozed_doses '
+        '(id, routine_id, original_scheduled_time, snoozed_until, created_at) '
+        'SELECT id, medicine_id, original_scheduled_time, snoozed_until, '
+        'created_at FROM snoozed_doses_old',
+      );
+    }
+
+    await db.execute('DROP TABLE IF EXISTS medicines_old');
+    await db.execute('DROP TABLE IF EXISTS schedules_old');
+    await db.execute('DROP TABLE IF EXISTS logs_old');
+    await db.execute('DROP TABLE IF EXISTS snoozed_doses_old');
   }
 
   /// Create all database tables
   Future<void> _createDB(Database db, int version) async {
-    // Medicines table
+    // Routines table
     await db.execute('''
-      CREATE TABLE medicines (
+      CREATE TABLE routines (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         dosage TEXT,
         type_icon INTEGER DEFAULT 1,
-        current_stock INTEGER DEFAULT 0,
-        low_stock_threshold INTEGER DEFAULT 5,
-        color INTEGER DEFAULT 0xFF2196F3,
-        image_path TEXT,
-        pharmacy_name TEXT,
-        pharmacy_phone TEXT,
-        rxcui TEXT
+        color INTEGER DEFAULT 0xFF2196F3
       )
     ''');
 
@@ -90,14 +136,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         time_of_day TEXT NOT NULL,
         frequency_type TEXT NOT NULL,
         frequency_days TEXT,
         interval_days INTEGER,
         start_date TEXT,
         end_date TEXT,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
@@ -105,11 +151,11 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         scheduled_time TEXT NOT NULL,
         actual_time TEXT,
         status TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
 
@@ -117,88 +163,88 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE snoozed_doses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        medicine_id INTEGER NOT NULL,
+        routine_id INTEGER NOT NULL,
         original_scheduled_time TEXT NOT NULL,
         snoozed_until TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        FOREIGN KEY (medicine_id) REFERENCES medicines (id) ON DELETE CASCADE
+        FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
       )
     ''');
   }
 
   // ==================== MEDICINE CRUD ====================
 
-  /// Create a new medicine
-  Future<Medicine> createMedicine(Medicine medicine) async {
+  /// Create a new routine
+  Future<Routine> createRoutine(Routine routine) async {
     final db = await database;
-    final id = await db.insert('medicines', medicine.toMap());
-    return medicine.copyWith(id: id);
+    final id = await db.insert('routines', routine.toMap());
+    return routine.copyWith(id: id);
   }
 
-  /// Get all medicines
-  Future<List<Medicine>> getAllMedicines() async {
+  /// Get all routines
+  Future<List<Routine>> getAllRoutines() async {
     final db = await database;
-    final result = await db.query('medicines', orderBy: 'name ASC');
-    return result.map((map) => Medicine.fromMap(map)).toList();
+    final result = await db.query('routines', orderBy: 'name ASC');
+    return result.map((map) => Routine.fromMap(map)).toList();
   }
 
-  /// Get a single medicine by ID
-  Future<Medicine?> getMedicine(int id) async {
+  /// Get a single routine by ID
+  Future<Routine?> getRoutine(int id) async {
     final db = await database;
-    final maps = await db.query('medicines', where: 'id = ?', whereArgs: [id]);
+    final maps = await db.query('routines', where: 'id = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
-      return Medicine.fromMap(maps.first);
+      return Routine.fromMap(maps.first);
     }
     return null;
   }
 
-  /// Update a medicine
-  Future<int> updateMedicine(Medicine medicine) async {
+  /// Update a routine
+  Future<int> updateRoutine(Routine routine) async {
     final db = await database;
     return db.update(
-      'medicines',
-      medicine.toMap(),
+      'routines',
+      routine.toMap(),
       where: 'id = ?',
-      whereArgs: [medicine.id],
+      whereArgs: [routine.id],
     );
   }
 
-  /// Delete a medicine
-  Future<int> deleteMedicine(int id) async {
+  /// Delete a routine
+  Future<int> deleteRoutine(int id) async {
     final db = await database;
-    return db.delete('medicines', where: 'id = ?', whereArgs: [id]);
+    return db.delete('routines', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Delete medicine and all related records atomically.
-  Future<void> deleteMedicineGraph(int medicineId) async {
+  /// Delete routine and all related records atomically.
+  Future<void> deleteRoutineGraph(int routineId) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete(
         'snoozed_doses',
-        where: 'medicine_id = ?',
-        whereArgs: [medicineId],
+        where: 'routine_id = ?',
+        whereArgs: [routineId],
       );
       await txn.delete(
         'logs',
-        where: 'medicine_id = ?',
-        whereArgs: [medicineId],
+        where: 'routine_id = ?',
+        whereArgs: [routineId],
       );
       await txn.delete(
         'schedules',
-        where: 'medicine_id = ?',
-        whereArgs: [medicineId],
+        where: 'routine_id = ?',
+        whereArgs: [routineId],
       );
-      await txn.delete('medicines', where: 'id = ?', whereArgs: [medicineId]);
+      await txn.delete('routines', where: 'id = ?', whereArgs: [routineId]);
     });
   }
 
-  /// Restore medicine and all related records atomically.
-  Future<void> restoreMedicineGraph(MedicineDeletionSnapshot snapshot) async {
+  /// Restore routine and all related records atomically.
+  Future<void> restoreRoutineGraph(RoutineDeletionSnapshot snapshot) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.insert(
-        'medicines',
-        snapshot.medicine.toMap(),
+        'routines',
+        snapshot.routine.toMap(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
 
@@ -228,31 +274,13 @@ class DatabaseHelper {
     });
   }
 
-  /// Decrement medicine stock by 1
-  Future<void> decrementStock(int medicineId) async {
-    final db = await database;
-    await db.rawUpdate(
-      'UPDATE medicines SET current_stock = current_stock - 1 WHERE id = ? AND current_stock > 0',
-      [medicineId],
-    );
-  }
-
-  /// Increment medicine stock by 1
-  Future<void> incrementStock(int medicineId) async {
-    final db = await database;
-    await db.rawUpdate(
-      'UPDATE medicines SET current_stock = current_stock + 1 WHERE id = ?',
-      [medicineId],
-    );
-  }
-
   /// Delete all stored data
   Future<void> deleteAllData() async {
     final db = await database;
     await db.delete('snoozed_doses');
     await db.delete('logs');
     await db.delete('schedules');
-    await db.delete('medicines');
+    await db.delete('routines');
   }
 
   // ==================== SCHEDULE CRUD ====================
@@ -264,13 +292,13 @@ class DatabaseHelper {
     return schedule.copyWith(id: id);
   }
 
-  /// Get all schedules for a medicine
-  Future<List<Schedule>> getSchedulesForMedicine(int medicineId) async {
+  /// Get all schedules for a routine
+  Future<List<Schedule>> getSchedulesForRoutine(int routineId) async {
     final db = await database;
     final result = await db.query(
       'schedules',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
       orderBy: 'time_of_day ASC',
     );
     return result.map((map) => Schedule.fromMap(map)).toList();
@@ -300,13 +328,13 @@ class DatabaseHelper {
     return db.delete('schedules', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Delete all schedules for a medicine
-  Future<int> deleteSchedulesForMedicine(int medicineId) async {
+  /// Delete all schedules for a routine
+  Future<int> deleteSchedulesForRoutine(int routineId) async {
     final db = await database;
     return db.delete(
       'schedules',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
     );
   }
 
@@ -319,13 +347,13 @@ class DatabaseHelper {
     return log.copyWith(id: id);
   }
 
-  /// Get logs for a specific medicine
-  Future<List<Log>> getLogsForMedicine(int medicineId) async {
+  /// Get logs for a specific routine
+  Future<List<Log>> getLogsForRoutine(int routineId) async {
     final db = await database;
     final result = await db.query(
       'logs',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
       orderBy: 'scheduled_time DESC, id DESC',
     );
     return result.map((map) => Log.fromMap(map)).toList();
@@ -400,7 +428,7 @@ class DatabaseHelper {
     await db.delete('snoozed_doses');
     await db.delete('logs');
     await db.delete('schedules');
-    await db.delete('medicines');
+    await db.delete('routines');
   }
 
   /// Backward-compatible alias for clearing all data
@@ -420,12 +448,12 @@ class DatabaseHelper {
   /// Create a new snoozed dose
   Future<SnoozedDose> createSnoozedDose(SnoozedDose dose) async {
     final db = await database;
-    // First, delete any existing snooze for the same medicine and scheduled time
+    // First, delete any existing snooze for the same routine and scheduled time
     await db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
+      where: 'routine_id = ? AND original_scheduled_time = ?',
       whereArgs: [
-        dose.medicineId,
+        dose.routineId,
         dose.originalScheduledTime.toIso8601String(),
       ],
     );
@@ -433,16 +461,16 @@ class DatabaseHelper {
     return dose.copyWith(id: id);
   }
 
-  /// Get snoozed dose for specific medicine and scheduled time
+  /// Get snoozed dose for specific routine and scheduled time
   Future<SnoozedDose?> getSnoozedDose(
-    int medicineId,
+    int routineId,
     DateTime scheduledTime,
   ) async {
     final db = await database;
     final result = await db.query(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
-      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+      where: 'routine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [routineId, scheduledTime.toIso8601String()],
     );
     if (result.isNotEmpty) {
       return SnoozedDose.fromMap(result.first);
@@ -462,13 +490,13 @@ class DatabaseHelper {
     return result.map((map) => SnoozedDose.fromMap(map)).toList();
   }
 
-  /// Get all snoozed doses for a medicine.
-  Future<List<SnoozedDose>> getSnoozedDosesForMedicine(int medicineId) async {
+  /// Get all snoozed doses for a routine.
+  Future<List<SnoozedDose>> getSnoozedDosesForRoutine(int routineId) async {
     final db = await database;
     final result = await db.query(
       'snoozed_doses',
-      where: 'medicine_id = ?',
-      whereArgs: [medicineId],
+      where: 'routine_id = ?',
+      whereArgs: [routineId],
       orderBy: 'original_scheduled_time DESC',
     );
     return result.map((map) => SnoozedDose.fromMap(map)).toList();
@@ -488,12 +516,12 @@ class DatabaseHelper {
   }
 
   /// Delete a snoozed dose
-  Future<int> deleteSnoozedDose(int medicineId, DateTime scheduledTime) async {
+  Future<int> deleteSnoozedDose(int routineId, DateTime scheduledTime) async {
     final db = await database;
     return db.delete(
       'snoozed_doses',
-      where: 'medicine_id = ? AND original_scheduled_time = ?',
-      whereArgs: [medicineId, scheduledTime.toIso8601String()],
+      where: 'routine_id = ? AND original_scheduled_time = ?',
+      whereArgs: [routineId, scheduledTime.toIso8601String()],
     );
   }
 

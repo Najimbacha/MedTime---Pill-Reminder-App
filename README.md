@@ -43,6 +43,6 @@ flutter run
 
 ## Data
 
-RoutineTime stores routine data locally by default. Cloud, account, analytics,
-ads, and purchase integrations may exist in the codebase for optional features,
-but the primary product experience is designed around private local reminders.
+RoutineTime stores all routine data locally on your device. There are no
+accounts, cloud sync, ads, analytics, or purchase integrations. The only
+third-party service is Firebase Crashlytics, used for anonymous crash reports.

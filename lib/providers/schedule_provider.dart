@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../models/schedule.dart';
-import '../models/medicine.dart';
+import '../models/routine.dart';
 import '../services/database_helper.dart';
 import '../services/notification_service.dart';
 
-/// Provider for managing medicine schedules
+/// Provider for managing routine schedules
 class ScheduleProvider with ChangeNotifier {
   final DatabaseHelper _db;
   final NotificationService _notifications;
@@ -21,9 +21,9 @@ class ScheduleProvider with ChangeNotifier {
   List<Schedule> get schedules => _schedules;
   bool get isLoading => _isLoading;
 
-  /// Get schedules for a specific medicine
-  List<Schedule> getSchedulesForMedicine(int medicineId) {
-    return _schedules.where((s) => s.medicineId == medicineId).toList();
+  /// Get schedules for a specific routine
+  List<Schedule> getSchedulesForRoutine(int routineId) {
+    return _schedules.where((s) => s.routineId == routineId).toList();
   }
 
   /// Get today's active schedules
@@ -52,13 +52,13 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Add a new schedule
-  Future<Schedule?> addSchedule(Schedule schedule, Medicine medicine) async {
+  Future<Schedule?> addSchedule(Schedule schedule, Routine routine) async {
     try {
       final newSchedule = await _db.createSchedule(schedule);
       _schedules.add(newSchedule);
 
       // Schedule notification
-      await _scheduleNotification(newSchedule, medicine);
+      await _scheduleNotification(newSchedule, routine);
 
       notifyListeners();
       return newSchedule;
@@ -69,7 +69,7 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Update an existing schedule
-  Future<bool> updateSchedule(Schedule schedule, Medicine medicine) async {
+  Future<bool> updateSchedule(Schedule schedule, Routine routine) async {
     try {
       final previousSchedule = _schedules.firstWhere(
         (s) => s.id == schedule.id,
@@ -85,7 +85,7 @@ class ScheduleProvider with ChangeNotifier {
         await _cancelNotificationForSchedule(previousSchedule);
 
         // Reschedule notification
-        await _scheduleNotification(schedule, medicine);
+        await _scheduleNotification(schedule, routine);
 
         notifyListeners();
       }
@@ -103,7 +103,7 @@ class ScheduleProvider with ChangeNotifier {
         (s) => s.id == id,
         orElse: () => Schedule(
           id: id,
-          medicineId: -1,
+          routineId: -1,
           timeOfDay: '00:00',
           frequencyType: FrequencyType.daily,
         ),
@@ -122,22 +122,22 @@ class ScheduleProvider with ChangeNotifier {
     }
   }
 
-  /// Replace all schedules for a medicine with a new set (Batch Operation)
-  Future<void> replaceSchedulesForMedicine(
-    int medicineId,
+  /// Replace all schedules for a routine with a new set (Batch Operation)
+  Future<void> replaceSchedulesForRoutine(
+    int routineId,
     List<Schedule> newSchedules,
-    Medicine medicine,
+    Routine routine,
   ) async {
     try {
       // 1. Get existing schedules to cancel notifications
-      final existingSchedules = getSchedulesForMedicine(medicineId);
+      final existingSchedules = getSchedulesForRoutine(routineId);
       for (final s in existingSchedules) {
         await _cancelNotificationForSchedule(s);
       }
 
       // 2. Delete from DB
-      await _db.deleteSchedulesForMedicine(medicineId);
-      _schedules.removeWhere((s) => s.medicineId == medicineId);
+      await _db.deleteSchedulesForRoutine(routineId);
+      _schedules.removeWhere((s) => s.routineId == routineId);
 
       // 3. Create and add new schedules
       for (var schedule in newSchedules) {
@@ -145,7 +145,7 @@ class ScheduleProvider with ChangeNotifier {
         _schedules.add(created);
 
         // 4. Schedule new notification
-        await _scheduleNotification(created, medicine);
+        await _scheduleNotification(created, routine);
       }
 
       notifyListeners();
@@ -157,9 +157,9 @@ class ScheduleProvider with ChangeNotifier {
   /// Schedule notification for a schedule
   Future<void> _scheduleNotification(
     Schedule schedule,
-    Medicine medicine,
+    Routine routine,
   ) async {
-    if (schedule.id == null || medicine.id == null) return;
+    if (schedule.id == null || routine.id == null) return;
 
     try {
       if (schedule.frequencyType == FrequencyType.specificDays &&
@@ -168,14 +168,14 @@ class ScheduleProvider with ChangeNotifier {
           final nextTime = _nextSpecificWeekdayTime(schedule, weekday);
           if (nextTime == null) continue;
 
-          await _notifications.scheduleMedicineReminder(
+          await _notifications.scheduleRoutineReminder(
             notificationId: NotificationService.specificDayNotificationId(
               schedule.id!,
               weekday,
             ),
-            medicineId: medicine.id!,
-            medicineName: medicine.name,
-            dosage: medicine.dosage,
+            routineId: routine.id!,
+            routineName: routine.name,
+            dosage: routine.dosage,
             scheduledTime: nextTime,
             frequencyType: FrequencyType.specificDays,
           );
@@ -186,11 +186,11 @@ class ScheduleProvider with ChangeNotifier {
       final scheduledTime = schedule.getNextScheduledTime();
       if (scheduledTime == null) return;
 
-      await _notifications.scheduleMedicineReminder(
+      await _notifications.scheduleRoutineReminder(
         notificationId: schedule.id!,
-        medicineId: medicine.id!,
-        medicineName: medicine.name,
-        dosage: medicine.dosage,
+        routineId: routine.id!,
+        routineName: routine.name,
+        dosage: routine.dosage,
         scheduledTime: scheduledTime,
         frequencyType: schedule.frequencyType, // ← enables auto-repeat
       );
@@ -232,7 +232,7 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Reschedule all notifications (useful after app restart)
-  Future<void> rescheduleAllNotifications(List<Medicine> medicines) async {
+  Future<void> rescheduleAllNotifications(List<Routine> routines) async {
     // Prevent burst calls from re-canceling/recreating alarms repeatedly.
     if (_isRescheduling) return;
     final now = DateTime.now();
@@ -249,12 +249,12 @@ class ScheduleProvider with ChangeNotifier {
       // Reschedule ALL active schedules (not just today's — daily/interval
       // schedules with matchDateTimeComponents handle their own repeats)
       for (final schedule in _schedules) {
-        final medicine = medicines.firstWhere(
-          (m) => m.id == schedule.medicineId,
-          orElse: () => Medicine(name: 'Unknown', dosage: ''),
+        final routine = routines.firstWhere(
+          (m) => m.id == schedule.routineId,
+          orElse: () => Routine(name: 'Unknown', dosage: ''),
         );
 
-        await _scheduleNotification(schedule, medicine);
+        await _scheduleNotification(schedule, routine);
       }
       _lastRescheduleAt = now;
     } catch (e) {
@@ -265,57 +265,19 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Snooze a notification
-  Future<void> snoozeNotification(Schedule schedule, Medicine medicine) async {
+  Future<void> snoozeNotification(Schedule schedule, Routine routine) async {
     if (schedule.id == null) return;
 
     try {
       await _notifications.snoozeNotification(
         notificationId: schedule.id!,
-        medicineId: medicine.id!,
-        medicineName: medicine.name,
-        dosage: medicine.dosage,
+        routineId: routine.id!,
+        routineName: routine.name,
+        dosage: routine.dosage,
       );
     } catch (e) {
       debugPrint('Error snoozing notification: $e');
     }
-  }
-
-  /// Calculate average daily dose count for a medicine
-  double getDailyDoseCount(int medicineId) {
-    final medSchedules = getSchedulesForMedicine(medicineId);
-    if (medSchedules.isEmpty) return 0.0;
-
-    double dailyCount = 0.0;
-    for (final schedule in medSchedules) {
-      switch (schedule.frequencyType) {
-        case FrequencyType.daily:
-          dailyCount += 1.0;
-          break;
-        case FrequencyType.specificDays:
-          dailyCount += (schedule.daysList.length / 7.0);
-          break;
-        case FrequencyType.interval:
-          if (schedule.intervalDays != null && schedule.intervalDays! > 0) {
-            dailyCount += (1.0 / schedule.intervalDays!);
-          }
-          break;
-        case FrequencyType.once:
-          break;
-        case FrequencyType.asNeeded:
-          // Cannot predict
-          break;
-      }
-    }
-    return dailyCount;
-  }
-
-  /// Estimate refill date based on current stock and schedule
-  DateTime? getEstimatedRefillDate(int medicineId, int currentStock) {
-    final dailyDose = getDailyDoseCount(medicineId);
-    if (dailyDose <= 0) return null;
-
-    final daysRemaining = currentStock / dailyDose;
-    return DateTime.now().add(Duration(days: daysRemaining.floor()));
   }
 
   /// Refresh schedules from database

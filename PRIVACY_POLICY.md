@@ -7,13 +7,10 @@ RoutineTime is a private, offline-first daily routine reminder app.
 ## Information Stored
 
 RoutineTime stores your routines, schedules, completion history, and settings on
-your device by default.
+your device. No account is required and routine data is not uploaded anywhere.
 
-Optional features may use third-party services:
-
-- Firebase Authentication and Firestore, if you choose cloud sync or sharing
-- AdMob, if ads are enabled for free users
-- RevenueCat, if premium purchases are enabled
+The app uses Firebase Crashlytics to collect anonymous crash diagnostics so that
+reliability issues can be fixed. No routine content is included in crash reports.
 
 ## Permissions
 
@@ -22,8 +19,8 @@ Optional features may use third-party services:
 
 ## Data Safety
 
-We do not sell your routine data. Local routine data stays on your device unless
-you explicitly enable a cloud or sharing feature.
+We do not sell your routine data. Routine data stays on your device and is never
+uploaded.
 
 ## Contact
 

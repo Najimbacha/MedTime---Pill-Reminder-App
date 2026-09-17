@@ -3,10 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  audioplayers_windows
-  cloud_firestore
-  file_selector_windows
-  firebase_auth
   firebase_core
   flutter_timezone
   permission_handler_windows
